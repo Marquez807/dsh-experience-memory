@@ -15,10 +15,16 @@
 //
 // tests/built.mjs covers the same ground in-repo; this one additionally proves
 // that module resolution works from node_modules rather than from a source tree.
+//
+// Every service the plugin injects must be mounted here, or it will not activate
+// and every assertion below fails for the wrong reason. That is not hypothetical:
+// adding `commands` to `inject` broke this file until it was updated, because
+// nothing in the suite runs it.
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
+import Commands from '@deepseek-ai/dsh-commands'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as memory from 'dsh-experience-memory'
@@ -39,12 +45,14 @@ let disposed = false
 try {
   await ctx.plugin(SystemPrompt, {})
   await ctx.plugin(ToolRuntime, {})
+  await ctx.plugin(Commands, {})
   await ctx.plugin(memory, { enabled: true, dbPath: join(dir, 'memory.db') })
 
   const registered = ctx.tools.schemas().map(s => s.name)
   for (const tool of ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_forget']) {
     check(registered.includes(tool), `installed plugin registers ${tool}`)
   }
+  check(registered.length === 4, 'and the model tool surface is exactly those four')
 
   const call = async (name, args, events = []) =>
     await ctx.tools.get(name).execute(args, {
@@ -65,6 +73,17 @@ try {
   // The resident text is what the agent actually sees every turn.
   const prompt = ctx.get('systemPrompt')
   check(prompt !== undefined, 'SystemPrompt is mounted')
+
+  // The operator commands must be registered from the installed package too,
+  // which is the half of the surface a tarball could silently lose.
+  const commandAgent = { id: 'probe', session: { header: { cwd: dir }, events: [], append: () => {} } }
+  for (const name of ['memory-status', 'memory-preview', 'memory-maintain', 'memory-audit', 'memory-import']) {
+    const settled = await ctx.commands.execute(commandAgent, `/${name}`, [], new AbortController().signal)
+    check(settled !== undefined, `installed plugin registers /${name}`)
+  }
+  const status = await ctx.commands.execute(commandAgent, '/memory-status', [], new AbortController().signal)
+  check(status?.result.kind === 'success', 'and /memory-status answers')
+  check(String(status?.result.text ?? '').includes('记录 1 条'), 'and sees the record just written')
 
   await ctx.fiber.dispose()
   disposed = true
