@@ -43,7 +43,16 @@ export interface MemoryRecord {
   failStreak: number
   distinctWorkspaces: number
   createdAt: number
-  /** Event time of the underlying observation, which can precede createdAt. */
+  /**
+   * Event time of the underlying observation.
+   *
+   * It equals `createdAt` today, at both write sites, and that is deliberate
+   * rather than unfinished: staleness and decay have to measure how old the
+   * *knowledge* is, so an imported record keeps its original time in `createdAt`
+   * rather than looking new because it was migrated today. The field stays
+   * separate so a future importer that knows both times can record them
+   * differently, but nothing currently reads it.
+   */
   occurredAt: number
   updatedAt: number
   lastUsedAt: number | null
