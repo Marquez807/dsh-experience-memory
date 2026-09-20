@@ -2,6 +2,24 @@
 
 ## 0.1.0 — unreleased
 
+### Wrap-up: what was verified, and two documents that were wrong
+
+- **The installed artifact was checked against the source, not assumed to match.**
+  The plugin is installed from a frozen tarball, so a source edit silently does
+  nothing until it is repacked. The whole chain was compared — `git` HEAD → a
+  fresh `lib/` build → the tarball → the directory a live profile actually loads
+  — and all 17 modules are byte-for-byte identical. The tarball holds exactly the
+  five documents and 17 modules that `files` promises, and no `src/` or `tools/`.
+- **`pnpm verify` passes**: 12 suites, the build-freshness check, and the
+  packaging contract.
+- **Two documents were wrong.** Both the README and this file said the model's
+  tool surface is four; it has been five since `memory_stats` landed. And the
+  README still listed "a real model-driven loop has never been run" as a
+  limitation, which had stopped being true — and was the wrong thing to want
+  anyway, since that run is what found the `snapshotEvents()` defect. The
+  live-turn recipe is now written down (README, "跑一次真实模型回合") so the next
+  person repeats it instead of rediscovering it.
+
 ### Plug-and-play packaging and operator commands
 
 - **`memory_stats`: a read-only census the model can ask for.** It reports how many
@@ -21,8 +39,9 @@
   filesystem paths never enter the session transcript.
 - **Audit and import are commands, not tools.** They scan arbitrary directories
   and bulk-write, so they stay behind a human trigger, and the model's tool
-  surface stays at four — which also keeps its per-turn schema cost from growing.
-  `/memory-import` is a dry run unless `--apply` is given.
+  surface stays small — five, of which four are knowledge operations and the
+  fifth is a parameterless read-only census. `/memory-import` is a dry run unless
+  `--apply` is given.
 - **`/memory-preview` cannot disagree with what is actually sent**, because it
   calls the same `buildDigest` that `ctx.systemPrompt.context` does. Both moved
   into `src/digest.ts`.

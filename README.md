@@ -12,7 +12,7 @@ dsh plugin --profile <name> add /path/to/dsh-experience-memory-0.1.0.tgz
 
 **这一步就够了。** `dsh plugin add` 不只是装依赖——它会把 `dsh.profile.bundles` 与已安装状态**对账**：任何声明了 `dsh.bundle` 的依赖都会被自动追加进 layer stack（见 `@deepseek-ai/dsh` 的 `reconcilePlugins`）。所以不需要手工编辑 profile 的 `package.json`。
 
-装完重启应用即可。**零配置**：不提供任何 config 也能工作——默认库在 `$DSH_HOME/experience-memory/memory.db` 自动建立，四个工具与常驻注入立即生效。
+装完重启应用即可。**零配置**：不提供任何 config 也能工作——默认库在 `$DSH_HOME/experience-memory/memory.db` 自动建立，五个工具、五个斜杠命令与常驻注入立即生效。
 
 想在装之前确认它是在工作的，用斜杠命令（见下）：
 
@@ -105,6 +105,25 @@ DSH_TELEMETRY_DISABLED=1 node <dsh>/lib/bin.js --profile <name> --patch boot-acc
 插件只是静默不激活），以及 `apply()` 跑完并建好了 schema。
 
 该 profile 的 bundle 列表里没有 app，所以它只挂载、不提供服务；确认库文件出现后结束进程即可。
+
+### 跑一次真实模型回合
+
+挂载层断言证明不了模型**实际看到**了什么。要跑真实回合、又不污染正式库、也不起服务器，用一次性的
+`@deepseek-ai/dsh-headless` app 配一个临时 profile：
+
+1. 临时 profile 的 `bundles` = `@deepseek-ai/dsh-base` + `@deepseek-ai/dsh-headless` + 本插件。
+   它必须同时带 `pnpm-workspace.yaml`（`nodeLinker: hoisted`、`autoInstallPeers: false`），否则 pnpm 会去
+   公共 registry 找 `@deepseek-ai/*`，而那些是 in-box 包、根本没发布，安装以 404 失败。
+2. 再打一个只改 `dbPath` 的 overlay，指向一个**一次性库**——正式库由正在运行的应用持有。
+3. 给模型布置一个**只可能来自记忆**的任务：先往一次性库写一条在任何文件、任何环境里都搜不到的断言
+   （例如一个自造的部署代号），再在**另一个新回合**里问它这个代号是什么。
+
+判据不是「答对了」——模型可能瞎猜。判据是**答对、且工具调用数为 0**：那证明事实是随 systemPrompt 注进去的，
+不是它 `memory_recall` 出来的。这两件事在工具日志里长得完全不同。
+
+反过来同样有用：需要**逐字引文**才能定级的那条路径，也只有真实回合能验证。本仓库的
+`src/session.ts` 就是被这一步抓出来的——12 个套件全绿，因为它们的 fixture 手写了一个真实 Session 上
+并不存在的属性。
 
 ## 它做什么
 
@@ -234,7 +253,7 @@ DSH_TELEMETRY_DISABLED=1 node <dsh>/lib/bin.js --profile <name> --patch boot-acc
 | `/memory-audit` | `<root> [--out <dir>]` | 审计归档库的正确性并落盘四份报告 |
 | `/memory-import` | `<root> [--selection <file>] [--apply]` | **默认只试运行**；只有显式加 `--apply` 才写入 |
 
-为什么审计与导入不给模型：它们会扫描任意目录并批量写库，爆炸半径大，而这个框架一贯 fail-closed。这也让模型的工具表固定为 4 个，不牺牲每轮 token。
+为什么审计与导入不给模型：它们会扫描任意目录并批量写库，爆炸半径大，而这个框架一贯 fail-closed。模型的工具表因此只有 5 个（其中 4 个是知识操作，第 5 个是无参数的只读普查），不牺牲每轮 token。
 
 `/memory-preview` 与真实注入共用同一个函数（`src/digest.ts`），所以它**不可能**与你实际收到的内容不一致——一个会漂移的预览就没有存在意义。
 
@@ -409,9 +428,12 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 - **随包不发 `src/` 和 `tools/`**。运行时只需要 `lib/`，而脚本是仓库内工具。这也消除了
   「随包脚本 import `src/*.ts` 因而在 `node_modules` 下跑不起来」那一类缺陷——不是修好它，而是不再发它。
 - **不做跨机器同步**；数据库是单机文件。
-- **没有跑过带 app 的启动**：profile 启动验收已通过（见上），但它刻意不包含 app，所以**真实模型驱动的
-  agent loop** 没有在自动化里跑过——常驻摘要每轮重新求值、四个工具被模型实际调用、维护在回合结束时触发，
-  这些都只在挂载层被断言过。跑一次要拉起常驻应用并消耗真实 token，需要你明确同意。
+- **真实模型回合跑过一次，但它不在 `pnpm verify` 里**。那一次抓到了 12 个套件都抓不到的缺陷：两个读取器
+  都在读 `agent.session.events`，而这个属性**在真实 Session 上不存在**——于是生产环境里事件日志恒为空，
+  逐字引文永远定不到 `verified-user`，检索查询永远是空串，注入层的查询段恒不命中。测试全部手写了那个数组，
+  所以固化的是**假设**而不是契约。现在读取统一走 `src/session.ts`（`snapshotEvents()`，其余为带标签的
+  兼容分支）。结论：挂载层断言替代不了一次真实回合。跑法见「跑一次真实模型回合」，但它要消耗真实 token，
+  所以没进自动化。
 - **斜杠菜单的浏览器渲染没有自动化**。命令的**可发现性**已经断言过了：测试用的是斜杠菜单读取的同一个 API
   （`ctx.commands.list(agent)`），检查 5 个命令都在、都有描述、带参数的那三个都声明了参数提示、且按名排序。
   剩下未验证的只是「浏览器把这份数据画出来」这一步——而这一步对 in-box 命令与本插件是同一条代码路径。
