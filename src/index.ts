@@ -72,6 +72,27 @@ const RECALL_MAX = 32
 interface ToolExec {
   agent?: AgentLike
   signal?: AbortSignal
+  /** The correlation token the registry assigns to this call, when there is one. */
+  callId?: string
+}
+
+/**
+ * A read-only observer names its own call, so the caller can cite it.
+ *
+ * `route: tool-call` was reachable only through a failure: the grade matches a tool
+ * result's `callId`, a model never sees that id as text, and the one place it was ever
+ * printed was the reason of a *failing* record. So "record what the tool just told me"
+ * cost a wasted attempt whose only purpose was to discover the id. Printing it in the
+ * observer's own answer removes that attempt.
+ *
+ * Only the read-only observers carry it. A call that merely writes the framework's own
+ * bookkeeping is not evidence about the workspace, and `source_ref` exists for facts a
+ * later session can re-check.
+ */
+function callIdLine(exec: ToolExec): string {
+  return typeof exec.callId === 'string' && exec.callId !== ''
+    ? `\n本调用 id ${exec.callId}（把它填进 source_ref 即可判 verified-tool）`
+    : ''
 }
 
 // The session shapes, the query builder and the digest itself live in
@@ -226,7 +247,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         returned: pack.returned,
         total: pack.total,
         truncated: pack.truncated,
-        text: pack.text === '' ? 'no matching experience' : pack.text,
+        text: (pack.text === '' ? 'no matching experience' : pack.text) + callIdLine(exec),
       }
     },
   }))
@@ -261,7 +282,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
     },
     // No arguments and no writes: a census the model can ask for while reasoning,
     // without the schema cost of options it would rarely use.
-    execute: () => {
+    execute: (_args: Record<string, never>, exec: ToolExec) => {
       const result = census(db, { now: Date.now() })
       return {
         records: result.records,
@@ -278,7 +299,8 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         // half of this line is `/memory-status`; this is the half a model-side caller
         // can actually read, in whatever session it happens to be running.
         text: `插件构建 ${build.id}（${build.modules} 个模块）\n`
-          + renderCensus(result, { dbPath: resolved.dbPath }),
+          + renderCensus(result, { dbPath: resolved.dbPath })
+          + callIdLine(exec),
       }
     },
   }))

@@ -30,7 +30,9 @@ import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as memory from 'dsh-experience-memory'
 
 let failed = 0
+let checked = 0
 const check = (ok, label) => {
+  checked += 1
   if (!ok) { failed += 1; console.error(`  FAIL ${label}`) } else console.log(`  ok   ${label}`)
 }
 
@@ -113,5 +115,10 @@ try {
   rmSync(dir, { recursive: true, force: true })
 }
 
-console.log(failed === 0 ? 'PASS installed package' : `FAIL installed package (${failed})`)
+// The count is printed by the script rather than quoted from a document: a number a
+// human retypes is a number that goes stale, and one already did — a receipt said 27
+// while every run printed 26 `ok` lines.
+console.log(failed === 0
+  ? `PASS installed package (${checked} checks)`
+  : `FAIL installed package (${failed} of ${checked} checks failed)`)
 process.exit(failed === 0 ? 0 : 1)

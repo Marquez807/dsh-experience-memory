@@ -98,7 +98,7 @@ export type FileMiss = 'absolute' | 'escape' | 'missing' | 'unreadable'
 /** The outcome of reading a cited file, carrying the reason when it failed. */
 export type WorkspaceFileRead =
   | { ok: true; text: string }
-  | { ok: false; miss: FileMiss; path: string; where?: string; entries?: readonly string[] }
+  | { ok: false; miss: FileMiss; path: string; where?: string; entries?: readonly string[]; entriesTotal?: number }
 
 /**
  * Read a workspace-relative file for quote verification.
@@ -122,13 +122,23 @@ export function readWorkspaceFile(root: string, relPath: string): WorkspaceFileR
       // listing is therefore of the *nearest existing ancestor*: a caller that wrote
       // `lib/tools.js` for a repo checked out at `repos/dsh-quant/lib/tools.js` has no
       // `lib/` to list, and the fact it needs is that the root holds `repos/`.
+      //
+      // Directories come first and are sorted, because the list is truncated: an
+      // unsorted readdir that happened to bury `repos/` past the cut would hide exactly
+      // the entry the caller came for. A directory is marked with a trailing `/`, so a
+      // list that also contains files can still be described as what a directory holds.
       let entries: string[] | undefined
+      let entriesTotal: number | undefined
       let where: string | undefined
       try {
         let probe = dirname(target)
         for (let depth = 0; depth < 8; depth += 1) {
           if (existsSync(probe)) {
-            entries = readdirSync(probe).slice(0, 12)
+            const dirents = readdirSync(probe, { withFileTypes: true })
+            const dirs = dirents.filter(d => d.isDirectory()).map(d => `${d.name}/`).sort()
+            const files = dirents.filter(d => !d.isDirectory()).map(d => d.name).sort()
+            entriesTotal = dirs.length + files.length
+            entries = [...dirs, ...files].slice(0, 12)
             where = relative(resolve(root), probe) || '.'
             break
           }
@@ -138,8 +148,9 @@ export function readWorkspaceFile(root: string, relPath: string): WorkspaceFileR
         }
       } catch {
         entries = undefined
+        entriesTotal = undefined
       }
-      return { ok: false, miss: 'missing', path: relPath, where, entries }
+      return { ok: false, miss: 'missing', path: relPath, where, entries, entriesTotal }
     }
     return { ok: true, text: readFileSync(target, 'utf8').slice(0, FILE_BYTES) }
   } catch {
@@ -189,7 +200,13 @@ function describeQuoteMiss(text: string, quote: string): string {
 
 /** One sentence naming why a cited path could not be checked, with the fix when there is one. */
 function describeMiss(
-  read: { miss: FileMiss; path: string; where?: string; entries?: readonly string[] },
+  read: {
+    miss: FileMiss
+    path: string
+    where?: string
+    entries?: readonly string[]
+    entriesTotal?: number
+  },
   root: string,
 ): string {
   switch (read.miss) {
@@ -203,10 +220,31 @@ function describeMiss(
     case 'missing':
     default:
       return `no such file in the workspace (${read.path} against ${root})`
-        + (read.entries === undefined || read.entries.length === 0
-          ? ''
-          : `; the nearest existing directory "${read.where ?? '.'}" holds ${read.entries.join(', ')}`)
+        + describeHolds(read)
   }
+}
+
+/**
+ * What the nearest existing directory contains, said so that it stays true.
+ *
+ * This sentence used to read "the nearest existing directory X holds a, b, c" while the
+ * list mixed files in with directories — a caller reading it took `repos` for a file. The
+ * count is stated, the truncation is admitted rather than hidden, and a directory carries
+ * a trailing `/` so the two kinds are never confused again.
+ */
+function describeHolds(read: {
+  where?: string
+  entries?: readonly string[]
+  entriesTotal?: number
+}): string {
+  const shown = read.entries ?? []
+  if (shown.length === 0) return ''
+  const total = read.entriesTotal ?? shown.length
+  const cut = total > shown.length
+    ? ` (showing the first ${shown.length} of ${total}; directories first, marked "/")`
+    : ' (directories marked "/")'
+  return `; the nearest existing directory "${read.where ?? '.'}" holds ${total} `
+    + `${total === 1 ? 'entry' : 'entries'}${cut}: ${shown.join(', ')}`
 }
 
 /** Find a successful tool result for one call id in this session. */

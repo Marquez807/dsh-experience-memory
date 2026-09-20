@@ -5,7 +5,7 @@
  * both hard to fool and cheap enough to actually run. The archived runtime made
  * it expensive instead of automatic, and the store stayed empty for it.
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, eq } from './assert.ts'
@@ -61,6 +61,32 @@ export function run(): void {
     assert(!missing.ok && (missing.entries ?? []).includes('note.md'),
       'and the directory listing shows what is actually there')
     eq(readWorkspaceFile(dir, 'note.md').ok, true, 'and none of it throws')
+
+    // The listing mixes directories with files, and a caller reading it took a
+    // directory for a file. Directories are therefore sorted ahead of files and marked
+    // with a trailing slash, so "what this directory holds" never presents a file as a
+    // directory — and the entry that explains the miss is never buried by the cut.
+    mkdirSync(join(dir, 'zeta'))
+    mkdirSync(join(dir, 'alpha'))
+    const ordered = readWorkspaceFile(dir, 'missing.md')
+    eq((ordered.ok ? [] : ordered.entries ?? []).join(','), 'alpha/,zeta/,note.md',
+      'directories sort first and are marked, files follow unmarked')
+
+    const crowded = mkdtempSync(join(tmpdir(), 'expmem-crowded-'))
+    try {
+      for (let i = 0; i < 15; i += 1) mkdirSync(join(crowded, `d${String(i).padStart(2, '0')}`))
+      writeFileSync(join(crowded, 'file.md'), 'x\n')
+      const capped = readWorkspaceFile(crowded, 'nowhere.md')
+      eq(capped.ok ? 0 : capped.entriesTotal, 16, 'the whole count is reported, not just what fits')
+      eq((capped.ok ? [] : capped.entries ?? []).length, 12, 'and the list itself is capped')
+      const cappedReason = gradeEvidence({
+        quote: 'x', sourceRef: 'nowhere.md', workspaceRoot: crowded,
+      }).reason
+      assert(cappedReason.includes('holds 16 entries (showing the first 12 of 16; directories first, marked "/")'),
+        `the truncation is admitted rather than hidden: ${cappedReason}`)
+    } finally {
+      rmSync(crowded, { recursive: true, force: true })
+    }
 
     // ── verified-tool needs a successful result, not merely a cited id ──────
     eq(gradeEvidence({

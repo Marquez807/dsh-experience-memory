@@ -125,6 +125,33 @@ export function run(): void {
     assert(getRecord(db, stranded.record.id)?.body !== '',
       'retired, not deleted — a wrong call is reversible')
 
+    // The retirement reason has to name the grade that actually applies. This sentence
+    // used to be the literal "the same claim recorded with a verifiable passage" on
+    // every path, and a caller caught it: two *failed* writes produced a retirement
+    // whose stated ground was a passage neither record had.
+    const reasonOf = (id: string): string => (
+      db.prepare('SELECT reason FROM correction WHERE record_id = ? ORDER BY at DESC LIMIT 1')
+        .get(id) as { reason: string } | undefined
+    )?.reason ?? ''
+    assert(reasonOf(stranded.record.id).includes('with a verifiable passage'),
+      `a graded replacement says so: ${reasonOf(stranded.record.id)}`)
+
+    const ungradedFirst = remember(db, {
+      workspaceId: 'ws-dup', domain: DOMAIN, kind: 'fact',
+      title: '未定等级的重复', body: '第一次写下来，没有出处。', now: NOW + 2000,
+    })
+    const ungradedSecond = remember(db, {
+      workspaceId: 'ws-dup', domain: DOMAIN, kind: 'fact',
+      title: '未定等级的重复', body: '第二次写下来，同样没有出处。', now: NOW + 3000,
+    })
+    eq(ungradedSecond.record.status, 'candidate', 'a replacement with no passage is a candidate too')
+    eq(getRecord(db, ungradedFirst.record.id)?.status, 'retired', 'and it still retires the earlier copy')
+    const ungradedReason = reasonOf(ungradedFirst.record.id)
+    assert(!ungradedReason.includes('the same claim recorded with a verifiable passage'),
+      `so the reason must not borrow the graded wording: ${ungradedReason}`)
+    assert(ungradedReason.includes('no verifiable passage either'),
+      `it says what actually happened instead: ${ungradedReason}`)
+
     // The handle is a title, so the sweep reaches no further than one workspace.
     const elsewhere = remember(db, {
       workspaceId: 'ws-other', domain: DOMAIN, kind: 'fact',

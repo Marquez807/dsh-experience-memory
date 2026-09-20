@@ -19,6 +19,7 @@ import { run as census } from './census.test.ts'
 import { run as commands } from './commands.test.ts'
 import { run as plugin } from './plugin.test.ts'
 import { run as docs } from './docs.test.ts'
+import { assertions } from './assert.ts'
 
 const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
   ['tokenize', tokenize],
@@ -46,5 +47,9 @@ for (const [name, run] of suites) {
   }
 }
 
-console.log(failed === 0 ? `\nPASS ${suites.length} suites` : `\nFAIL ${failed}/${suites.length} suites`)
+// The assertion total is reported by the run, not quoted from a document, so a
+// README figure cannot drift away from what the suites actually execute.
+console.log(failed === 0
+  ? `\nPASS ${suites.length} suites · ${assertions()} assertions`
+  : `\nFAIL ${failed}/${suites.length} suites · ${assertions()} assertions ran`)
 process.exit(failed === 0 ? 0 : 1)

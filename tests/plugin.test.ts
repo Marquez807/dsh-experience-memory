@@ -51,6 +51,23 @@ const sessionWith = (events: readonly unknown[], cwd = process.cwd()) => ({
   snapshotEvents: () => events,
 })
 
+/**
+ * One successful tool result, in the shape the harness records it.
+ *
+ * The grade for `route: tool-call` is matched against `message.source.callId`, so a
+ * fixture that omits the envelope cannot exercise the route at all — the same way a
+ * plain `events` array only exercises the session compatibility branch.
+ */
+const toolResult = (callId: string, isError = false): unknown => ({
+  type: 'tool/result',
+  data: {
+    message: {
+      source: { kind: 'tool', callId },
+      content: [{ type: 'tool-result', toolCallId: callId, content: [], isError }],
+    },
+  },
+})
+
 export async function run(): Promise<void> {
   // ── Query derivation is pure, so test it without a Context ───────────────
   eq(recentQueryText(undefined), '', 'no agent yields no query')
@@ -90,12 +107,13 @@ export async function run(): Promise<void> {
     }
 
     /** Run one tool exactly as the pipeline would, with an optional agent. */
-    const call = async <T>(name: string, args: unknown, agent?: Agent): Promise<T> => {
+    const call = async <T>(name: string, args: unknown, agent?: Agent, callId?: string): Promise<T> => {
       const definition = ctx.tools.get(name)
       assert(definition !== undefined, `${name} exists`)
       return await definition!.execute(args, {
         signal: new AbortController().signal,
         agent,
+        ...callId === undefined ? {} : { callId },
       }) as T
     }
 
@@ -384,6 +402,38 @@ export async function run(): Promise<void> {
     }
     await dispatchTurnStopping(1)
     eq(statusOf(expiring.id), 'retired', 'the turn-stopping hook ran maintenance and retired the expired record')
+
+    // ── A read-only observer names its own call, so it can be cited ────────
+    // `route: tool-call` used to be reachable only through a failure: the id was
+    // printed in a failing record's reason and nowhere else, so "record what the tool
+    // just told me" cost a wasted attempt whose only purpose was to discover the id.
+    const citedId = 'call_00_test_census'
+    const observable = await call<{ text: string }>('memory_stats', {}, agentFor([]), citedId)
+    assert(observable.text.includes(citedId),
+      `a read-only observer names its own call id: ${observable.text}`)
+    const anonymous = await call<{ text: string }>('memory_stats', {}, agentFor([]))
+    assert(!anonymous.text.includes('本调用 id'),
+      'and a call the registry assigned no id to omits the line rather than inventing one')
+    assert((await call<{ text: string }>(
+      'memory_recall', { query: '部署' }, agentFor([]), citedId,
+    )).text.includes(citedId), 'memory_recall names its own call id too')
+
+    // The point of naming it: one attempt, not two. The claim cites the observer that
+    // produced it and lands on the strongest grade the framework has.
+    const citing = await call<{ status: string; evidence: string; route: string }>(
+      'memory_remember',
+      {
+        kind: 'fact',
+        title: '只读工具的返回可以自证出处',
+        body: '只读工具在自己的返回里带上 call id，记录主张时可直接引用，不必先失败一次去发现它。',
+        quote: '本调用 id（把它填进 source_ref 即可判 verified-tool）',
+        source_ref: citedId,
+      },
+      agentFor([toolResult(citedId)]),
+    )
+    eq(citing.route, 'tool-call', 'a claim citing a named observer takes the tool-call route')
+    eq(citing.evidence, 'verified-tool', 'and reaches the strongest grade without a wasted attempt')
+    eq(citing.status, 'confirmed', 'so the record is usable rather than a stranded candidate')
 
     // A pass that cannot run must stay invisible to the turn. Dropping the table
     // maintenance resumes from makes it fail on its first statement.
