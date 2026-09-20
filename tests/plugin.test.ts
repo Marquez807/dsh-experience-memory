@@ -11,10 +11,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
+import { agentEvents } from '@deepseek-ai/dsh-agent'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as experienceMemory from '../src/index.ts'
 import { recentQueryText } from '../src/index.ts'
+import { openDb } from '../src/db.ts'
 import { assert, eq } from './assert.ts'
 import type { DatabaseSync } from 'node:sqlite'
 
@@ -231,6 +233,53 @@ export async function run(): Promise<void> {
       threw = error instanceof Error && error.message.includes('does-not-exist')
     }
     assert(threw, 'linking an outcome to an unknown record fails loudly')
+
+    // ── Maintenance runs on the plugin's own turn-stopping hook ────────────
+    // `maintain()` has unit tests of its own. What is unverified without this is
+    // the wiring: that the plugin listens on the real `agent/turn-stopping`
+    // event, that the pass reaches the store, and that a failing pass cannot
+    // break a turn. The hook is dispatched exactly as `dsh-agent-loop` does it,
+    // through the agent-scoped dispatcher.
+    const expiring = await call<{ id: string }>(
+      'memory_remember',
+      { kind: 'fact', title: '即将过期的记录', body: '这条会被维护判为过期', quote: '这条会被维护判为过期' },
+      agentFor([userMessage('这条会被维护判为过期')]),
+    )
+    const statusOf = (id: string): string => {
+      const side = openDb(dbPath)
+      try {
+        return (side.prepare('SELECT status FROM record WHERE id = ?').get(id) as { status: string }).status
+      } finally {
+        side.close()
+      }
+    }
+    eq(statusOf(expiring.id), 'confirmed', 'the record is live before the pass')
+    // The tool has no expiry argument, so the expiry is set where it lives.
+    const side = openDb(dbPath)
+    side.prepare('UPDATE record SET expires_at = ? WHERE id = ?').run(Date.now() - 1000, expiring.id)
+    side.close()
+
+    const dispatchTurnStopping = async (turn: number): Promise<void> => {
+      await agentEvents(ctx, agentFor([])).serial('agent/turn-stopping', {
+        turn,
+        signal: new AbortController().signal,
+      })
+    }
+    await dispatchTurnStopping(1)
+    eq(statusOf(expiring.id), 'retired', 'the turn-stopping hook ran maintenance and retired the expired record')
+
+    // A pass that cannot run must stay invisible to the turn. Dropping the table
+    // maintenance resumes from makes it fail on its first statement.
+    const breaker = openDb(dbPath)
+    breaker.exec('DROP TABLE meta')
+    breaker.close()
+    let survived = true
+    try {
+      await dispatchTurnStopping(2)
+    } catch {
+      survived = false
+    }
+    assert(survived, 'a failing maintenance pass is swallowed, so it can never fail a turn')
 
     // ── The plugin releases its database on unmount ────────────────────────
     await ctx.fiber.dispose()

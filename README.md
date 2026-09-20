@@ -156,12 +156,29 @@ node tools/build.mjs && node tests/built.mjs     # 构建产物
 
 ```sh
 node tools/import-legacy.mjs --root "F:\GPT工作区"            # 试运行，打印报告
-node tools/import-legacy.mjs --root "F:\GPT工作区" --apply     # 写入
+node tools/import-legacy.mjs --root "F:\GPT工作区" --selection <清单> # 只导清单里的
+node tools/import-legacy.mjs --root "F:\GPT工作区" --apply     # 写入（不带清单就是全部可映射记录）
 ```
 
 默认只试运行，因为归档树里既有活库也有副本，误导入不是可逆的错误。
 
-四条刻意的取舍：
+### 判断与机械操作分开
+
+「哪些记录值得导入」是关于数据的编辑判断，「把记录写进库」是机械操作。两者被拆开了：
+
+- `tools/audit-legacy.mjs` 做判断，并写出 `legacy-memory-selection.json` —— **纯 JSON，就是给你改的**。
+  删掉你不同意的条目，然后：
+
+```sh
+node tools/import-legacy.mjs --root "F:\GPT工作区" --selection audit\legacy-memory-selection.json
+node tools/import-legacy.mjs --root "F:\GPT工作区" --selection audit\legacy-memory-selection.json --apply
+```
+
+- `tools/import-legacy.mjs` 只执行清单。**试运行会报告清单排除了多少条**，所以在写任何东西之前就能复核。
+- 清单里的身份是 `(workspaceId, contentFingerprint)`，与审计去重时用的键一致，所以它不可能含糊地指向两条记录；它也不依赖记录 id，因为 id 每次导入都会重新生成。
+- 空清单是合法答案：导入 0 条，而不是「没给清单就导全部」。
+
+五条刻意的取舍：
 
 - **导入记录直接写入，不重新定级**。走 `remember` 会把每一条都定成 `inferred`（迁移没有会话可引用），等于在入库路上把一库已验证事实静默降级。
 - **旧 `global` 记录降为工作区级**。无法判断它原本属于哪个领域，而广播到所有项目正是新作用域规则要防的泄漏。数量会单独报出来，供逐条决定。
@@ -171,6 +188,16 @@ node tools/import-legacy.mjs --root "F:\GPT工作区" --apply     # 写入
   `Tool call_00_... exited 1`——没有命令、没有错误、没有修复办法。活库里这样的记录有 **98 条**，
   按证据分排序会排在所有真经验之上。按 `type` 过滤事件挡不住它们，必须按正文形状挡。
 
+### 排查「记忆为什么不出现」
+
+两种原因——**库里没有**和**在库里但进不了提示词**——从工具调用里看不出来。预览工具驱动真实的组装路径，打印这一轮实际会送出的内容：
+
+```sh
+node tools/preview.mjs --db <库路径> --cwd <项目根> --query "继续" --query "WandererProfile"
+```
+
+它先只读统计库里有什么（总数、状态、证据、作用域分布），再对每个查询打印常驻摘要与 `memory_recall` 的结果。它加载 `lib/` 里的构建产物，所以顺带验证了发布产物与源码行为一致。
+
 **工作历史事件不导入**：旧运行时把 `failure`/`task`/`decision`/`fix` 事件和知识记录写在同一流里。事件是观察，不是教训——一条 `failure` 说明东西坏了，没说下次该怎么做。把它们当经验导入，正是常驻阈值要挡住的那种噪声。
 
 ### 导入前先审计
@@ -179,10 +206,11 @@ node tools/import-legacy.mjs --root "F:\GPT工作区" --apply     # 写入
 
 ```sh
 node tools/audit-legacy.mjs --root "F:\GPT工作区"
-# 产出三份：
-#   audit/legacy-memory-audit.md        结论：机械验证 + 漏斗 + 注入行为实测
-#   audit/legacy-memory-recommended.md  建议子集：按项目/主题归类，逐条列出
-#   audit/legacy-memory-records.tsv     全部可映射记录的正文全文
+# 产出四份：
+#   audit/legacy-memory-audit.md         结论：机械验证 + 漏斗 + 注入行为实测
+#   audit/legacy-memory-recommended.md   建议子集：按项目/主题归类，逐条列出
+#   audit/legacy-memory-selection.json   建议子集的可执行清单，供 --selection 使用，可直接编辑
+#   audit/legacy-memory-records.tsv      全部可映射记录的正文全文
 ```
 
 能机械验证的部分它真去验证，而不是猜：
@@ -274,12 +302,12 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 | `tokenize` | CJK 二元组、任意语种词元、标识符折叠键、**英文散文不产生标识符** |
 | `rank` | 证据等级单调性、失败惩罚、衰减、**标识符加成封顶** |
 | `db` | 单后端、FK 单一开关、原地更新不丢正文、**正文可搜**、列权重 |
-| `retrieve` | **可见性 fail-closed**、分层状态窗口、预算截断、排除计数、**核心层只收跨工作区印证过的领域级记录**、两段共享字节预算 |
+| `retrieve` | **可见性 fail-closed**、分层状态窗口、预算截断、排除计数、**核心层只收跨工作区印证过的领域级记录**、两段共享字节预算、**来源行只陈述一次证据等级** |
 | `domain` | 归一化、四级解析顺序、坏文件不抛异常 |
 | `evidence` | 四种等级、**疑问句内的同一句话不算断言**、路径逃逸拒绝 |
 | `lifecycle` | 候选/定案/晋升/合并/退役/维护游标、**身份不含标题** |
-| `import` | 字段映射、事件记录不导入、试运行不写、重复导入合并不重复、**副本库排除**、**同库重复写入合并**、**正文相同标题不同只写一行** |
-| `plugin` | 挂载真实服务、四个工具闭环、**同一条主张有无引文导致不同召回结果**、**驱动真实 `assemble` 断言注入**、**跨工作区印证后无关的一轮仍出现** |
+| `import` | 字段映射、事件记录不导入、试运行不写、重复导入合并不重复、**副本库排除**、**同库重复写入合并**、**正文相同标题不同只写一行**、**工具失败事件按正文形状排除**、**选择清单只导指定记录且空清单导 0 条** |
+| `plugin` | 挂载真实服务、四个工具闭环、**同一条主张有无引文导致不同召回结果**、**驱动真实 `assemble` 断言注入**、**跨工作区印证后无关的一轮仍出现**、**驱动真实 `agent/turn-stopping` 断言维护执行且失败不破坏回合** |
 
 外加一个**构建产物**验收（`tests/built.mjs`，纯 `node` 不加 flag）：每个 `lib/*.js` 都能导入、
 导出名与 `src/*.ts` 一一对应、`lib/index.js` 是合法 Cordis 插件，并且挂载后行为与源码一致。

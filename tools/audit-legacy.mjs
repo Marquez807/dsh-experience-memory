@@ -566,6 +566,33 @@ for (const [project, topics] of [...byProject.entries()].sort((a, b) => {
 }
 writeFileSync(join(reportDir, 'legacy-memory-recommended.md'), catalogue.join('\n'), 'utf8')
 
+// ── Selection file ─────────────────────────────────────────────────────────
+// The recommendation in the form the import tool can obey, so the funnel is not
+// re-derived (and cannot drift) at import time. It is plain JSON on purpose: it
+// is meant to be reviewed, and entries can be deleted before importing.
+const selection = {
+  generatedFrom: scanRoot,
+  generatedAt: new Date(now).toISOString(),
+  criteria: 'confirmed, evidence-graded, not self-referential, unique per workspace, body >= 40 characters',
+  count: recommended.length,
+  records: recommended.map(index => {
+    const { record, store } = rows[index]
+    return {
+      workspaceId: record.workspaceId,
+      contentFingerprint: record.contentFingerprint,
+      project: store.projectRoot,
+      title: record.title,
+      evidence: record.evidence,
+      kind: record.kind,
+    }
+  }),
+}
+writeFileSync(
+  join(reportDir, 'legacy-memory-selection.json'),
+  `${JSON.stringify(selection, null, 2)}\n`,
+  'utf8',
+)
+
 // Console summary, so the shape of the set is visible without opening the file.
 console.log('')
 console.log('recommended set by project and topic:')
@@ -660,5 +687,6 @@ writeFileSync(tsvPath, tsv.join('\n'), 'utf8')
 
 console.log(`report: ${reportPath}`)
 console.log(`tsv:    ${tsvPath}`)
+console.log(`picks:  ${join(reportDir, 'legacy-memory-selection.json')}`)
 console.log(`records: ${rows.length}`)
 console.log(`missing paths: ${missingPaths.length}, missing commands: ${missingCommands.length}, exact dup groups: ${exactDupGroups.length}, near dup pairs: ${nearDupGroups.length}, polarity pairs: ${polarityPairs.length}`)

@@ -200,6 +200,17 @@ export function run(): void {
     assert(pack.returned < pack.total, 'the pack reports fewer records than were ranked')
     assert(byteLength(pack.text) <= 400, 'the recall respects its byte ceiling')
 
+    // ── The provenance line states each fact once ──────────────────────────
+    // It used to print the evidence grade twice — once as a label and again as
+    // the first item of the explanation — which spends tokens on every recall to
+    // repeat something already said.
+    const detailed = renderRecall(retrieve(db, query()).ranked, 100000).text
+    for (const line of detailed.split('\n').filter(text => text.includes('证据:'))) {
+      const grades = line.split('·').filter(part => part.trim().startsWith('证据:')).length
+      eq(grades, 1, `the provenance line names the grade once: ${line.trim()}`)
+    }
+    assert(detailed.includes('重要性'), 'and still reports the score')
+
     // ── A record that cannot fit alone is a configuration error ─────────────
     let threw = false
     try {

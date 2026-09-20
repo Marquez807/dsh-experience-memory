@@ -350,6 +350,19 @@ export interface ImportPlan {
   excludedStores: ExcludedStore[]
   /** Records dropped because the same store already held them. */
   duplicateRecords: number
+  /** Mapped records left out because a selection file did not name them. */
+  unselected: number
+}
+
+/**
+ * Stable key for one mapped record, so a selection file produced by the audit can
+ * name exact records without depending on ids, which are generated per import.
+ *
+ * The pair is the same one the audit de-duplicates on, so a selection cannot
+ * silently refer to two different records.
+ */
+export function selectionKey(record: MemoryRecord): string {
+  return `${record.workspaceId}\u0000${record.contentFingerprint}`
 }
 
 export interface ImportOutcome extends ImportPlan {
@@ -363,11 +376,17 @@ export interface ImportOutcome extends ImportPlan {
  * A record that already exists at the same scope and content is merged rather
  * than duplicated: the stronger evidence grade wins and the usage counters add
  * up, which is what re-importing after a partial run should do.
+ *
+ * `selection` names the records to write. Deciding *which* records deserve to be
+ * imported is an editorial judgement about the data, and it belongs to the audit
+ * that can justify it; this function only obeys a list it is handed. The filter
+ * is applied before the `apply` check so a dry run reports what a selection would
+ * exclude, which is the only way to review it.
  */
 export function runImport(
   db: DatabaseSync,
   scan: ScanResult,
-  options: { apply: boolean; now: number },
+  options: { apply: boolean; now: number; selection?: ReadonlySet<string> },
 ): ImportOutcome {
   const plan: ImportPlan = {
     stores: scan.stores.length,
@@ -378,9 +397,11 @@ export function runImport(
     errors: scan.errors,
     excludedStores: scan.excluded,
     duplicateRecords: 0,
+    unselected: 0,
   }
   let inserted = 0
   let merged = 0
+  const selection = options.selection
 
   for (const store of scan.stores) {
     plan.found += store.records.length + store.duplicates
@@ -391,9 +412,18 @@ export function runImport(
     for (const [reason, count] of Object.entries(skipped)) {
       plan.skipped[reason] = (plan.skipped[reason] ?? 0) + count
     }
+
+    const chosen: MemoryRecord[] = []
+    for (const record of records) {
+      if (selection !== undefined && !selection.has(selectionKey(record))) {
+        plan.unselected += 1
+        continue
+      }
+      chosen.push(record)
+    }
     if (!options.apply) continue
 
-    for (const record of records) {
+    for (const record of chosen) {
       const existing = findByFingerprint(db, record.contentFingerprint, record.scope, record.workspaceId, record.domain)
       if (existing === undefined) {
         upsert(db, record)

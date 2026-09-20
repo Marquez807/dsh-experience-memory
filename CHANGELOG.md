@@ -47,6 +47,21 @@ data. Everything below came out of that audit.
   them across the live stores, and because importance is dominated by the
   evidence grade they would have outranked every real lesson in the digest.
   Filtering events by `type` alone could never catch them.
+- **A selection file separates judgement from mechanics.** `--selection` takes the
+  `legacy-memory-selection.json` the audit writes, so the importer obeys a list
+  instead of re-deriving the funnel (which could drift from it). The file is plain
+  JSON meant to be edited, identities are `(workspaceId, contentFingerprint)` so an
+  entry cannot ambiguously name two records, a dry run reports what the list
+  excludes before anything is written, and an empty list imports nothing rather
+  than everything.
+- **`tools/preview.mjs`** prints what the model would actually see for a given
+  database, directory and query, by driving the real assembly path. "Not in the
+  store" and "in the store but not in the prompt" have different fixes and neither
+  is visible from the tools alone.
+- **The provenance line no longer repeats the evidence grade.** `explain()` began
+  with the grade and `renderDetail` already labelled it, so every `memory_recall`
+  spent tokens printing `证据: verified-file · 重要性 5.9 · verified-file · 6 天未使用`.
+  Found by running the preview tool against the imported records.
 - **`tools/audit-legacy.mjs`** reports external validity (does a referenced path
   or command still exist), internal consistency (exact and near duplicates,
   opposite-polarity pairs on one subject) and quality signals, and writes every

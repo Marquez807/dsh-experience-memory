@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { assert, eq } from './assert.ts'
 import { openDb } from '../src/db.ts'
 import type { DatabaseSync } from 'node:sqlite'
-import { mapStore, runImport, scanForStores } from '../src/import.ts'
+import { mapStore, runImport, scanForStores, selectionKey } from '../src/import.ts'
 
 const NOW = 1_800_000_000_000
 
@@ -193,6 +193,52 @@ export function run(): void {
     eq(copyScan.stores, [], 'a copy is not imported as a live store')
     eq(copyScan.excluded.length, 3, 'every copy is reported instead of silently dropped')
     assert(copyScan.excluded.every(item => item.reason !== ''), 'each copy carries a reason')
+
+    // ── A selection file limits the import, and a dry run reports it ───────
+    // The audit decides what deserves importing; the importer only obeys. So the
+    // filter has to work from a list of record identities alone, and a dry run has
+    // to show the effect before anything is written.
+    const selectRoot = join(dir, 'select-project')
+    const selectMemory = join(selectRoot, '.memory')
+    mkdirSync(selectMemory, { recursive: true })
+    writeFileSync(join(selectRoot, 'package.json'), JSON.stringify({ name: '@acme/select' }))
+    writeFileSync(join(selectMemory, 'entries.jsonl'), [
+      '保留这一条记录', '这一条不要'
+    ].map(text => JSON.stringify({
+      type: 'fact', text, summary: text, status: 'confirmed', scope: 'project',
+    })).join('\n') + '\n', 'utf8')
+
+    const selectScan = scanForStores(selectRoot)
+    const selectMapped = mapStore(selectScan.stores[0]!, NOW).records
+    eq(selectMapped.length, 2, 'both records are mappable')
+    const keep = selectMapped.find(record => record.body === '保留这一条记录')!
+    const chosen = new Set([selectionKey(keep)])
+
+    const selectDb: DatabaseSync = openDb(join(dir, 'select.db'))
+    try {
+      const drySelect = runImport(selectDb, selectScan, { apply: false, now: NOW, selection: chosen })
+      eq(drySelect.mapped, 2, 'the dry run still reports everything that maps')
+      eq(drySelect.unselected, 1, 'and reports what the selection excludes')
+      eq((selectDb.prepare('SELECT count(*) AS n FROM record').get() as { n: number }).n, 0,
+        'without writing anything')
+
+      const applied2 = runImport(selectDb, selectScan, { apply: true, now: NOW, selection: chosen })
+      eq(applied2.inserted, 1, 'only the selected record is written')
+      const kept = selectDb.prepare('SELECT body FROM record').all() as { body: string }[]
+      eq(kept.map(row => row.body), ['保留这一条记录'], 'and it is the right one')
+
+      // An empty selection is a valid answer: import nothing rather than everything.
+      const emptyDb: DatabaseSync = openDb(join(dir, 'empty.db'))
+      try {
+        const none = runImport(emptyDb, selectScan, { apply: true, now: NOW, selection: new Set() })
+        eq(none.inserted, 0, 'an empty selection writes nothing')
+        eq(none.unselected, 2, 'and says so, rather than silently importing all of it')
+      } finally {
+        emptyDb.close()
+      }
+    } finally {
+      selectDb.close()
+    }
 
     // ── An unreadable path is reported, never thrown ──────────────────────
     const missing = scanForStores(join(dir, 'does-not-exist'))
