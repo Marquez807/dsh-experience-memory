@@ -30,6 +30,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { DatabaseSync } from 'node:sqlite'
 import { Config, resolveConfig, type Config as ExperienceConfig } from './config.ts'
+import { buildIdentity } from './build-id.ts'
 import { commandDefinitions } from './commands.ts'
 import { openDb } from './db.ts'
 import { buildDigest, recentQueryText, workspaceOf, RECORD_HINT, type AgentLike } from './digest.ts'
@@ -99,6 +100,12 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
     )
   }
   ctx.effect(() => () => { db.close() }, 'experience-memory: database')
+
+  // Record which build this process loaded, once, so a caller can tell "the fix is on
+  // disk" apart from "the restart picked it up" — see `build-id.ts` for why the running
+  // process has to be the one to say it.
+  const build = buildIdentity()
+  ctx.logger?.info(`experience-memory: build ${build.id} (${build.modules} modules)`)
 
   // ── Failure reporting ─────────────────────────────────────────────────────
   // A prompt contributor must never break an assembly, so a failing digest renders
@@ -483,7 +490,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
   // wherever `/compact` and `/goal` do. They are for the person: audit and import
   // reach outside the store, and keeping them out of the tool surface also keeps
   // the model's per-turn schema cost from growing.
-  for (const definition of commandDefinitions({ db, config: resolved })) {
+  for (const definition of commandDefinitions({ db, config: resolved, build })) {
     ctx.commands.register(definition)
   }
 }

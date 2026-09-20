@@ -90,6 +90,34 @@ node --experimental-strip-types tests/run.ts     # 源码语义
 node tools/build.mjs && node tests/built.mjs     # 构建产物
 ```
 
+### 安装形态：发布用 tarball，开发用 `link:`
+
+两种形态**契约不同**，别混用（一位调用方问过这个，值得写下来）：
+
+| | tarball（发布形态） | `link:`（开发形态） |
+|---|---|---|
+| 加载的代码 | 打包那一刻的 `lib/`，**冻结** | 仓库的 `lib/`，**跟着工作区变** |
+| `files` 白名单 | 生效——`src/`、`tools/`、`tests/` 都不在包里 | **不生效**：整个仓库（含 `.git`，以及指向 `$DSH_HOME/profiles/node_modules` 的那个 `node_modules` 联接）都在 `node_modules/<包名>/` 下可见 |
+| "安装 == 产物"不变量 | 成立，可用 `audit/compare-install.mjs` 逐字节核 | **不成立**，比较无意义（同一份文件） |
+| 改代码后 | 必须 `build + pack + 重装`（+ 重启） | 跑 `node tools/build.mjs` 即可；配 HMR 可免重启 |
+
+**结论**：开发回路用 `link:`（这正是它存在的意义），**发布与验收一律用 tarball**。`link:` 下要注意两点：
+① 回路是「改 `src` → **构建** → `lib` 变化 → 重载」，漏掉构建就会加载与源码不一致的 `lib/`（`node tools/build.mjs --check` 会当场报出来，exit 1）；
+② "整个仓库可见"是真的副作用，会影响任何遍历 `node_modules` 的扫描器（包清单、skill 扫描、client module 扫描）。只想跑代码而不想暴露仓库时，用 tarball。
+
+### 这个进程加载的是哪个构建
+
+版本号永远是 `0.1.0`，而 tarball 会把所有文件的时间戳还原成 1985——**副本身份在磁盘上没有判别物**。而 `link:` 下"磁盘哈希"还回答不了真正的问题：
+那份文件就是工作区，哈希相同并不能说明**进程**重载了它。
+
+插件因此**在激活时自己算一遍**它加载的那批模块的内容哈希（`src/build-id.ts`），两个地方能看到：
+
+- 激活时一行 `ctx.logger.info`：`experience-memory: build <id> (<n> modules)`——可从 `harness.log` 里 grep，**这证明的是进程**；
+- `/memory-status` 首行：`插件构建 <id>（<n> 个模块）`。
+
+与仓库里同一份构建的哈希一致，才说明"重启后生效的是这一版"；两个会话的 id 相同，说明它们跑的是同一份代码。
+`tools/verify-install.mjs` 还会顺带断言**命令恰好 5 个、上下文恰好 2 条**——那正是热重载泄漏时会出现的症状（重载后名字翻倍），所以它同时是 HMR 自检。
+
 ### 启动验收
 
 `--dump-config` 只证明配置能合成，证明不了**加载器真的导入了这个 bundle**——而正是后者曾经失败

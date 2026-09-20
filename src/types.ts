@@ -90,6 +90,9 @@ export interface SessionEventLike {
       source?: { kind?: string; callId?: string }
       content?: unknown
     }
+    /** `tool/call` carries the id and name at the top level of its payload. */
+    callId?: string
+    name?: string
   }
 }
 

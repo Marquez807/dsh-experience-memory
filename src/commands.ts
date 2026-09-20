@@ -51,6 +51,8 @@ export interface CommandContext {
   config: ResolvedConfig
   /** Directory the audit reports are written to when `--out` is not given. */
   reportDir?: string
+  /** The build the calling process loaded, so a copy can be identified. */
+  build?: { id: string; modules: number }
 }
 
 /** Split a command line into tokens, honouring double quotes around one value. */
@@ -148,7 +150,15 @@ export function commandDefinitions(context: CommandContext): CommandDefinition[]
       name: 'memory-status',
       description: 'show what the experience memory holds, and how much of it is injectable',
       recordInput: false,
-      handler: () => success(renderCensus(census(db, { now: Date.now() }), { dbPath: config.dbPath })),
+      handler: () => {
+        // The build id is what makes a copy identifiable: the package version never
+        // changes and a tarball restores 1985 timestamps, so without it a caller cannot
+        // tell which build the running process loaded.
+        const head = context.build === undefined
+          ? ''
+          : `插件构建 ${context.build.id}（${context.build.modules} 个模块）\n`
+        return success(head + renderCensus(census(db, { now: Date.now() }), { dbPath: config.dbPath }))
+      },
     },
 
     {

@@ -160,6 +160,23 @@ export function run(): void {
       agent: session([toolResult('call-1', false)]),
     }).route, 'tool-call', 'a tool call reports the tool route')
 
+    // ── The tool-call route is reachable: the ids are handed over ──────────
+    // A caller cited "memory_stats（本会话调用输出）" — prose where an id was needed —
+    // because a model never sees a call id as text, so the strongest route was
+    // unreachable in practice and the record stayed a candidate forever.
+    const withCall = gradeEvidence({
+      quote: 'the deployment target is the F drive',
+      sourceRef: 'memory_stats（本会话调用输出）',
+      workspaceRoot: dir,
+      agent: session([toolResult('call-7', false)]),
+    })
+    assert(withCall.reason.includes('call-7'),
+      `the failure reason names a call id the caller could cite instead: ${withCall.reason}`)
+    eq(gradeEvidence({
+      quote: 'anything', sourceRef: 'call-7', workspaceRoot: dir,
+      agent: session([toolResult('call-7', false)]),
+    }).grade, 'verified-tool', 'and citing that id verifies the claim')
+
     // ── Tool evidence outranks file evidence when both are available ────────
     eq(gradeEvidence({
       quote: 'the deployment target is the F drive', sourceRef: 'call-1', workspaceRoot: dir,

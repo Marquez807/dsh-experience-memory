@@ -2,6 +2,36 @@
 
 ## 0.1.0 — unreleased
 
+### A copy can now identify itself, and a tool call can be cited
+
+Two questions from a caller that the framework could not answer, and one it made
+unanswerable:
+
+- **"Which build is running?"** The version is `0.1.0` forever and a tarball restores
+  1985 timestamps, so no on-disk property identified a copy. A caller asked for a
+  sha256 anchor and then pointed out the hole in that: under a `link:` install the
+  files *are* the working tree, so a matching hash proves the checkout is current and
+  never that the restart loaded it. The plugin now hashes the modules it was loaded from
+  **at activation** (`src/build-id.ts`), logs it once, and shows it in
+  `/memory-status`. Comparing that against the repository is what answers "did the
+  restart pick up the fix"; two sessions sharing an id are running the same code.
+- **"How do I cite a tool call?"** `route: tool-call` was unreachable for a model-side
+  caller: grading matches a tool result's `callId`, which a model never sees as text, so
+  a caller with a real tool output to cite wrote prose instead and its record could
+  never be injected. Failure reasons now list the session's successful calls and their
+  tool names, which is the only place the caller is looking.
+- **Installation forms are now documented** rather than implied: `tarball` is the
+  shipped form (the `files` whitelist holds, "install == artifact" is checkable),
+  `link:` is the development loop (live `lib/`, whitelist meaningless, and the whole
+  repository — `.git` included, plus the nested `node_modules` junction — becomes
+  visible under the package). A caller had switched to `link:` to get hot reload and
+  asked what that broke; the answer is written down now.
+- **`tools/verify-install.mjs` doubles as the hot-reload self-check.** Every surface the
+  plugin contributes is registered through a fiber-scoped effect, so unloading removes
+  all three; if that ever stopped being true the symptom would be duplicate names, and
+  the script now asserts exactly five command names and exactly two prompt contexts
+  after mounting.
+
 ### A failed verification now says why
 
 Reported by a caller that spent five recording experiments and a full read of

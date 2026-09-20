@@ -119,6 +119,11 @@ export async function run(): Promise<void> {
     eq(empty.kind, 'success', 'status succeeds on an empty store')
     assert(text(empty).includes('记录 0 条'), 'and reports an empty store')
     assert(text(empty).includes(dbPath), 'and names the database it read')
+    // The build id is the only thing that distinguishes one copy of this plugin from
+    // another: the version never changes and a tarball restores 1985 timestamps.
+    // A caller could otherwise confirm a fix was on disk and never that it was running.
+    assert(/插件构建 [0-9a-f]{12}（\d+ 个模块）/.test(text(empty)),
+      `and names the build the process loaded: ${text(empty).split('\n')[0]}`)
 
     // ── Preview ──────────────────────────────────────────────────────────
     const noQuery = await execute('/memory-preview')

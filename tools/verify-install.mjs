@@ -87,6 +87,25 @@ try {
   check(status?.result.kind === 'success', 'and /memory-status answers')
   check(String(status?.result.text ?? '').includes('记录 1 条'), 'and sees the record just written')
 
+  // ── Nothing accumulated ────────────────────────────────────────────────
+  // This is also the hot-reload self-check a caller asked for. Every surface the plugin
+  // contributes is registered through a fiber-scoped effect, so unloading the plugin
+  // takes all three away again; if it ever stopped doing that, the symptom would be the
+  // same names appearing twice, and this is what would show it. Run it after a reload.
+  const descriptors = ctx.commands.list(commandAgent).map(entry => entry.name)
+  const mine = descriptors.filter(name => name.startsWith('memory-'))
+  check(new Set(mine).size === mine.length, `no command name is registered twice: ${mine.join(', ')}`)
+  check(mine.length === 5, `the command surface is exactly five, not five per reload: ${mine.length}`)
+  const contexts = (await ctx.systemPrompt.assemble({ agent: commandAgent })).contexts
+    .map(entry => entry.name)
+    .filter(name => name.startsWith('experience-memory:'))
+  check(new Set(contexts).size === contexts.length, `no prompt context is contributed twice: ${contexts.join(', ')}`)
+  check(contexts.length === 2, `the context surface is exactly two: ${contexts.join(', ')}`)
+
+  // The build id, so the copy under test can be identified at all.
+  check(/插件构建 [0-9a-f]{12}/.test(String(status?.result.text ?? '')),
+    'and the report names the build the process loaded')
+
   await ctx.fiber.dispose()
   disposed = true
 } finally {
