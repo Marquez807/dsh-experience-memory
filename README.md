@@ -55,6 +55,30 @@ node --experimental-strip-types tests/run.ts     # 源码语义
 node tools/build.mjs && node tests/built.mjs     # 构建产物
 ```
 
+### 启动验收
+
+`--dump-config` 只证明配置能合成，证明不了**加载器真的导入了这个 bundle**——而正是后者曾经失败
+（`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`）。验收办法是让启动留下一个可观测的事实：给 profile 打一个
+只改 `dbPath` 的 overlay，指到一个尚不存在的文件。
+
+```yaml
+# boot-acceptance.overlay.yml
+- id: experience-memory
+  config:
+    enabled: true
+    dbPath: F:/…/boot-acceptance.db
+```
+
+```sh
+DSH_TELEMETRY_DISABLED=1 node <dsh>/lib/bin.js --profile <name> --patch boot-acceptance.overlay.yml
+```
+
+库文件出现，就一次证明了四件事：加载器按 `name` 解析到了包、导入了它、`inject` 声明的 `tools` 与
+`systemPrompt` 在**真实 base 合成树**里都解析到了（这一点 `--dump-config` 抓不到——`inject` 依赖缺失时
+插件只是静默不激活），以及 `apply()` 跑完并建好了 schema。
+
+该 profile 的 bundle 列表里没有 app，所以它只挂载、不提供服务；确认库文件出现后结束进程即可。
+
 ## 它做什么
 
 三个阶段的工作各有一层机制：
@@ -290,8 +314,9 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 - **导入不做跨库印证计数**：迁移写入的记录 `distinct_workspaces` 恒为 1，领域晋升要等后续真实观察。
 - **不提供 UI 面板**；配置走插件 config。
 - **不做跨机器同步**；数据库是单机文件。
-- **未启动完整 profile 验收**：安装、配置合成、从 `node_modules` 按名解析、真实 Cordis 挂载、
-  四工具闭环均已验证，但 boot 整个 profile 会拉起常驻应用，未在自动化里执行。
+- **没有跑过带 app 的启动**：profile 启动验收已通过（见上），但它刻意不包含 app，所以**真实模型驱动的
+  agent loop** 没有在自动化里跑过——常驻摘要每轮重新求值、四个工具被模型实际调用、维护在回合结束时触发，
+  这些都只在挂载层被断言过。跑一次要拉起常驻应用并消耗真实 token，需要你明确同意。
 
 ## 测试
 

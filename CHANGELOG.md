@@ -54,6 +54,14 @@ data. Everything below came out of that audit.
   entry cannot ambiguously name two records, a dry run reports what the list
   excludes before anything is written, and an empty list imports nothing rather
   than everything.
+- **Boot acceptance, and the reason it needed inventing.** `--dump-config` proves
+  the tree composes but not that the loader imports the bundle, and the import is
+  exactly what failed before. Booting a profile whose `dbPath` overlay points at
+  a file that does not exist yet makes successful loading observable: the file
+  appearing proves the loader resolved the package by name, imported it, resolved
+  both injected services against the real base tree, and ran `apply()`. That
+  second point is not checkable from `--dump-config` — a plugin whose `inject`
+  dependencies are absent from the tree simply never activates, silently.
 - **`tools/preview.mjs`** prints what the model would actually see for a given
   database, directory and query, by driving the real assembly path. "Not in the
   store" and "in the store but not in the prompt" have different fixes and neither
