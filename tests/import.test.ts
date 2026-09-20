@@ -46,6 +46,17 @@ export function run(): void {
       { id: 'L5', type: 'nonsense', text: '未知类型', summary: '未知' },
       { id: 'L6', type: 'fact', text: '已归档的记录', summary: '归档', status: 'archived', scope: 'project' },
       { id: 'L7', type: 'failure', text: '构建在 Windows 上失败', summary: '失败事件' },
+      // The old runtime wrote tool failures as `type: fact` with tool proof, so
+      // filtering by type alone let them through carrying the strongest grade.
+      { id: 'L8', type: 'fact', text: 'Tool call_00_JRMGr5QZdwy3t7rS3pPC9404 exited 1',
+        summary: 'Tool call_00_JRMGr5QZdwy3t7rS3pPC9404 exited 1', status: 'confirmed',
+        scope: 'project', admission: { proof: { kind: 'tool' } } },
+      { id: 'L9', type: 'fact', text: 'Tool exec-a386641d-195f-43ab-b32c-f4f553ad2df8 exited 255',
+        summary: 'Tool exec-a386641d-195f-43ab-b32c-f4f553ad2df8 exited 255', status: 'confirmed',
+        scope: 'project', admission: { proof: { kind: 'tool' } } },
+      // A real lesson that merely mentions a failing command is still knowledge.
+      { id: 'L10', type: 'fact', text: 'npm test exited 1 until the lockfile was regenerated',
+        summary: 'npm test exited 1 until the lockfile was regenerated', status: 'confirmed', scope: 'project' },
       'not an object',
     ]
     writeFileSync(join(memory, 'entries.jsonl'), legacy.map(r => JSON.stringify(r)).join('\n') + '\n', 'utf8')
@@ -58,13 +69,17 @@ export function run(): void {
 
     // ── Mapping ───────────────────────────────────────────────────────────
     const mapped = mapStore(scan.stores[0]!, NOW)
-    eq(mapped.records.length, 4, 'four of eight entries map onto the new schema')
+    eq(mapped.records.length, 5, 'five of eleven entries map onto the new schema')
     eq(mapped.skipped['no text'], 1, 'an entry with no text is skipped, not guessed at')
     eq(mapped.skipped['unknown type (nonsense)'], 1, 'an unknown type is skipped, named')
     eq(mapped.skipped['event record, not durable knowledge (failure)'], 1,
       'a work-history event is left behind rather than imported as experience')
+    eq(mapped.skipped['tool-outcome event, not durable knowledge'], 2,
+      'a tool failure recorded as `fact` with tool proof is skipped, not imported as a verified fact')
     eq(mapped.skipped['not an object'], 1, 'a non-object line is skipped')
     eq(mapped.globalDowngraded, 1, 'a legacy global record is reported as pulled back to local')
+    assert(mapped.records.some(r => r.body.startsWith('npm test exited 1')),
+      'a real lesson that merely mentions a failing command is still imported')
 
     const first = mapped.records[0]!
     eq(first.kind, 'fact', 'type maps to kind')
@@ -90,21 +105,21 @@ export function run(): void {
 
     // ── Dry run writes nothing ────────────────────────────────────────────
     const dry = runImport(db, scan, { apply: false, now: NOW })
-    eq(dry.mapped, 4, 'the dry run reports the same mapping')
+    eq(dry.mapped, 5, 'the dry run reports the same mapping')
     eq(dry.inserted, 0, 'a dry run inserts nothing')
     const count = (db.prepare('SELECT count(*) AS n FROM record').get() as { n: number }).n
     eq(count, 0, 'and leaves the database untouched')
 
     // ── Apply writes, and re-applying merges instead of duplicating ────────
     const applied = runImport(db, scan, { apply: true, now: NOW })
-    eq(applied.inserted, 4, 'the apply inserts every mapped record')
+    eq(applied.inserted, 5, 'the apply inserts every mapped record')
     eq(applied.merged, 0, 'with nothing to merge on a first pass')
 
     const again = runImport(db, scan, { apply: true, now: NOW + 1000 })
     eq(again.inserted, 0, 'a second pass inserts nothing')
-    eq(again.merged, 4, 'it merges every record instead')
+    eq(again.merged, 5, 'it merges every record instead')
     const after = (db.prepare('SELECT count(*) AS n FROM record').get() as { n: number }).n
-    eq(after, 4, 'and the store still holds one row per record, not eight')
+    eq(after, 5, 'and the store still holds one row per record, not one per pass')
 
     // ── Imported verified records keep their grade rather than being demoted ─
     const kept = db.prepare("SELECT count(*) AS n FROM record WHERE evidence != 'inferred'").get() as { n: number }

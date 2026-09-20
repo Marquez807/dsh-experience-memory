@@ -26,6 +26,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { scanForStores, mapStore } from '../src/import.ts'
+import { eligibleForResident, importance } from '../src/rank.ts'
 import { tokenize } from '../src/tokenize.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -454,9 +455,11 @@ for (const [label, list] of [
 
 // ── 5. Recommended import subset ────────────────────────────────────────────
 // A funnel, so the cost of each restriction is visible and each one can be
-// argued with separately.
+// argued with separately. The surviving indices are kept, because the next step
+// has to describe *what* those records actually say.
 const selfSet = new Set(quality.selfReferential)
 const subset = { all: rows.length }
+let recommended = []
 {
   const indexes = rows.map((_, index) => index)
   const confirmed = indexes.filter(index => rows[index].record.status === 'confirmed')
@@ -471,11 +474,115 @@ const subset = { all: rows.length }
   const deduped = new Map()
   for (const index of notSelf) {
     const { record } = rows[index]
-    deduped.set(`${record.contentFingerprint}\u0000${record.workspaceId}`, record)
+    deduped.set(`${record.contentFingerprint}\u0000${record.workspaceId}`, index)
   }
   subset.deduplicated = deduped.size
-  subset.substantive = [...deduped.values()].filter(record => record.body.trim().length >= 40).length
+
+  recommended = [...deduped.values()].filter(index => rows[index].record.body.trim().length >= 40)
+  subset.substantive = recommended.length
 }
+
+// ── 6. Would importing them actually reach the model? ──────────────────────
+// "Worth importing" and "will be injected" are different questions, and the
+// answer is decided by the framework's own ranking function rather than by
+// opinion. A `verified-file` record carries a base of exactly 3.0 x 2.0 = 6.0
+// against a resident bar of 6.0, so age alone can push it under. Measuring it
+// here beats assuming it either way.
+const residentReady = []
+const residentBlocked = []
+let residentWithIdentifier = 0
+for (const index of recommended) {
+  const { record } = rows[index]
+  const score = importance({ ...record, now, identifierMatches: 0 })
+  if (eligibleForResident(record, score, now)) residentReady.push({ index, score })
+  else residentBlocked.push({ index, score })
+  // One exact identifier hit is worth 1.0, so it is the difference between
+  // "searchable" and "in the digest this turn". Measured, not assumed.
+  if (eligibleForResident(record, importance({ ...record, now, identifierMatches: 1 }), now)) {
+    residentWithIdentifier += 1
+  }
+}
+
+// ── 7. What the recommended records are actually about ──────────────────────
+// Grouping is by project and then by topic. Project matters because most of these
+// are project-specific facts about a codebase, not general truths; topic is taken
+// from the part of the title before its colon, which the old runtime used as a
+// subject label.
+const TITLE_LABELS = /^(?:用户声明|文件记载|工具观察|待验证|已审核|已核验静态|已核验|静态|经验)[：:]\s*/
+
+function topicOf(title) {
+  const stripped = title.replace(TITLE_LABELS, '').trim()
+  const withoutDates = stripped.replace(/[（(][^）)]{0,40}[）)]/g, ' ').replace(/\s+/g, ' ').trim()
+  const colon = withoutDates.search(/[：:]/)
+  if (colon > 0) return withoutDates.slice(0, colon).trim().toLowerCase()
+  // No subject label: fall back to a short prefix so these still group together
+  // rather than each becoming its own category.
+  return `${withoutDates.slice(0, 10).trim().toLowerCase()}…`
+}
+
+const byProject = new Map()
+for (const index of recommended) {
+  const { record, store } = rows[index]
+  const leaf = store.projectRoot.split(/[\\/]/).filter(Boolean).pop() ?? store.projectRoot
+  if (!byProject.has(leaf)) byProject.set(leaf, new Map())
+  const topics = byProject.get(leaf)
+  const topic = topicOf(record.title)
+  if (!topics.has(topic)) topics.set(topic, [])
+  topics.get(topic).push(index)
+}
+
+// Every recommended record, grouped, with enough of the body to judge it.
+const catalogue = []
+catalogue.push('# 值得信的经验：归类与全文')
+catalogue.push('')
+catalogue.push(`按项目分组，组内按主题。共 ${recommended.length} 条，全部来自活库，全部为 \`confirmed\` 且有过证据。`)
+catalogue.push('')
+catalogue.push('> 这些是**项目内的事实**，不是通用真理。多数描述某个代码库的结构、入口、状态或'
+  + '「当时尚未核实」的边界。读它们时要带着「在哪个项目里成立」这个前提。')
+catalogue.push('')
+catalogue.push(`> 注入行为实测：${residentReady.length} 条立即满足常驻资格线，${residentBlocked.length} 条平时只在`
+  + ' `memory_recall` 里可按需检索，查询命中标识符时才进入每轮摘要。')
+catalogue.push('')
+for (const [project, topics] of [...byProject.entries()].sort((a, b) => {
+  const total = map => [...map.values()].reduce((sum, list) => sum + list.length, 0)
+  return total(b[1]) - total(a[1])
+})) {
+  const total = [...topics.values()].reduce((sum, list) => sum + list.length, 0)
+  catalogue.push(`## ${project}（${total} 条）`)
+  catalogue.push('')
+  for (const [topic, list] of [...topics.entries()].sort((a, b) => b[1].length - a[1].length)) {
+    catalogue.push(`### ${topic === '' ? '(无主题)' : topic}（${list.length} 条）`)
+    catalogue.push('')
+    for (const index of list) {
+      const { record } = rows[index]
+      const body = record.body.replace(/\s+/g, ' ').trim()
+      const excerpt = body.length > 260 ? `${body.slice(0, 260)}…` : body
+      catalogue.push(`- **${record.title}**`)
+      catalogue.push(`  - ${excerpt}`)
+      catalogue.push(`  - \`${record.evidence}\` · \`${record.kind}\` · ${new Date(record.createdAt).toISOString().slice(0, 10)}`)
+    }
+    catalogue.push('')
+  }
+}
+writeFileSync(join(reportDir, 'legacy-memory-recommended.md'), catalogue.join('\n'), 'utf8')
+
+// Console summary, so the shape of the set is visible without opening the file.
+console.log('')
+console.log('recommended set by project and topic:')
+for (const [project, topics] of [...byProject.entries()].sort((a, b) => {
+  const total = map => [...map.values()].reduce((sum, list) => sum + list.length, 0)
+  return total(b[1]) - total(a[1])
+})) {
+  const total = [...topics.values()].reduce((sum, list) => sum + list.length, 0)
+  console.log(`  ${project} (${total})`)
+  for (const [topic, list] of [...topics.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 14)) {
+    console.log(`      ${String(list.length).padStart(3)}  ${topic}`)
+  }
+  if (topics.size > 14) console.log(`      ... and ${topics.size - 14} more topic(s)`)
+}
+console.log('')
+console.log(`resident-eligible immediately: ${residentReady.length} / ${recommended.length}`)
+console.log(`reachable via memory_recall only: ${residentBlocked.length}`)
 
 p('## 七、建议导入子集')
 p('')
@@ -493,10 +600,36 @@ p('')
 p(`**建议导入 ${subset.substantive} 条。**其余的不是「错」就是「空」，留在旧库里比进新库更有价值——`)
 p('进新库会让它们在检索里和真经验竞争注意力。')
 p('')
+p('### 导进去之后，它们真的会出现在每轮提示词里吗')
+p('')
+p('「值得导入」和「会被注入」是两个问题。后者不该靠判断，所以这里直接调用框架自己的')
+p('`importance` 与 `eligibleForResident` 来量：')
+p('')
+p('- `verified-file` 的基础分是 `3.0 × 2.0 = 6.0`，而常驻资格线也正好是 `6.0`')
+p('- 陈旧度按默认 180 天复核周期计算，所以记录一出生就开始被扣分')
+p('')
+p('| 结果 | 条数 | 含义 |')
+p('|---|---|---|')
+p(`| 立即满足常驻资格线 | ${residentReady.length} | 查询命中即可进入每轮摘要 |`)
+p(`| 差一点，进不去 | ${residentBlocked.length} | 平时只在 \`memory_recall\` 里可按需检索；查询里出现**标识符精确命中**（路径、类名、文件名）时才补上那 1.0 分而进入摘要 |`)
+p('')
+p(`其中 **${residentWithIdentifier} / ${residentBlocked.length}** 条只要查询命中一个标识符就能过线——` +
+  '也就是说，提到 `WandererProfile`、`Version.xml` 这类名字时它们会出现在摘要里，泛泛而谈时不会。')
+p('')
+if (residentBlocked.length > 0) {
+  const scores = residentBlocked.map(item => item.score)
+  p(`这 ${residentBlocked.length} 条的分数落在 ${Math.min(...scores).toFixed(3)} – ${Math.max(...scores).toFixed(3)} 之间，`)
+  p('差的就是年龄扣掉的那一点。所以它们的真实角色是**可按需检索的项目知识库**，不是每轮自动浮现的经验。')
+  p('这不是缺陷，是阈值在按设计工作：证据较弱的事实要靠「与本轮相关」或「已被复用」换取常驻位置。')
+  p('')
+}
+p(`这 ${subset.substantive} 条**具体是什么**，见 \`legacy-memory-recommended.md\`（按项目分组、组内按主题、逐条列出）。`)
+p('')
 
 p('## 八、逐条清单')
 p('')
 p(`完整 ${rows.length} 条见 \`legacy-memory-records.tsv\`（含正文全文），供逐条复核。`)
+p(`建议子集的分组阅读版见 \`legacy-memory-recommended.md\`。`)
 p('')
 
 const reportPath = join(reportDir, 'legacy-memory-audit.md')

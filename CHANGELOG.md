@@ -39,11 +39,21 @@ data. Everything below came out of that audit.
   record twice — once in `entries.jsonl`, once in `memory.sqlite3` — and repeated
   runs appended it more often than that. The de-duplication key deliberately
   omits the timestamp: writing the same assertion again is not new knowledge.
+- **Tool-outcome events are filtered by body shape, not by `type`.** When a tool
+  call failed the old runtime recorded `type: fact` with
+  `admission.proof.kind: tool`, so the record arrived carrying the *strongest*
+  evidence grade and `status: confirmed` while its entire content was
+  `Tool call_00_... exited 1` — no command, no error, no fix. There were 98 of
+  them across the live stores, and because importance is dominated by the
+  evidence grade they would have outranked every real lesson in the digest.
+  Filtering events by `type` alone could never catch them.
 - **`tools/audit-legacy.mjs`** reports external validity (does a referenced path
   or command still exist), internal consistency (exact and near duplicates,
   opposite-polarity pairs on one subject) and quality signals, and writes every
   record out as TSV for review. It answers with a funnel rather than a verdict,
-  so the cost of each restriction stays visible.
+  so the cost of each restriction stays visible, and it measures whether the
+  records it recommends would actually be injected by calling this framework's
+  own `importance` / `eligibleForResident` rather than assuming either way.
 
 ### Packaging
 
