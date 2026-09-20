@@ -234,6 +234,44 @@ export async function run(): Promise<void> {
     }
     assert(threw, 'linking an outcome to an unknown record fails loudly')
 
+    // ── The tool can arm the decay window ──────────────────────────────────
+    // `expiresAt` and `reviewAfter` used to be settable only by the legacy
+    // importer, so two of the three retirement paths were unreachable for
+    // anything this plugin recorded itself.
+    const expiresOf = (id: string): number | null => {
+      const side = openDb(dbPath)
+      try {
+        return (side.prepare('SELECT expires_at FROM record WHERE id = ?').get(id) as {
+          expires_at: number | null
+        }).expires_at
+      } finally {
+        side.close()
+      }
+    }
+    const windowed = await call<{ id: string }>(
+      'memory_remember',
+      {
+        kind: 'fact', title: '当前版本基线', body: '当前客户端版本是 1.5.2',
+        quote: '当前客户端版本是 1.5.2', expires_in_days: 5,
+      },
+      agentFor([userMessage('当前客户端版本是 1.5.2')]),
+    )
+    const storedExpiry = expiresOf(windowed.id)
+    assert(storedExpiry !== null, 'expires_in_days is stored as an absolute expiry')
+    eq(Math.round((storedExpiry! - Date.now()) / 86_400_000), 5, 'five days out from now')
+
+    let refused = false
+    try {
+      await call(
+        'memory_remember',
+        { kind: 'fact', title: '零天窗口', body: '零天窗口应当被拒绝而不是静默忽略', expires_in_days: 0 },
+        agentFor([]),
+      )
+    } catch {
+      refused = true
+    }
+    assert(refused, 'a zero-day window is rejected rather than silently ignored')
+
     // ── Maintenance runs on the plugin's own turn-stopping hook ────────────
     // `maintain()` has unit tests of its own. What is unverified without this is
     // the wiring: that the plugin listens on the real `agent/turn-stopping`

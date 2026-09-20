@@ -286,6 +286,16 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         enum: ['workspace', 'domain'],
         description: 'Defaults to workspace. Domain is for a rule that already holds beyond this project.',
       },
+      expires_in_days: {
+        type: 'integer',
+        description: 'For a fact about a moving world: stop using this after N days. '
+          + 'Set it whenever the claim could quietly become false — a version baseline, a command, a path.',
+      },
+      review_after_days: {
+        type: 'integer',
+        description: 'Re-verify this after N days if nothing has reused it. Maintenance retires it if it is '
+          + 'still unreused 30 days past that date.',
+      },
     },
     output: {
       schema: {
@@ -312,8 +322,21 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       failure_mode?: string
       lesson?: string
       scope?: Scope
+      expires_in_days?: number
+      review_after_days?: number
     }, exec: ToolExec) => {
       const workspace = workspaceOf(exec.agent, resolved.defaultDomain)
+      const now = Date.now()
+      // Days are the model-facing unit because they are what a claim about the
+      // world is actually stated in; the record stores absolute times, which is
+      // what retrieval and maintenance can compare without re-deriving anything.
+      const window = (days: number | undefined, name: string): number | undefined => {
+        if (days === undefined) return undefined
+        if (!Number.isSafeInteger(days) || days < 1) {
+          throw new TypeError(`experience-memory: ${name} must be a whole number of days >= 1, got ${String(days)}`)
+        }
+        return now + days * 86_400_000
+      }
       const result = remember(db, {
         workspaceId: workspace.id,
         domain: workspace.domain,
@@ -326,8 +349,10 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         lesson: args.lesson,
         sourceRef: args.source_ref,
         quote: args.quote,
+        expiresAt: window(args.expires_in_days, 'expires_in_days'),
+        reviewAfter: window(args.review_after_days, 'review_after_days'),
         agent: exec.agent,
-        now: Date.now(),
+        now,
       })
       return {
         outcome: result.outcome,

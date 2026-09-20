@@ -85,6 +85,17 @@ export interface RememberInput {
   sourceRef?: string
   /** The verbatim passage the claim rests on; enables a verified grade. */
   quote?: string
+  /**
+   * Absolute time after which the claim stops being usable.
+   *
+   * A fact about a moving world — the current test command, the current version
+   * baseline — has to be able to expire, or it silently outlives its truth. The
+   * retrieval and maintenance paths both honour this; without a way to set it,
+   * only migrated records could ever expire.
+   */
+  expiresAt?: number
+  /** Absolute time at which an unused record should be re-verified by `maintain`. */
+  reviewAfter?: number
   agent?: SessionLike
   now: number
 }
@@ -122,6 +133,20 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
 
   const kind = input.kind
   const contentFingerprint = fingerprint(kind, body)
+
+  // A window that has already closed, or one that is not a number, is a caller
+  // mistake. Applying it would retire the record on the next pass, which looks
+  // like the plugin losing data rather than the caller asking for the impossible.
+  for (const [name, value] of [['expiresAt', input.expiresAt], ['reviewAfter', input.reviewAfter]] as const) {
+    if (value === undefined) continue
+    if (!Number.isFinite(value)) {
+      throw new TypeError(`experience-memory: ${name} must be a finite timestamp, got ${String(value)}`)
+    }
+    if (value <= input.now) {
+      throw new TypeError(`experience-memory: ${name} must be in the future, got ${new Date(value).toISOString()}`)
+    }
+  }
+
   noteCorroboration(db, contentFingerprint, input.workspaceId, input.now)
   const corroborations = corroborationCount(db, contentFingerprint)
 
@@ -143,6 +168,10 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
       status: promoted ? 'confirmed' : existing.status,
       needsReview: promoted ? null : existing.needsReview,
       distinctWorkspaces: Math.max(existing.distinctWorkspaces, corroborations),
+      // Re-reporting the same claim with a fresh passage is re-verification, so a
+      // new window replaces the old one rather than being ignored.
+      expiresAt: input.expiresAt ?? existing.expiresAt,
+      reviewAfter: input.reviewAfter ?? existing.reviewAfter,
       updatedAt: input.now,
     }
     upsert(db, record)
@@ -172,8 +201,8 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
     occurredAt: input.now,
     updatedAt: input.now,
     lastUsedAt: null,
-    reviewAfter: null,
-    expiresAt: null,
+    reviewAfter: input.reviewAfter ?? null,
+    expiresAt: input.expiresAt ?? null,
     contentFingerprint,
     supersededBy: null,
     needsReview: verified ? null : 'awaiting a second observation or a verified passage',

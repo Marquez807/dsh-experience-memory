@@ -54,6 +54,20 @@ data. Everything below came out of that audit.
   entry cannot ambiguously name two records, a dry run reports what the list
   excludes before anything is written, and an empty list imports nothing rather
   than everything.
+- **Records can be given a decay window, so perishable facts stop being answered.**
+  `expiresAt` and `reviewAfter` were only ever filled by the legacy importer, which
+  meant two of the three retirement paths — expired, and review overdue — were
+  unreachable for anything the plugin recorded itself. The mechanism was complete
+  and untouchable. `memory_remember` now takes `expires_in_days` and
+  `review_after_days`: an expired record stops being retrieved immediately and is
+  retired by the next maintenance pass, while a record past its review date is
+  only retired once the grace period passes with nothing having reused it. A
+  record that has been reused survives its review deadline, because the window
+  exists to notice what nothing needs rather than to punish age. Re-reporting the
+  same claim with a fresh window is re-verification, and the new window replaces
+  the old one. A window that has already closed is rejected at the call rather
+  than stored to be retired on the next pass, which would look like the plugin
+  losing data.
 - **Boot acceptance, and the reason it needed inventing.** `--dump-config` proves
   the tree composes but not that the loader imports the bundle, and the import is
   exactly what failed before. Booting a profile whose `dbPath` overlay points at

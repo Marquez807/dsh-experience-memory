@@ -187,6 +187,90 @@ export function run(): void {
     const secondPass = maintain(db, { now: NOW, batchSize: 3 })
     eq(secondPass.scanned, 3, 'the next pass resumes rather than rescanning from the start')
     assert((secondPass.retired + first.retired) >= 2, 'the two passes together retire more than one')
+
+    // ── A window can be armed, and both halves of the machinery honour it ──
+    // Before this existed, `expiresAt` and `reviewAfter` could only be filled by
+    // the legacy importer, so two of the three retirement paths were unreachable
+    // for anything the plugin recorded itself.
+    const expiring = remember(db, {
+      workspaceId: 'ws1', domain: DOMAIN, kind: 'fact',
+      title: '当前测试命令', body: '用 node tests/run.ts 跑测试', now: NOW,
+      expiresAt: NOW + 5 * DAY,
+    })
+    eq(expiring.record.expiresAt, NOW + 5 * DAY, 'the record carries the expiry it was given')
+    eq(expiring.record.status, 'candidate', 'and it is still a candidate without a passage')
+    db.prepare('UPDATE record SET status = ?, evidence = ? WHERE id = ?')
+      .run('confirmed', 'verified-user', expiring.record.id)
+
+    const before = retrieve(db, {
+      workspaceId: 'ws1', domain: DOMAIN, query: '测试命令', now: NOW, limit: 10, tier: 'recall',
+    })
+    assert(before.ranked.some(entry => entry.record.id === expiring.record.id),
+      'a record inside its window is retrievable')
+
+    const after = retrieve(db, {
+      workspaceId: 'ws1', domain: DOMAIN, query: '测试命令', now: NOW + 6 * DAY, limit: 10, tier: 'recall',
+    })
+    assert(!after.ranked.some(entry => entry.record.id === expiring.record.id),
+      'once past its expiry it stops being returned, without anyone running maintenance')
+    assert((after.excluded['expired'] ?? 0) >= 1, 'and the exclusion is counted, not silent')
+
+    const retired = maintain(db, { now: NOW + 6 * DAY, batchSize: 64 })
+    assert((retired.reasons['expired'] ?? 0) >= 1, 'maintenance then retires it, naming the reason')
+
+    // A review window, by contrast, does not remove anything until the grace
+    // period has passed with nothing having reused the record.
+    const awaitingReview = remember(db, {
+      workspaceId: 'ws1', domain: DOMAIN, kind: 'fact',
+      title: '需要复核', body: '这条到期后需要复核而不是直接退役', now: NOW,
+      reviewAfter: NOW + 1 * DAY,
+    })
+    db.prepare('UPDATE record SET status = ?, evidence = ? WHERE id = ?')
+      .run('confirmed', 'verified-user', awaitingReview.record.id)
+    const insideGrace = maintain(db, { now: NOW + 5 * DAY, batchSize: 64 })
+    eq(insideGrace.reasons['review overdue and never reused'] ?? 0, 0,
+      'the review date alone does not retire a record; the grace period has to pass first')
+    const pastGrace = maintain(db, { now: NOW + (1 + REVIEW_GRACE_DAYS + 1) * DAY, batchSize: 64 })
+    assert((pastGrace.reasons['review overdue and never reused'] ?? 0) >= 1,
+      'and once it has, an unreused record is retired for review')
+
+    // A record that has actually been used is not retired for review. The review
+    // window exists to notice what nothing needs, not to punish age.
+    const reused = remember(db, {
+      workspaceId: 'ws1', domain: DOMAIN, kind: 'fact',
+      title: '被复用的记录', body: '这条被复用过，所以不该因复核逾期退役', now: NOW,
+      reviewAfter: NOW + 1 * DAY,
+    })
+    db.prepare('UPDATE record SET status = ?, evidence = ? WHERE id = ?')
+      .run('confirmed', 'verified-user', reused.record.id)
+    recordUsage(db, {
+      recordId: reused.record.id, outcome: 'success', now: NOW + 2 * DAY, failStreakLimit: 2,
+    })
+    maintain(db, { now: NOW + (1 + REVIEW_GRACE_DAYS + 1) * DAY, batchSize: 64 })
+    const survivedReview = (db.prepare('SELECT status FROM record WHERE id = ?')
+      .get(reused.record.id) as { status: string }).status
+    eq(survivedReview, 'confirmed', 'a record that has been reused survives the review deadline')
+
+    // A window that has already closed is a caller mistake, not a silent retire.
+    let rejected = false
+    try {
+      remember(db, {
+        workspaceId: 'ws1', domain: DOMAIN, kind: 'fact',
+        title: '昨天就过期了', body: '这条的窗口在过去', now: NOW, expiresAt: NOW - DAY,
+      })
+    } catch (error) {
+      rejected = error instanceof TypeError
+    }
+    assert(rejected, 'a window in the past is rejected rather than stored to be retired immediately')
+
+    // Re-reporting the same claim with a fresh window is re-verification.
+    const refreshed = remember(db, {
+      workspaceId: 'ws1', domain: DOMAIN, kind: 'fact',
+      title: '当前测试命令', body: '用 node tests/run.ts 跑测试', now: NOW + 2 * DAY,
+      expiresAt: NOW + 30 * DAY,
+    })
+    eq(refreshed.outcome, 'corroborated', 'the same claim corroborates instead of duplicating')
+    eq(refreshed.record.expiresAt, NOW + 30 * DAY, 'and the new window replaces the old one')
   } finally {
     db.close()
     rmSync(dir, { recursive: true, force: true })
