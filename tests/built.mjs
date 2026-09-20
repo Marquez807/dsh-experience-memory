@@ -60,7 +60,10 @@ check(manifest.peerDependencies['@deepseek-ai/dsh-commands'] !== undefined,
 for (const name of readdirSync(join(root, 'lib')).filter(entry => entry.endsWith('.js'))) {
   const text = readFileSync(join(root, 'lib', name), 'utf8')
   check(!/from\s+['"]\.\.\/src\//.test(text), `lib/${name} does not import the sources`)
-  check(!/\.ts['"]/.test(text), `lib/${name} has no TypeScript specifier`)
+  // Match a *specifier*, not the extension anywhere: build-id.js legitimately writes
+  // `name.endsWith('.ts')` while deciding which files to hash, and the first version of
+  // this check called that a leftover TypeScript import.
+  check(!/['"]\.{1,2}\/[^'"]*\.ts['"]/.test(text), `lib/${name} has no TypeScript specifier`)
 }
 
 // ── 1 + 2. Every module loads, and lib/ keeps the whole src/ surface ─────────
