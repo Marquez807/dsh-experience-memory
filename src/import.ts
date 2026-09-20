@@ -285,6 +285,15 @@ export function mapStore(store: LegacyStore, now: number): MappedRecords {
     const rawTitle = asString(source['summary']).replace(SUMMARY_LABELS, '').trim()
     const title = (rawTitle === '' ? body.slice(0, 80) : rawTitle).slice(0, 200)
 
+    // The old runtime often wrote its auto-generated summary as both the title
+    // and the subject. A trigger that is the title, or a truncation of it, adds
+    // nothing the record does not already say — and the FTS index weights the
+    // trigger column highest, so keeping it would rank a record on its own label.
+    // Measured on the 36 recommended archived records: 11 of the 31 non-empty
+    // triggers were in this state, while the other 20 carried real new text.
+    const rawTrigger = asString(source['subject']).trim()
+    const trigger = rawTrigger !== '' && !title.startsWith(rawTrigger) ? rawTrigger : ''
+
     const legacyScope = asString(source['scope'], 'project')
     let scope: Scope = 'workspace'
     if (legacyScope === 'global') {
@@ -315,7 +324,7 @@ export function mapStore(store: LegacyStore, now: number): MappedRecords {
       evidence,
       title,
       body,
-      trigger: asString(source['subject']),
+      trigger,
       failureMode: asString(source['failure_mode']),
       lesson: asString(source['lesson']),
       sourceRef: asString(source['evidence']) || asString(source['source']),

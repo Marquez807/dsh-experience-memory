@@ -240,6 +240,28 @@ export function run(): void {
       selectDb.close()
     }
 
+    // ── A trigger that only repeats the title is dropped ───────────────────
+    // The old runtime often wrote the same auto-generated summary as both. The
+    // duplicate costs a line in every recall and, worse, the FTS index weights
+    // the trigger column highest, so it ranks a record on its own label.
+    const triggerRoot = join(dir, 'trigger-project')
+    const triggerMemory = join(triggerRoot, '.memory')
+    mkdirSync(triggerMemory, { recursive: true })
+    writeFileSync(join(triggerRoot, 'package.json'), JSON.stringify({ name: '@acme/trigger' }))
+    writeFileSync(join(triggerMemory, 'entries.jsonl'), [
+      { type: 'fact', text: '正文甲', summary: '标题甲', subject: '标题甲', status: 'confirmed', scope: 'project' },
+      { type: 'fact', text: '正文乙', summary: '很长的标题乙在这里', subject: '很长的标题乙', status: 'confirmed', scope: 'project' },
+      { type: 'fact', text: '正文丙', summary: '标题丙', subject: '部署到 F 盘', status: 'confirmed', scope: 'project' },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n', 'utf8')
+
+    const triggerMapped = mapStore(scanForStores(triggerRoot).stores[0]!, NOW).records
+    eq(triggerMapped.find(r => r.body === '正文甲')?.trigger, '',
+      'a trigger identical to the title is dropped')
+    eq(triggerMapped.find(r => r.body === '正文乙')?.trigger, '',
+      'and so is one that is a truncation of the title')
+    eq(triggerMapped.find(r => r.body === '正文丙')?.trigger, '部署到 F 盘',
+      'a trigger carrying new text is kept, because it is what makes a record findable')
+
     // ── An unreadable path is reported, never thrown ──────────────────────
     const missing = scanForStores(join(dir, 'does-not-exist'))
     eq(missing.stores, [], 'a missing root yields no stores')
