@@ -1,0 +1,37 @@
+{
+  "name": "dsh-experience-memory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Domain-scoped long-term experience memory for DeepSeek Harness",
+  "main": "lib/index.js",
+  "files": [
+    "src",
+    "lib",
+    "tools",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-agent": "*",
+    "@deepseek-ai/dsh-llm": "*",
+    "@deepseek-ai/dsh-system-prompt": "*",
+    "@deepseek-ai/dsh-tools": "*",
+    "@deepseek-ai/schemastery": "*"
+  },
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "build:check": "node tools/build.mjs --check",
+    "prepare": "node tools/build.mjs",
+    "prepack": "node tools/build.mjs",
+    "test": "node --experimental-strip-types tests/run.ts",
+    "test:built": "node tools/build.mjs --check && node tests/built.mjs"
+  }
+}

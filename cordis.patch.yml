@@ -1,0 +1,31 @@
+# The dsh-experience-memory bundle patch.
+#
+# One insert row. Later bundle patches and the user's own profile
+# cordis.patch.yml may address this row by id `experience-memory`; a patch
+# replaces the whole `config` object rather than merging into it, so restate
+# every key you need.
+#
+# The row's `name` is the package specifier, resolved by the loader from the
+# profile's node_modules first and then from $DSH_HOME/profiles/node_modules,
+# where the DSH installation maintains one flat symlink per in-box package.
+# The plugin imports @deepseek-ai/* directly and never bundles them.
+
+- insert:
+    - id: experience-memory
+      name: dsh-experience-memory
+      config:
+        enabled: true
+        # Resident layer: the always-on experience digest injected every turn.
+        residentMaxRecords: 5
+        residentMaxBytes: 1536
+        # Core layer: cross-project lessons, injected whether or not the turn
+        # mentions them. 0 disables it. They share residentMaxBytes with the
+        # resident layer above, so guaranteeing them cannot grow the prompt.
+        coreMaxRecords: 2
+        # On-demand layer: the ceiling for one memory_recall call.
+        recallMaxBytes: 16384
+        # Empty means resolve the domain from the workspace (package.json name,
+        # git remote, directory name) before falling back to workspace:<id>.
+        defaultDomain: ''
+        # Maintenance runs at turn end and never on the retrieval hot path.
+        maintenanceBatchSize: 32

@@ -1,0 +1,16 @@
+# The DSH in-box packages are resolved by the host, not installed here. During
+# development this entry is a junction into the DSH installation, so it must never
+# be committed.
+node_modules/
+
+# Scratch directory used by `node tools/build.mjs --check`.
+.build-check/
+
+# Build artifacts: `lib/` IS committed (see README, "Why there is a build"), but
+# the packed tarball is reproducible with `pnpm pack`.
+*.tgz
+
+# Plugin runtime data, if a test or a local run writes one here.
+*.db
+*.db-journal
+*.db-wal

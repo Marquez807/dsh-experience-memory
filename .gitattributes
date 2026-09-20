@@ -1,0 +1,16 @@
+# Keep line endings identical on every platform.
+#
+# `node tools/build.mjs --check` compares the committed lib/ byte for byte
+# against a fresh build, and the build emits LF. With git's default
+# `core.autocrlf=true` on Windows, a checkout would rewrite lib/ to CRLF and
+# every generated file would look stale — the check would fail on every clone for
+# a reason that has nothing to do with the code.
+* text=auto eol=lf
+
+# Never normalize binary assets.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.tgz binary
