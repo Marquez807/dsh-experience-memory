@@ -112,8 +112,12 @@ node tools/build.mjs && node tests/built.mjs     # 构建产物
 
 插件因此**在激活时自己算一遍**它加载的那批模块的内容哈希（`src/build-id.ts`），两个地方能看到：
 
-- 激活时一行 `ctx.logger.info`：`experience-memory: build <id> (<n> modules)`——可从 `harness.log` 里 grep，**这证明的是进程**；
-- `/memory-status` 首行：`插件构建 <id>（<n> 个模块）`。
+- `/memory-status` 首行：`插件构建 <id>（<n> 个模块）`——**给人 / 运维看**；
+- `memory_stats` 文本首行：同一行——**给模型侧调用方看**（它没有日志访问权，这才是它能用的那一半）。
+
+⚠️ **它不在 `harness.log` 里。** 我最初把激活时的 `ctx.logger.info` 当成可 grep 的锚点，**实测是错的**：那个文件只捕获进程的
+`stdout`/`stderr` 与桌面启动器自己的行（node 的 `ExperimentalWarning` 在里面，**Cordis logger 的输出不在**——530 行里没有任何 level 标签）。
+要确认"重启加载的是哪一版"，**读 `/memory-status` 或 `memory_stats`**，不要去 grep 日志。
 
 与仓库里同一份构建的哈希一致，才说明"重启后生效的是这一版"；两个会话的 id 相同，说明它们跑的是同一份代码。
 `tools/verify-install.mjs` 还会顺带断言**命令恰好 5 个、上下文恰好 2 条**——那正是热重载泄漏时会出现的症状（重载后名字翻倍），所以它同时是 HMR 自检。

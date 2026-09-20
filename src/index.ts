@@ -271,7 +271,14 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         resident_eligible: result.residentEligible,
         usage_total: result.usage.total,
         corrections: result.corrections,
-        text: renderCensus(result, { dbPath: resolved.dbPath }),
+        // The build id leads, because "which build is this" is the question a caller
+        // cannot answer any other way: the version never changes, and a plugin's own
+        // logger output does NOT reach `harness.log` — that file carries the process's
+        // stdout/stderr only, which was verified after claiming otherwise. The operator
+        // half of this line is `/memory-status`; this is the half a model-side caller
+        // can actually read, in whatever session it happens to be running.
+        text: `插件构建 ${build.id}（${build.modules} 个模块）\n`
+          + renderCensus(result, { dbPath: resolved.dbPath }),
       }
     },
   }))

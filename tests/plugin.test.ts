@@ -17,6 +17,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as experienceMemory from '../src/index.ts'
 import { recentQueryText } from '../src/index.ts'
+import { buildIdentity } from '../src/build-id.ts'
 import { openDb } from '../src/db.ts'
 import { assert, eq } from './assert.ts'
 import type { DatabaseSync } from 'node:sqlite'
@@ -187,6 +188,13 @@ export async function run(): Promise<void> {
     eq(stats.resident_eligible, 1, 'and reports how many would be injected right now')
     eq(stats.usage_total, 0, 'a census records no usage of its own, because it is read-only')
     assert(stats.text.includes('记录 1 条'), 'the readable rendering agrees with the structured counts')
+    // The build id leads, and it is the only answer a model-side caller can get:
+    // the version never changes, and a plugin's own logger output does not reach
+    // `harness.log`. Pinned here so the line cannot quietly lose its head.
+    assert(/^插件构建 [0-9a-f]{12}（\d+ 个模块）\n/.test(stats.text),
+      'the build id leads the readable stats, so a caller can tell which build is loaded')
+    eq(stats.text.split('\n')[0], `插件构建 ${buildIdentity().id}（${buildIdentity().modules} 个模块）`,
+      'and it is the real hash of the modules this run loaded, not a literal that could go stale')
     eq((await call<{ records: number; usage_total: number }>('memory_stats', {}, agentFor([]))).records, 1,
       'and asking twice changes nothing')
 
