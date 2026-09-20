@@ -122,6 +122,10 @@ export function renderDetail(entry: RankedRecord): string {
   if (record.trigger !== '') parts.push(`  何时适用: ${record.trigger}`)
   if (record.failureMode !== '') parts.push(`  失败模式: ${record.failureMode}`)
   if (record.lesson !== '') parts.push(`  教训: ${record.lesson}`)
+  // The provenance the evidence grade rests on. Without it a reader can see that a
+  // record is `verified-file` but not which file, so the grade is unverifiable —
+  // and the grade is what decides whether the record is injected at all.
+  if (record.sourceRef !== '') parts.push(`  出处: ${record.sourceRef}`)
   const provenance = [`证据: ${record.evidence}`, `重要性 ${entry.importance.toFixed(1)}`]
   // `why` carries only the extra signals; the grade is stated once, above.
   if (entry.why !== '') provenance.push(entry.why)

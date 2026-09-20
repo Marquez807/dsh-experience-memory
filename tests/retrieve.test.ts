@@ -13,7 +13,7 @@ import { assert, eq } from './assert.ts'
 import { openDb, upsert } from '../src/db.ts'
 import type { DatabaseSync } from 'node:sqlite'
 import { retrieve, retrieveCore, visible, identifierMatches } from '../src/retrieve.ts'
-import { BudgetError, byteLength, renderDigest, renderRecall, renderResident, truncateToBytes } from '../src/inject.ts'
+import { BudgetError, byteLength, renderDetail, renderDigest, renderRecall, renderResident, truncateToBytes } from '../src/inject.ts'
 import { identifiers, identifierKey } from '../src/tokenize.ts'
 import type { MemoryRecord } from '../src/types.ts'
 
@@ -210,6 +210,19 @@ export function run(): void {
       eq(grades, 1, `the provenance line names the grade once: ${line.trim()}`)
     }
     assert(detailed.includes('重要性'), 'and still reports the score')
+
+    // ── The recall names where a verified claim came from ──────────────────
+    // The grade is what decides whether a record is injected at all, and it rests
+    // on a passage in a file or a tool call. Showing `verified-file` without the
+    // file leaves the grade unchecked — and source_ref was written and graded on
+    // but never rendered anywhere.
+    upsert(db, make({ id: 'sourced', sourceRef: 'src/db.ts:116', contentFingerprint: 'fp-sourced' }))
+    const sourced = renderRecall(retrieve(db, query({ query: '部署', limit: 64 })).ranked, 100000).text
+    assert(sourced.includes('出处: src/db.ts:116'), 'the recall names the source the claim rests on')
+    const noSource = renderDetail(
+      retrieve(db, query({ query: '部署', limit: 64 })).ranked.find(entry => entry.record.id === 'mine')!,
+    )
+    assert(!noSource.includes('出处:'), 'a record with no source_ref does not render an empty provenance line')
 
     // ── A record that cannot fit alone is a configuration error ─────────────
     let threw = false

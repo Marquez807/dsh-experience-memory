@@ -54,6 +54,14 @@ data. Everything below came out of that audit.
   entry cannot ambiguously name two records, a dry run reports what the list
   excludes before anything is written, and an empty list imports nothing rather
   than everything.
+- **The recall names where a verified claim came from.** `sourceRef` was supplied
+  by the model, stored, and used by the evidence grader to decide between
+  `verified-file`, `verified-tool` and `inferred` — and then never rendered
+  anywhere. A reader could see that a record was `verified-file` but not which
+  file, so the grade that decides whether the record is injected at all could not
+  be checked. `memory_recall` now prints `出处: <source_ref>` when there is one.
+  (`usage.turn` is in the same family but not fixable: a tool execution carries no
+  turn number, so the column is structurally null rather than overlooked.)
 - **Candidates can be reviewed.** `retrieve` supported an `includeCandidates`
   window from the start, but no tool exposed it, so a candidate — a claim recorded
   without a verifiable passage — could be created and then never listed again.
