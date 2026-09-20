@@ -2,6 +2,29 @@
 
 ## 0.1.0 — unreleased
 
+### Evidence routes, stated where the model actually reads them
+
+A lesson learned from a tool failure was reaching the store as a candidate that could
+never be injected. The cause was not the grader — a failed call deliberately proves
+nothing (`evidence.test` pins "a cited tool call that errored proves nothing") — but
+the description: the model cited the failed call's output as its passage and had no
+way to know that route could not be graded.
+
+`source_ref` now says which passage is gradeable in each case: a file as
+`path/file:line`, a successful tool call's id for a claim that a command works, and —
+for a lesson learned from a failure — the file that records the finding, because the
+failed call itself is not evidence here. The main description names the three accepted
+evidence routes as well.
+
+The wording went into the parameter description rather than the standing hint on
+purpose: both are sent every turn, but the hint's cost is bounded and measured (149
+bytes, ceiling 256), and the miss happened at the moment of filling in the field.
+
+Verified end to end in real turns before and after: a seeded convention was retrieved
+unprompted two seconds into a development task and applied to both the implementation
+and its regression tests; with the runtime context suppressed, the same task produced
+no memory calls at all and dropped two of the three constraints.
+
 ### The store was empty because nothing asked it to fill
 
 Measured across five real sessions and roughly 5,900 tool calls: the memory tools
