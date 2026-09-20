@@ -1,6 +1,53 @@
 # Changelog
 
-## 0.1.0 — first working framework
+## 0.1.0 — unreleased
+
+### Plug-and-play packaging and operator commands
+
+- **One command installs it.** `dsh plugin --profile <name> add <tarball>` also
+  reconciles `dsh.profile.bundles` against what is installed, so a package that
+  declares `dsh.bundle` joins the layer stack by itself. Verified end to end: the
+  profile's `package.json` gained the bundle with no manual edit, and booting that
+  profile with no configuration at all created the default database.
+- **Five operator commands**, registered on the same service `/compact` and
+  `/goal` use: `memory-status`, `memory-preview`, `memory-maintain`,
+  `memory-audit`, `memory-import`. All `recordInput: false`, so operator input and
+  filesystem paths never enter the session transcript.
+- **Audit and import are commands, not tools.** They scan arbitrary directories
+  and bulk-write, so they stay behind a human trigger, and the model's tool
+  surface stays at four — which also keeps its per-turn schema cost from growing.
+  `/memory-import` is a dry run unless `--apply` is given.
+- **`/memory-preview` cannot disagree with what is actually sent**, because it
+  calls the same `buildDigest` that `ctx.systemPrompt.context` does. Both moved
+  into `src/digest.ts`.
+- **The audit and census logic moved out of scripts into `src/audit.ts` and
+  `src/census.ts`.** It is now covered by the suite — the funnel, duplicate
+  detection, the prose-suffixed path rule, injectability — instead of being
+  checkable only by running a script by hand against whatever was on disk. Two
+  stale hardcoded counts in the report ("366 records", "62 duplicate groups" from
+  an earlier run) became dynamic in the move.
+- **The package no longer ships `src/` or `tools/`.** The runtime needs only
+  `lib/`; the scripts are repository tools. That removes a defect class rather
+  than fixing it: a shipped script importing `src/*.ts` cannot run from inside
+  `node_modules`, which is exactly what `tools/import-legacy.mjs` and
+  `tools/audit-legacy.mjs` did. The tarball went from 102 KB to 70 KB, and
+  `tests/built.mjs` now asserts the packaging contract — including that no shipped
+  module reaches back into the sources.
+- **A failing digest or maintenance pass is no longer silent.** Both rendered
+  nothing and said nothing, which makes a broken memory indistinguishable from an
+  empty one. They now log, throttled per distinct message because the digest runs
+  on every assembly.
+- **Licence and metadata**: `UNLICENSED` with a `LICENSE` file, plus
+  `repository`, `author`, `keywords`, and a `verify` script that runs the suites,
+  the build check and the artefact acceptance in one go.
+- **The README documents the development environment**, because a fresh clone
+  cannot run the tests: the peer packages resolve through a `node_modules`
+  junction into the DSH installation, which is gitignored.
+- **`dsh-commands` is now a declared peer**, and `inject` requires it. It comes
+  from `dsh-base`, the same bundle that provides `tools` and `systemPrompt`, so
+  this adds no constraint a profile did not already carry.
+
+### First working framework
 
 Reimplemented from the archived `codex-project-memory` runtime, the
 `codex-memory-design` archive and the uncommitted downstream patch found

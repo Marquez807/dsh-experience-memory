@@ -14,6 +14,9 @@ import { run as domain } from './domain.test.ts'
 import { run as evidence } from './evidence.test.ts'
 import { run as lifecycle } from './lifecycle.test.ts'
 import { run as importLegacy } from './import.test.ts'
+import { run as audit } from './audit.test.ts'
+import { run as census } from './census.test.ts'
+import { run as commands } from './commands.test.ts'
 import { run as plugin } from './plugin.test.ts'
 
 const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
@@ -25,6 +28,9 @@ const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
   ['evidence', evidence],
   ['lifecycle', lifecycle],
   ['import', importLegacy],
+  ['audit', audit],
+  ['census', census],
+  ['commands', commands],
   ['plugin', plugin],
 ]
 

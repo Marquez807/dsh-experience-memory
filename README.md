@@ -2,13 +2,40 @@
 
 给 DeepSeek Harness 的**分领域长期经验记忆**：能分清轻重、能积累经验、能遗忘、能纠错，并在再次执行同类工作时自动召回相关经验。
 
-从 13 处归档安装、5 个互不一致的版本、415 条历史记录里取优排劣后重新实现。运行时**零第三方依赖**，只用 Node 内置能力。
+从 13 处归档安装、5 个互不一致的版本、415 条历史记录里取优排劣后重新实现。插件运行时**零第三方依赖**，只用 Node 内置能力。
 
-## 安装
+## 安装：一条命令
+
+```sh
+dsh plugin --profile <name> add /path/to/dsh-experience-memory-0.1.0.tgz
+```
+
+**这一步就够了。** `dsh plugin add` 不只是装依赖——它会把 `dsh.profile.bundles` 与已安装状态**对账**：任何声明了 `dsh.bundle` 的依赖都会被自动追加进 layer stack（见 `@deepseek-ai/dsh` 的 `reconcilePlugins`）。所以不需要手工编辑 profile 的 `package.json`。
+
+装完重启应用即可。**零配置**：不提供任何 config 也能工作——默认库在 `$DSH_HOME/experience-memory/memory.db` 自动建立，四个工具与常驻注入立即生效。
+
+想在装之前确认它是在工作的，用斜杠命令（见下）：
+
+```
+/memory-status     # 库里有多少、多少条够常驻线
+/memory-preview 部署   # 这一轮会注入什么
+```
+
+### 它挂了四个表面
+
+| 表面 | 内容 | 谁触发 |
+|---|---|---|
+| 自动注入 | 常驻摘要：核心层（跨项目印证过）+ 查询层，共享 1536 字节 | 无 |
+| 自动维护 | `agent/turn-stopping` 有界维护，批量 32 条带游标 | 无 |
+| **模型工具**（4 个） | `memory_recall` / `remember` / `feedback` / `forget` | 模型 |
+| **斜杠命令**（5 个） | 状态、预览、维护、审计、导入 | **人** |
+
+工具和命令的分工是刻意的：审计与导入会伸到库外面（扫描任意目录、批量写入），所以留在人的触发之后；这也让模型的工具表保持 4 个，不增加每轮的 schema 开销。
+
+## 安装（开发期细节）
 
 ```sh
 pnpm pack                                   # prepack 会自动构建 lib/
-dsh plugin --profile <name> add ./dsh-experience-memory-0.1.0.tgz
 dsh --profile <name> --dump-config          # 应出现 "# == dsh-experience-memory" 层
 ```
 
@@ -194,12 +221,38 @@ DSH_TELEMETRY_DISABLED=1 node <dsh>/lib/bin.js --profile <name> --patch boot-acc
 | `memory_feedback` | 关联一次真实结果；成功清除失败连击，两次连续失败即退役 |
 | `memory_forget` | 退役（默认）或彻底删除 |
 
+## 斜杠命令（给人用，模型看不到）
+
+通过 `ctx.commands.register` 注册，所以出现在 `/compact`、`/goal` 所在的同一个斜杠菜单里。全部 `recordInput: false`——运维命令和文件系统路径**不会进入会话记录**。
+
+| 命令 | 用法 | 作用 |
+|---|---|---|
+| `/memory-status` | — | 库普查：条数、状态/证据/作用域分布、**多少条够常驻线**、复用与纠错计数、最近退役记录及原因 |
+| `/memory-preview` | `[<query>]` | 打印该查询下**实际会被注入的摘要**，以及按需检索会补上什么。不传 query 时用最近两条用户消息——与插件自己的查询推导是同一套逻辑 |
+| `/memory-maintain` | — | 立刻跑一次有界维护并报告退役了几条、为什么（同一套规则每轮结束也会自动跑） |
+| `/memory-audit` | `<root> [--out <dir>]` | 审计归档库的正确性并落盘四份报告 |
+| `/memory-import` | `<root> [--selection <file>] [--apply]` | **默认只试运行**；只有显式加 `--apply` 才写入 |
+
+为什么审计与导入不给模型：它们会扫描任意目录并批量写库，爆炸半径大，而这个框架一贯 fail-closed。这也让模型的工具表固定为 4 个，不牺牲每轮 token。
+
+`/memory-preview` 与真实注入共用同一个函数（`src/digest.ts`），所以它**不可能**与你实际收到的内容不一致——一个会漂移的预览就没有存在意义。
+
 ## 迁移
+
+命令行（仓库内，适合脚本化）：
 
 ```sh
 node tools/import-legacy.mjs --root "F:\GPT工作区"            # 试运行，打印报告
 node tools/import-legacy.mjs --root "F:\GPT工作区" --selection <清单> # 只导清单里的
 node tools/import-legacy.mjs --root "F:\GPT工作区" --apply     # 写入（不带清单就是全部可映射记录）
+```
+
+插件内（装完即可用，无需仓库）：
+
+```
+/memory-audit "F:\GPT工作区"
+/memory-import "F:\GPT工作区" --selection "…\legacy-memory-selection.json"
+/memory-import "F:\GPT工作区" --selection "…\legacy-memory-selection.json" --apply
 ```
 
 默认只试运行，因为归档树里既有活库也有副本，误导入不是可逆的错误。
@@ -232,17 +285,24 @@ node tools/import-legacy.mjs --root "F:\GPT工作区" --selection audit\legacy-m
 
 ### 排查「记忆为什么不出现」
 
-两种原因——**库里没有**和**在库里但进不了提示词**——从工具调用里看不出来。预览工具驱动真实的组装路径，打印这一轮实际会送出的内容：
+两种原因——**库里没有**和**在库里但进不了提示词**——从工具调用里看不出来。
+
+**插件内**（推荐，装完即可用）：
+
+```
+/memory-status              # 库里有多少、多少条够常驻线、为什么有记录退役了
+/memory-preview 继续        # 这一轮实际会注入什么
+```
+
+**离线**（仓库内，可以对任意库文件跑，不必启动 DSH）：
 
 ```sh
 node tools/preview.mjs --db <库路径> --cwd <项目根> --query "继续" --query "WandererProfile"
 ```
 
-它先只读统计库里有什么（总数、状态、证据、作用域分布），再对每个查询打印常驻摘要与 `memory_recall` 的结果。
-
-统计里还包含**审计轨迹**：`usage` 与 `correction` 两张表记录每次复用结果和每次纠错，并列出最近退役的记录及其原因
-（显式遗忘、连续失败、过期、复核逾期……）。这两张表此前**只写不读**，所以「这条为什么掉出池子」在框架里没有答案，
-只能手工开 SQLite 查。既然这个工具存在的意义就是回答这类问题，就让它去读。
+两者共用 `src/census.ts` 与 `src/digest.ts`，所以结论一致。统计里还包含**审计轨迹**：`usage` 与 `correction` 两张表记录每次复用结果和每次纠错，
+并列出最近退役的记录及其原因（显式遗忘、连续失败、过期、复核逾期……）。这两张表此前**只写不读**，
+所以「这条为什么掉出池子」在框架里没有答案，只能手工开 SQLite 查。
 
 它加载 `lib/` 里的构建产物，所以顺带验证了发布产物与源码行为一致。
 
@@ -327,6 +387,11 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 
 `memory_recall` / `memory_remember` / `memory_feedback` / `memory_forget`，见上表。
 
+### 五个斜杠命令
+
+`/memory-status` / `/memory-preview` / `/memory-maintain` / `/memory-audit` / `/memory-import`，见上表。
+它们**不进入模型上下文**，所以对每轮 token 成本没有影响；`/memory-preview` 的输出就是这一轮真正会被注入的内容。
+
 ## Known Limitations and Deferred Work
 
 - **没有语义/向量检索**。v1 只有 FTS5 + 标识符精确匹配 + 证据排序；`record.embedding` 列已预留，加入 RRF 融合时不需要迁移。
@@ -336,15 +401,20 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 - **`node:sqlite` 仍是实验特性**，运行时会打印 `ExperimentalWarning`。DSH 自己的会话全文检索也用它。
 - **维护单轮最多 32 条**，积压时不会自动提速。
 - **导入不做跨库印证计数**：迁移写入的记录 `distinct_workspaces` 恒为 1，领域晋升要等后续真实观察。
-- **不提供 UI 面板**；配置走插件 config。
+- **不提供图形面板**；状态、预览与运维走斜杠命令，配置走插件 config。
+- **斜杠命令需要 `commands` 服务**。它由 `dsh-base` 提供——和 `tools`、`systemPrompt` 是同一个 bundle——
+  所以 `inject` 声明它并不新增环境约束。但由此推论：任何**不含 `dsh-base`** 的 profile 里本插件不会激活
+  （这在改动之前就已经成立，`tools` 与 `systemPrompt` 同样来自 base）。
+- **随包不发 `src/` 和 `tools/`**。运行时只需要 `lib/`，而脚本是仓库内工具。这也消除了
+  「随包脚本 import `src/*.ts` 因而在 `node_modules` 下跑不起来」那一类缺陷——不是修好它，而是不再发它。
 - **不做跨机器同步**；数据库是单机文件。
 - **没有跑过带 app 的启动**：profile 启动验收已通过（见上），但它刻意不包含 app，所以**真实模型驱动的
-  agent loop** 没有在自动化里跑过——常驻摘要每轮重新求值、四个工具被模型实际调用、维护在回合结束时触发，
-  这些都只在挂载层被断言过。跑一次要拉起常驻应用并消耗真实 token，需要你明确同意。
+  agent loop** 没有在自动化里跑过——常驻摘要每轮重新求值、四个工具被模型实际调用、维护在回合结束时触发、
+  斜杠命令在 GUI 菜单里出现，这些都只在挂载层被断言过。跑一次要拉起常驻应用并消耗真实 token，需要你明确同意。
 
 ## 测试
 
-9 个套件，全部用 DSH 自带 Node 运行，无测试框架：
+12 个套件，全部用 DSH 自带 Node 运行，无测试框架：
 
 | 套件 | 覆盖 |
 |---|---|
@@ -356,8 +426,33 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 | `evidence` | 四种等级、**疑问句内的同一句话不算断言**、路径逃逸拒绝 |
 | `lifecycle` | 候选/定案/晋升/合并/退役/维护游标、**身份不含标题**、**过期窗口两端都生效且过去窗口被拒绝**、**被复用过的记录不在复核期退役** |
 | `import` | 字段映射、事件记录不导入、试运行不写、重复导入合并不重复、**副本库排除**、**同库重复写入合并**、**正文相同标题不同只写一行**、**工具失败事件按正文形状排除**、**选择清单只导指定记录且空清单导 0 条** |
+| `audit` | **散文粘连的路径不算缺失**、真缺失路径带最长存在前缀、**标识符不当命令查**、精确/近重复、漏斗每步、**注入实测**、报告不含过期硬编码数字、空目录不崩 |
+| `census` | 状态/证据/作用域分组、**只审 confirmed 且恰好卡在常驻线上的那一条**、审计轨迹计数、退役原因与「无纠错记录」、渲染 |
+| `commands` | 参数解析、**5 个命令都注册在真实的 command 服务上**、**`recordInput: false` 使运维输入不进会话**、预览与状态/维护/审计/导入、**导入默认不写入**、坏清单报错、**模型工具表没有变大** |
 | `plugin` | 挂载真实服务、四个工具闭环、**同一条主张有无引文导致不同召回结果**、**候选默认不可见但可显式复核并带出待复核说明**、**驱动真实 `assemble` 断言注入**、**跨工作区印证后无关的一轮仍出现**、**驱动真实 `agent/turn-stopping` 断言维护执行且失败不破坏回合**、**工具收到的天数落库为绝对到期时间且 0 天被拒** |
 
-外加一个**构建产物**验收（`tests/built.mjs`，纯 `node` 不加 flag）：每个 `lib/*.js` 都能导入、
-导出名与 `src/*.ts` 一一对应、`lib/index.js` 是合法 Cordis 插件，并且挂载后行为与源码一致。
+外加**构建产物与打包契约**验收（`tests/built.mjs`，纯 `node` 不加 flag）：每个 `lib/*.js` 都能导入、
+导出名与 `src/*.ts` 一一对应、`lib/index.js` 是合法 Cordis 插件、挂载后行为与源码一致、**随包命令注册成功**，
+并且**打包契约成立**——`files` 承诺的都在、入口在包内、`license` 与 `LICENSE` 齐备、
+**没有随包模块反向 import `src/`**（这正是「发了跑不起来的东西」那类缺陷）。
+
 `tools/verify-install.mjs` 再把同一套检查搬到真实 profile 里，验证按名从 `node_modules` 解析。
+
+一条命令跑完全部：`pnpm verify`。
+
+## 开发环境
+
+`@deepseek-ai/*` 是 peer 依赖，由宿主提供，所以仓库不 vendored 它们。测试要能解析这些包，
+`node_modules` 才指向 DSH 安装里那份扁平符号链接：
+
+```powershell
+# 在仓库根目录执行一次；Node 只会解析 node_modules，不认 dmn 或别名
+New-Item -ItemType Junction -Path node_modules `
+  -Target "$env:APPDATA\dsh-desktop\harness\profiles\node_modules"
+```
+
+这个 junction 已被 `.gitignore` 忽略。没有它，`pnpm verify` 会因为解析不到 `@deepseek-ai/cordis` 而失败
+——插件本身不受影响（它的 peer 由宿主提供），受影响的只是开发期测试。
+
+`tools/` 下的脚本**不在发布包里**：它们只是 `lib/` 之上的一层薄壳（解析参数 + 打印），
+供仓库内使用和脚本化。插件安装后，同样的能力走斜杠命令。

@@ -3,14 +3,15 @@
  * tool through its own registration.
  *
  * A bundle passing `--dump-config` only proves the configuration composes. This
- * suite mounts SystemPrompt and ToolRuntime — the two services the plugin
- * injects — and then exercises the whole loop: record, recall, link an outcome,
- * retire.
+ * suite mounts SystemPrompt, ToolRuntime and the command service — everything the
+ * plugin injects — and then exercises the whole loop: record, recall, link an
+ * outcome, retire.
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
+import Commands from '@deepseek-ai/dsh-commands'
 import { agentEvents } from '@deepseek-ai/dsh-agent'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
@@ -53,6 +54,7 @@ export async function run(): Promise<void> {
   try {
     await ctx.plugin(SystemPrompt, {})
     await ctx.plugin(ToolRuntime, {})
+    await ctx.plugin(Commands, {})
     await ctx.plugin(experienceMemory, { enabled: true, dbPath })
 
     // ── Every tool is registered and visible to the registry ──────────────
