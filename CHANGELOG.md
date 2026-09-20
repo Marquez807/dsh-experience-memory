@@ -2,6 +2,51 @@
 
 ## 0.1.0 — unreleased
 
+### A failed verification now says why
+
+Reported by a caller that spent five recording experiments and a full read of
+`evidence.js` to work out why three of its own records came back `inferred`. The cause
+was two things a return value could have stated in one line: it had passed an
+**absolute path**, which `readWorkspaceFile` drops without a word, and one of its quotes
+was missing a `**` that the file contained. Both arrived as the same sentence —
+"no session or workspace evidence matched the supplied passage" — which names the *quote*
+while the fault was in the *path*.
+
+`readWorkspaceFile` now returns the reason as data (`absolute`, `escape`, `missing`,
+`unreadable`) instead of a bare `undefined`, and `gradeEvidence` reports what it tried:
+
+- an absolute path is named, told to be workspace-relative, and given the working root;
+- a missing file is named alongside **the listing of the nearest existing directory** —
+  a caller that wrote `lib/tools.js` for a repo at `repos/dsh-quant/lib/tools.js` sees
+  `repos` immediately;
+- a quote that matches only **after markdown decoration is ignored** is reported as
+  that, with the instruction to copy the line verbatim.
+
+Two boundaries are deliberate. Decoration is used to *diagnose*, never to accept: a
+quote that matches only after stripping `**` still grades `inferred`, so "verbatim"
+keeps meaning verbatim. And every verdict now carries `route` (`tool-call`, `file`,
+`user-message`, `none`), because `source_ref` is a dual-purpose field and a caller
+could not tell which reading had been attempted.
+
+Verified by running the work order's own five recorded cases: all three failures now
+produce actionable reasons, and the two that verified before still verify.
+
+### Superseding also collects repeated attempts
+
+The previous release retired a candidate when a *graded* record replaced it. A caller
+re-recording after a second failed attempt left a pile of `inferred` duplicates instead,
+because nothing collects same-grade repeats. The sweep now runs on every write, and
+still only ever retires.
+
+### `常驻合格 N/M` now decomposes
+
+A bare ratio reads as a fault, and was reported as one. The census now says which of the
+two ways a record clears the bar the store is missing: how many cleared it **at the
+moment of writing** (and have since aged below it, which is what a `verified-file`
+record does by construction) and how many have earned the reuse bonus. The comparison
+is `>=`, so a record on the bar is eligible on the turn it was written and off it ever
+after — the one fact the ratio hid.
+
 ### The always-on layer was injecting records unrelated to the turn
 
 Found by testing the *use* path rather than the store: a record about a `batchSize` cap

@@ -47,11 +47,20 @@ export function run(): void {
   try {
     writeFileSync(join(dir, 'note.md'), 'the deployment target is the F drive\n')
 
-    // ── File access stays inside the workspace ──────────────────────────────
-    assert(readWorkspaceFile(dir, 'note.md')?.includes('F drive') === true, 'a workspace file is readable')
-    eq(readWorkspaceFile(dir, '../escape.txt'), undefined, 'a path escaping the workspace is refused')
-    eq(readWorkspaceFile(dir, '/etc/passwd'), undefined, 'an absolute path is refused')
-    eq(readWorkspaceFile(dir, 'missing.md'), undefined, 'a missing file is undefined, never a throw')
+    // ── File access stays inside the workspace, and says why when it fails ──
+    // A bare `undefined` for four different situations is what let a caller misdiagnose
+    // three of its own records: each failure arrived as "the quote did not match".
+    const readable = readWorkspaceFile(dir, 'note.md')
+    assert(readable.ok && readable.text.includes('F drive'), 'a workspace file is readable')
+    const escaped = readWorkspaceFile(dir, '../escape.txt')
+    assert(!escaped.ok && escaped.miss === 'escape', 'a path escaping the workspace is named as such')
+    const absolute = readWorkspaceFile(dir, 'F:/elsewhere/note.md')
+    assert(!absolute.ok && absolute.miss === 'absolute', 'an absolute path is named as such')
+    const missing = readWorkspaceFile(dir, 'missing.md')
+    assert(!missing.ok && missing.miss === 'missing', 'a missing file is named as such')
+    assert(!missing.ok && (missing.entries ?? []).includes('note.md'),
+      'and the directory listing shows what is actually there')
+    eq(readWorkspaceFile(dir, 'note.md').ok, true, 'and none of it throws')
 
     // ── verified-tool needs a successful result, not merely a cited id ──────
     eq(gradeEvidence({
@@ -98,6 +107,58 @@ export function run(): void {
     eq(gradeEvidence({ workspaceRoot: dir }).grade, 'inferred', 'no quote means nothing can be verified')
     eq(gradeEvidence({ quote: 'x', workspaceRoot: dir }).grade, 'inferred',
       'no session and no source reference means nothing can be verified')
+
+    // ── A failure names what was tried, and which route was read ───────────
+    // The three defects a caller reported after spending five recording experiments on
+    // them: an absolute path silently dropped, a quote defeated by markdown decoration,
+    // and one generic sentence covering every cause.
+    const asAbsolute = gradeEvidence({
+      quote: 'the deployment target is the F drive',
+      sourceRef: `${dir}/note.md:1`, workspaceRoot: dir,
+    })
+    eq(asAbsolute.grade, 'inferred', 'an absolute source_ref does not verify')
+    eq(asAbsolute.route, 'none', 'and no route claims to have verified it')
+    assert(asAbsolute.reason.includes('absolute path'),
+      `the reason names the absolute path, not the quote: ${asAbsolute.reason}`)
+    assert(asAbsolute.reason.includes('workspace-relative'),
+      'and says what to write instead')
+
+    const absentFile = gradeEvidence({
+      quote: 'anything', sourceRef: 'lib/nowhere.ts:4', workspaceRoot: dir,
+    })
+    assert(absentFile.reason.includes('no such file') && absentFile.reason.includes('lib/nowhere.ts'),
+      `a missing file is reported as missing: ${absentFile.reason}`)
+    assert(absentFile.reason.includes('note.md'),
+      `and the nearest existing directory is listed, so the real path is one glance away: ${absentFile.reason}`)
+
+    eq(gradeEvidence({
+      quote: 'the deployment target is the F drive', sourceRef: 'note.md', workspaceRoot: dir,
+    }).route, 'file', 'a verified file claim reports the file route')
+
+    writeFileSync(join(dir, 'styled.md'), '**为什么这里不写**：那是一个会过期的状态。\n')
+    const decorated = gradeEvidence({
+      quote: '为什么这里不写：那是一个会过期的状态。', sourceRef: 'styled.md', workspaceRoot: dir,
+    })
+    eq(decorated.grade, 'inferred',
+      'decoration still breaks verbatim matching — the grade is not softened for it')
+    assert(decorated.reason.includes('markdown decoration'),
+      `but the reason identifies the decoration as the cause: ${decorated.reason}`)
+
+    const nearMiss = gradeEvidence({
+      quote: '为什么这里不写那段：那是一个会过期的状态。', sourceRef: 'styled.md', workspaceRoot: dir,
+    })
+    assert(nearMiss.reason.includes('line 1'),
+      `a near miss points at the closest line: ${nearMiss.reason}`)
+
+    eq(gradeEvidence({
+      quote: '部署在 F 盘', workspaceRoot: dir,
+      agent: session([userMessage('部署在 F 盘')]),
+    }).route, 'user-message', 'a user assertion reports the message route')
+
+    eq(gradeEvidence({
+      quote: 'anything', sourceRef: 'call-1', workspaceRoot: dir,
+      agent: session([toolResult('call-1', false)]),
+    }).route, 'tool-call', 'a tool call reports the tool route')
 
     // ── Tool evidence outranks file evidence when both are available ────────
     eq(gradeEvidence({

@@ -23,7 +23,7 @@ import {
   noteCorroboration, noteUsage, readMeta, upsert, writeMeta, confirmedAfter,
   workspaceRecordsByFingerprint, candidateSiblings,
 } from './db.ts'
-import { gradeEvidence } from './evidence.ts'
+import { gradeEvidence, type EvidenceRoute } from './evidence.ts'
 import { importance, RESIDENT_EVIDENCE, RETIRE_FLOOR } from './rank.ts'
 import type { AgentLike, Evidence, Kind, MemoryRecord, Scope } from './types.ts'
 
@@ -121,6 +121,8 @@ export interface RememberResult {
   outcome: RememberOutcome
   record: MemoryRecord
   grade: Evidence
+  /** Which route verified it, or `none` — the field that makes a failure readable. */
+  route: EvidenceRoute
   /** Why that grade, so the model can improve its next attempt. */
   reason: string
   /** How many distinct workspaces have now reported this content. */
@@ -190,7 +192,7 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
       updatedAt: input.now,
     }
     upsert(db, record)
-    return { outcome: 'corroborated', record, grade: verdict.grade, reason: verdict.reason, corroborations }
+    return { outcome: 'corroborated', record, grade: verdict.grade, route: verdict.route, reason: verdict.reason, corroborations }
   }
 
   const record: MemoryRecord = {
@@ -224,23 +226,25 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
   }
   upsert(db, record)
 
-  // A candidate left by an earlier, unverifiable attempt at the same claim is not
-  // knowledge — it is the same sentence twice, once weak. Live stores showed three
-  // such pairs, all formed the same way: record without a passage, see it graded
-  // `inferred`, re-record with the file quote. Identity here is the assertion rather
-  // than the title, so the reworded body was a *different* record and the candidate
-  // stayed forever: invisible, un-injectable, and nothing swept it.
-  if (verified) supersedeWeakerCandidates(db, record, input.now)
+  // A candidate left by an earlier attempt at the same claim is not knowledge — it is
+  // the same sentence twice, once weak. Live stores showed 3-4 such pairs, all formed
+  // the same way: record without a passage, see it graded `inferred`, record it again.
+  // Identity here is the assertion rather than the title, so a reworded body is a
+  // *different* record and the earlier one stayed forever: invisible, un-injectable,
+  // and swept by nothing. This runs for every write, not only a graded one: a caller
+  // re-recording after a second failed attempt was leaving a pile of `inferred`
+  // duplicates that nothing collected either.
+  supersedeWeakerCandidates(db, record, input.now)
 
   // A lesson earned in one workspace stays there until a second, different
   // workspace reports the same content. That is the whole barrier between a
   // local quirk and a domain-wide rule.
   if (scope === 'workspace' && domain !== '' && corroborations >= 2) {
     const shared = promoteToDomain(db, record, domain, corroborations, input.now)
-    return { outcome: 'promoted', record: shared, grade: verdict.grade, reason: verdict.reason, corroborations }
+    return { outcome: 'promoted', record: shared, grade: verdict.grade, route: verdict.route, reason: verdict.reason, corroborations }
   }
 
-  return { outcome: 'created', record, grade: verdict.grade, reason: verdict.reason, corroborations }
+  return { outcome: 'created', record, grade: verdict.grade, route: verdict.route, reason: verdict.reason, corroborations }
 }
 
 /**

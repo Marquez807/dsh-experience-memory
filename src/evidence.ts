@@ -18,8 +18,8 @@
  *                     workspace
  * - `inferred`        none of the above; recorded, but never injected
  */
-import { existsSync, readFileSync } from 'node:fs'
-import { isAbsolute, relative, resolve } from 'node:path'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { dirname, isAbsolute, relative, resolve } from 'node:path'
 import { eventsOf } from './session.ts'
 import type { AgentLike, Evidence } from './types.ts'
 
@@ -34,9 +34,20 @@ export interface EvidenceRequest {
   agent?: AgentLike
 }
 
+/**
+ * Which route produced the grade.
+ *
+ * `source_ref` is deliberately dual-purpose — a tool call id or a `path:line` — and a
+ * caller could not tell from the result which one had been tried, so a path typed into
+ * a field the plugin read as an id (or the reverse) looked exactly like a bad quote.
+ * `none` means nothing verified the claim and `reason` enumerates what was attempted.
+ */
+export type EvidenceRoute = 'tool-call' | 'file' | 'user-message' | 'none'
+
 export interface EvidenceVerdict {
   grade: Evidence
-  /** Why this grade, in a form a human can audit. */
+  route: EvidenceRoute
+  /** Why this grade, in a form a human can audit — including what was tried and failed. */
   reason: string
 }
 
@@ -81,22 +92,120 @@ export function parseSourceRef(sourceRef: string): { path: string; line: number 
   return { path: match[1], line: Number(match[2]) }
 }
 
+/** Why a cited file could not be checked. Every one of these used to be the same silence. */
+export type FileMiss = 'absolute' | 'escape' | 'missing' | 'unreadable'
+
+/** The outcome of reading a cited file, carrying the reason when it failed. */
+export type WorkspaceFileRead =
+  | { ok: true; text: string }
+  | { ok: false; miss: FileMiss; path: string; where?: string; entries?: readonly string[] }
+
 /**
  * Read a workspace-relative file for quote verification.
  *
- * Returns `undefined` rather than throwing for anything that is not a readable
- * regular file inside the workspace: an unverifiable claim is simply unverified.
+ * Never throws: an unverifiable claim is simply unverified. But it no longer returns a
+ * bare `undefined` for four different situations, because the caller then had nothing
+ * to report and every failure arrived as "no session or workspace evidence matched the
+ * supplied passage" — a sentence that names the *quote* while the real problem was the
+ * *path*. A caller misdiagnosed three of its own records that way before reading this
+ * file. The reason is now data.
  */
-export function readWorkspaceFile(root: string, relPath: string): string | undefined {
-  if (relPath === '' || isAbsolute(relPath)) return undefined
+export function readWorkspaceFile(root: string, relPath: string): WorkspaceFileRead {
+  if (relPath === '') return { ok: false, miss: 'missing', path: relPath }
+  if (isAbsolute(relPath)) return { ok: false, miss: 'absolute', path: relPath }
   const target = resolve(root, relPath)
   const rel = relative(resolve(root), target)
-  if (rel.startsWith('..') || isAbsolute(rel)) return undefined
+  if (rel.startsWith('..') || isAbsolute(rel)) return { ok: false, miss: 'escape', path: relPath }
   try {
-    if (!existsSync(target)) return undefined
-    return readFileSync(target, 'utf8').slice(0, FILE_BYTES)
+    if (!existsSync(target)) {
+      // A cited path is usually one segment away from the real one, and the useful
+      // listing is therefore of the *nearest existing ancestor*: a caller that wrote
+      // `lib/tools.js` for a repo checked out at `repos/dsh-quant/lib/tools.js` has no
+      // `lib/` to list, and the fact it needs is that the root holds `repos/`.
+      let entries: string[] | undefined
+      let where: string | undefined
+      try {
+        let probe = dirname(target)
+        for (let depth = 0; depth < 8; depth += 1) {
+          if (existsSync(probe)) {
+            entries = readdirSync(probe).slice(0, 12)
+            where = relative(resolve(root), probe) || '.'
+            break
+          }
+          const parent = dirname(probe)
+          if (parent === probe) break
+          probe = parent
+        }
+      } catch {
+        entries = undefined
+      }
+      return { ok: false, miss: 'missing', path: relPath, where, entries }
+    }
+    return { ok: true, text: readFileSync(target, 'utf8').slice(0, FILE_BYTES) }
   } catch {
-    return undefined
+    return { ok: false, miss: 'unreadable', path: relPath }
+  }
+}
+
+/** Markdown decoration that a quote copied out of a table or a doc comment tends to drop. */
+const DECORATION = /\*\*|__|`|^\s*\*\s?/gm
+
+/**
+ * What to tell a caller whose quote did not appear in the file it cited.
+ *
+ * A quote taken from a JSDoc comment, a bolded table row or any markdown line usually
+ * loses its decoration in transit, and strict matching then fails with no clue why.
+ * The decorated difference is *diagnosed* here rather than accepted: verification keeps
+ * meaning verbatim, and the caller gets the one fact it needs to fix its own quote.
+ */
+function describeQuoteMiss(text: string, quote: string): string {
+  const bare = (value: string): string => value.replace(DECORATION, '').replace(/\s+/g, ' ').trim()
+  if (bare(text).includes(bare(quote))) {
+    return 'the quote matches this file only after markdown decoration is ignored '
+      + '(`**`, backticks, a leading `* `) — copy the line verbatim, decoration included, to verify it'
+  }
+  const quoteTokens = new Set(quote.replace(DECORATION, '').toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])
+  let bestLine = 0
+  let bestScore = 0
+  let bestText = ''
+  const lines = text.split('\n')
+  for (let index = 0; index < lines.length; index += 1) {
+    const tokens = lines[index]!.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []
+    if (tokens.length === 0) continue
+    let shared = 0
+    for (const token of tokens) if (quoteTokens.has(token)) shared += 1
+    const score = shared / Math.max(1, Math.min(tokens.length, quoteTokens.size))
+    if (score > bestScore) {
+      bestScore = score
+      bestLine = index + 1
+      bestText = lines[index]!.trim().slice(0, 100)
+    }
+  }
+  if (bestScore >= 0.5) {
+    return `the quote is not a verbatim substring; line ${bestLine} is closest: ${JSON.stringify(bestText)}`
+  }
+  return 'the quote does not appear in the cited file at all'
+}
+
+/** One sentence naming why a cited path could not be checked, with the fix when there is one. */
+function describeMiss(
+  read: { miss: FileMiss; path: string; where?: string; entries?: readonly string[] },
+  root: string,
+): string {
+  switch (read.miss) {
+    case 'absolute':
+      return `source_ref is an absolute path (${read.path}); a file claim must name a workspace-relative `
+        + `path — rewrite it as <dir>/<file>:<line> against the working root ${root}`
+    case 'escape':
+      return `the path leaves the workspace (${read.path})`
+    case 'unreadable':
+      return `the file exists but could not be read (${read.path})`
+    case 'missing':
+    default:
+      return `no such file in the workspace (${read.path} against ${root})`
+        + (read.entries === undefined || read.entries.length === 0
+          ? ''
+          : `; the nearest existing directory "${read.where ?? '.'}" holds ${read.entries.join(', ')}`)
   }
 }
 
@@ -156,40 +265,86 @@ export function sentenceAround(text: string, quote: string): string {
 export function gradeEvidence(request: EvidenceRequest): EvidenceVerdict {
   const quote = (request.quote ?? '').trim()
   if (quote === '') {
-    return { grade: 'inferred', reason: 'no verbatim passage supplied, so nothing can be verified' }
+    return {
+      grade: 'inferred',
+      route: 'none',
+      reason: 'no verbatim passage supplied, so nothing can be verified',
+    }
   }
 
   const events = eventsOf(request.agent)
   const sourceRef = request.sourceRef?.trim() ?? ''
+  // Every attempt is recorded so a failure can name what was tried. A caller that has
+  // to design experiments to discover why its own record was not verified is a caller
+  // losing an hour to a return value.
+  const tried: string[] = []
 
   if (sourceRef !== '' && events.length > 0) {
     const succeeded = toolResultSucceeded(events, sourceRef)
     if (succeeded === true) {
-      return { grade: 'verified-tool', reason: `tool call ${sourceRef} completed without error in this session` }
+      return {
+        grade: 'verified-tool',
+        route: 'tool-call',
+        reason: `tool call ${sourceRef} completed without error in this session`,
+      }
     }
-    if (succeeded === false) {
-      return { grade: 'inferred', reason: `tool call ${sourceRef} reported an error, so it proves nothing` }
-    }
+    tried.push(succeeded === false
+      ? `source_ref "${sourceRef}" is a tool call that reported an error, so it proves nothing`
+      : `source_ref "${sourceRef}" matched no tool call in this session`)
+  } else if (sourceRef !== '') {
+    tried.push(`source_ref "${sourceRef}" could not be checked against tool calls: no session log is available`)
+  } else {
+    tried.push('no source_ref was supplied, so only the session\'s own messages could be checked')
   }
 
   if (sourceRef !== '') {
     const parsed = parseSourceRef(sourceRef)
-    const text = parsed === null ? undefined : readWorkspaceFile(request.workspaceRoot, parsed.path)
-    if (text !== undefined && text.includes(quote)) {
-      return { grade: 'verified-file', reason: `quote appears in ${parsed?.path ?? sourceRef}` }
+    if (parsed === null) {
+      tried.push(`source_ref "${sourceRef}" is empty once trimmed`)
+    } else {
+      tried.push(`source_ref "${sourceRef}" was read as the path "${parsed.path}"`)
+      const read = readWorkspaceFile(request.workspaceRoot, parsed.path)
+      if (read.ok) {
+        if (read.text.includes(quote)) {
+          return {
+            grade: 'verified-file',
+            route: 'file',
+            reason: `quote appears in ${parsed.path}${parsed.line === null ? '' : ` (cited line ${parsed.line})`}`,
+          }
+        }
+        tried.push(`the file was read but the quote is not in it — ${describeQuoteMiss(read.text, quote)}`)
+      } else {
+        tried.push(describeMiss(read, request.workspaceRoot))
+      }
     }
   }
 
   if (events.length > 0) {
-    const said = userMessageContaining(events, quote)
-    if (said !== undefined) {
-      const sentence = sentenceAround(said, quote)
-      if (unsafeStatement(sentence)) {
-        return { grade: 'inferred', reason: 'the sentence containing this passage is a question or a hedge, not an assertion' }
+    tried.push('no message the user sent contains the quote verbatim')
+  } else {
+    tried.push('no session log is available, so no user message could be checked')
+  }
+
+  const said = events.length > 0 ? userMessageContaining(events, quote) : undefined
+  if (said !== undefined) {
+    const sentence = sentenceAround(said, quote)
+    if (unsafeStatement(sentence)) {
+      return {
+        grade: 'inferred',
+        route: 'user-message',
+        reason: 'the sentence containing this passage is a question or a hedge, not an assertion',
       }
-      return { grade: 'verified-user', reason: 'verbatim quote appears in an assertion the user made' }
+    }
+    return {
+      grade: 'verified-user',
+      route: 'user-message',
+      reason: 'verbatim quote appears in an assertion the user made',
     }
   }
 
-  return { grade: 'inferred', reason: 'no session or workspace evidence matched the supplied passage' }
+  return {
+    grade: 'inferred',
+    route: 'none',
+    reason: `nothing verified this claim. Tried: ${tried.join('; ')}.`,
+  }
 }
