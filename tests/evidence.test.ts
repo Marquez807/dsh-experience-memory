@@ -22,7 +22,12 @@ const toolResult = (callId: string, isError: boolean): SessionEventLike => ({
   data: { message: { source: { kind: 'tool', callId }, content: [{ type: 'tool-result', toolCallId: callId, content: [], isError }] } },
 })
 
-const session = (events: SessionEventLike[], cwd = process.cwd()) => ({ session: { header: { cwd }, events } })
+// The real shape: a Session exposes its log through `snapshotEvents()`. A fixture
+// built on a plain `events` array would exercise only the compatibility branch, and
+// the production path is exactly what went unexercised while a verbatim user quote
+// silently graded as `inferred` in a live run.
+const session = (events: SessionEventLike[], cwd = process.cwd()) =>
+  ({ session: { header: { cwd }, snapshotEvents: () => events } })
 
 export function run(): void {
   // ── Phrasing that must not become a confirmed fact ───────────────────────

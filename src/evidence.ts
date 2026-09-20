@@ -20,24 +20,10 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { isAbsolute, relative, resolve } from 'node:path'
-import type { Evidence } from './types.ts'
+import { eventsOf } from './session.ts'
+import type { AgentLike, Evidence } from './types.ts'
 
-/** The slice of the session this module reads. Structural, so nothing leaks in. */
-export interface SessionEventLike {
-  type?: string
-  data?: {
-    source?: { kind?: string; callId?: string }
-    content?: unknown
-    message?: {
-      source?: { kind?: string; callId?: string }
-      content?: unknown
-    }
-  }
-}
-
-export interface SessionLike {
-  session?: { header?: { cwd?: string }; events?: readonly SessionEventLike[] }
-}
+export type { AgentLike }
 
 export interface EvidenceRequest {
   /** The verbatim passage the claim rests on. Absent means no verified grade. */
@@ -45,7 +31,7 @@ export interface EvidenceRequest {
   /** `path:line` for a file claim, or a tool call id for a tool claim. */
   sourceRef?: string
   workspaceRoot: string
-  agent?: SessionLike
+  agent?: AgentLike
 }
 
 export interface EvidenceVerdict {
@@ -173,7 +159,7 @@ export function gradeEvidence(request: EvidenceRequest): EvidenceVerdict {
     return { grade: 'inferred', reason: 'no verbatim passage supplied, so nothing can be verified' }
   }
 
-  const events = request.agent?.session?.events ?? []
+  const events = eventsOf(request.agent)
   const sourceRef = request.sourceRef?.trim() ?? ''
 
   if (sourceRef !== '' && events.length > 0) {

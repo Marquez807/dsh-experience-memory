@@ -25,12 +25,29 @@ const TOOLS = ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_fo
 
 interface Agent {
   id?: string
-  session: { header: { cwd: string }; events: readonly unknown[] }
+  session: {
+    header: { cwd: string }
+    /**
+     * The real shape. A Session exposes its log through `snapshotEvents()`; a plain
+     * `events` array exists only for hand-built sessions. Fixtures must carry the
+     * method, because a fixture that only has the array tests the fallback and
+     * leaves the production path unexercised — which is how a broken
+     * `agent.session.events` read survived the whole suite once already.
+     */
+    snapshotEvents?: () => readonly unknown[]
+    events?: readonly unknown[]
+  }
 }
 
 const userMessage = (text: string, kind = 'user') => ({
   type: 'user/message',
   data: { source: { kind }, content: [{ type: 'text', text }] },
+})
+
+/** A session in the shape a real one has: the log behind a method. */
+const sessionWith = (events: readonly unknown[], cwd = process.cwd()) => ({
+  header: { cwd },
+  snapshotEvents: () => events,
 })
 
 export async function run(): Promise<void> {
@@ -41,11 +58,18 @@ export async function run(): Promise<void> {
     type: 'user/message',
     data: { source: { kind: kind ?? 'user' }, content: [{ type: 'text', text }] },
   })
-  eq(recentQueryText({ session: { events: [m('第一句'), m('第二句')] } }),
-    '第一句\n第二句', 'the last user messages become the query')
-  eq(recentQueryText({ session: { events: [m('旧'), m('新'), m('我注入的', 'plugin')] } }),
+  // The primary path: a real session, whose log is only reachable by calling.
+  eq(recentQueryText({ session: sessionWith([m('第一句'), m('第二句')]) }),
+    '第一句\n第二句', 'the last user messages become the query, read from a real session')
+  eq(recentQueryText({ session: sessionWith([m('旧'), m('新'), m('我注入的', 'plugin')]) }),
     '旧\n新', 'a plugin-sourced message is never read back as the query')
-  eq(recentQueryText({ session: { events: [m('   ')] } }), '', 'a blank message contributes nothing')
+  eq(recentQueryText({ session: sessionWith([m('   ')]) }), '', 'a blank message contributes nothing')
+  // The compatibility branch, kept so a hand-built session still works — and
+  // labelled as such, so it is never mistaken for the real contract again.
+  eq(recentQueryText({ session: { events: [m('回退分支')] } }),
+    '回退分支', 'a plain events array is still accepted from a hand-built session')
+  eq(recentQueryText({ session: { snapshotEvents: () => { throw new Error('no log') } } }), '',
+    'a session whose log cannot be materialized contributes no query rather than throwing')
 
   const dir = mkdtempSync(join(tmpdir(), 'expmem-plugin-'))
   const dbPath = join(dir, 'memory.db')
@@ -74,7 +98,10 @@ export async function run(): Promise<void> {
       }) as T
     }
 
-    const agentFor = (events: readonly unknown[]): Agent => ({ id: 'session-1', session: { header: { cwd: dir }, events } })
+    const agentFor = (events: readonly unknown[]): Agent => ({
+      id: 'session-1',
+      session: { header: { cwd: dir }, snapshotEvents: () => events },
+    })
 
     // ── The digest reaches the assembled prompt, and is re-evaluated ───────
     // Registering a context only proves the plugin *can* contribute. At least one
@@ -219,7 +246,7 @@ export async function run(): Promise<void> {
       await call<{ outcome: string; id: string }>(
         'memory_remember',
         { kind: 'experience', title, body: sharedBody, quote: sharedQuote, trigger: '回滚' },
-        { id: 'core-session', session: { header: { cwd: root }, events: [userMessage(sharedQuote)] } },
+        { id: 'core-session', session: { header: { cwd: root }, snapshotEvents: () => [userMessage(sharedQuote)] } },
       )
 
     const firstCopy = await rememberIn(domainRoots[0]!, '回滚前先备份')
@@ -231,7 +258,7 @@ export async function run(): Promise<void> {
 
     const digestFor = async (root: string, text: string): Promise<string> => {
       const assembly = await ctx.systemPrompt.assemble({
-        agent: { id: 'core-session', session: { header: { cwd: root }, events: [userMessage(text)] } },
+        agent: { id: 'core-session', session: { header: { cwd: root }, snapshotEvents: () => [userMessage(text)] } },
       })
       const entry = assembly.contexts.find(c => c.name === 'experience-memory:resident')
       assert(entry !== undefined, 'the resident context is present')
@@ -250,7 +277,7 @@ export async function run(): Promise<void> {
     // it, so the same lesson cannot be injected twice or from two places.
     const seenFromDomain = await call<{ returned: number; total: number }>(
       'memory_recall', { query: '回滚', include_retired: true },
-      { id: 'core-session', session: { header: { cwd: domainRoots[0]! }, events: [] } },
+      { id: 'core-session', session: { header: { cwd: domainRoots[0]! }, snapshotEvents: () => [] } },
     )
     eq(seenFromDomain.total, 1, 'one lesson remains, not one per workspace that learned it')
 

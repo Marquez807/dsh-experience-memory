@@ -58,7 +58,8 @@ export async function run(): Promise<void> {
       id: 'cmd-session',
       session: {
         header: { cwd: dir },
-        events,
+        // The real accessor, plus the append hook the command service calls.
+        snapshotEvents: () => events,
         append: (type: string, data: Record<string, unknown>) => { appended.push({ type, data }) },
       },
     })

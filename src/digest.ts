@@ -15,6 +15,10 @@ import type { ResolvedConfig } from './config.ts'
 import { resolveWorkspace } from './domain.ts'
 import { renderDigest, renderRecall, renderResident } from './inject.ts'
 import { retrieve, retrieveCore } from './retrieve.ts'
+import { eventsOf } from './session.ts'
+import type { AgentLike } from './types.ts'
+
+export type { AgentLike }
 
 /**
  * Headings for the two digest sections.
@@ -37,11 +41,6 @@ export interface SessionEventLike {
   data?: { source?: { kind?: string }; content?: unknown }
 }
 
-export interface AgentLike {
-  id?: string
-  session?: { header?: { cwd?: string }; events?: readonly SessionEventLike[] }
-}
-
 export interface Workspace {
   id: string
   domain: string
@@ -61,8 +60,7 @@ function textOfContent(content: unknown): string {
 
 /** Derive this turn's retrieval query from the conversation. */
 export function recentQueryText(agent: AgentLike | undefined): string {
-  const events = agent?.session?.events
-  if (events === undefined) return ''
+  const events = eventsOf(agent)
   const parts: string[] = []
   let seen = 0
   for (const event of [...events].reverse()) {

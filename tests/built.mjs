@@ -97,7 +97,10 @@ try {
 
   // The built artifact registers its commands on the real service too, so a
   // build that dropped them would fail here rather than in a user's session.
-  const commandAgent = { id: 'built-commands', session: { header: { cwd: dir }, events: [], append: () => {} } }
+  const commandAgent = {
+    id: 'built-commands',
+    session: { header: { cwd: dir }, snapshotEvents: () => [], append: () => {} },
+  }
   const status = await ctx.commands.execute(commandAgent, '/memory-status', [], new AbortController().signal)
   check(status !== undefined, 'the built artifact registers /memory-status')
   eq(status?.result.kind, 'success', 'and it answers on the real command service')
@@ -107,7 +110,8 @@ try {
     check(definition !== undefined, `${name} resolves`)
     return await definition.execute(args, {
       signal: new AbortController().signal,
-      agent: { id: 'built-session', session: { header: { cwd: dir }, events } },
+      // The real session shape: the log comes from a method, not a property.
+      agent: { id: 'built-session', session: { header: { cwd: dir }, snapshotEvents: () => events } },
     })
   }
 

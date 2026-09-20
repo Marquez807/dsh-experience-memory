@@ -200,6 +200,25 @@ data. Everything below came out of that audit.
 
 ### Fixed, each with a regression test
 
+- **The session log was read from a property that does not exist — so nothing this
+  plugin promised actually worked in production.** Both readers used
+  `agent.session.events`, a plain array that a real Session does not have; the real
+  accessor is `session.snapshotEvents()`. In a live session that made the log
+  empty, with two consequences: a verbatim user assertion was never graded
+  `verified-user` (so nothing the user said face-to-face could become a confirmed
+  record, and the store could only ever fill with candidates that are never
+  injected), and the retrieval query was always `''` (so the "relevant to this
+  turn" half of the resident digest never matched anything).
+  The whole suite passed throughout, because every fixture hand-built the array
+  that production objects do not have: the fixtures encoded the assumption rather
+  than the contract. Found by running one real task through the headless app —
+  the first live turn recorded a quote that was verbatim in the user's message and
+  the plugin graded it `inferred`. Both readers now go through a single
+  `eventsOf()` in `src/session.ts`, and every fixture builds the real shape, with
+  the array form kept only as an explicitly-labelled compatibility branch.
+  Verified live afterwards: the same quote grades `verified-user`, and a fact that
+  exists nowhere in the environment was answered from the resident digest without
+  any tool call.
 - **Two tokenizers that disagreed.** The old JSONL path searched the record body
   and could match Cyrillic; the old SQLite path searched `summary` — which is
   `text[:150]` — and dropped every non-ASCII, non-CJK script. Migrating silently

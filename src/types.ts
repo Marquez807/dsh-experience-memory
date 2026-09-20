@@ -74,3 +74,38 @@ export interface RankedRecord {
   /** Agent-readable justification, so a recall can be explained. */
   why: string
 }
+
+// ── Session shapes ──────────────────────────────────────────────────────────
+// Structural rather than imported, so the plugin depends on no session package.
+// `src/session.ts` is the only place that reads them; see its comment for why
+// centralising this mattered.
+
+/** The slice of one logged event this plugin reads. */
+export interface SessionEventLike {
+  type?: string
+  data?: {
+    source?: { kind?: string; callId?: string }
+    content?: unknown
+    message?: {
+      source?: { kind?: string; callId?: string }
+      content?: unknown
+    }
+  }
+}
+
+/** The slice of a Session this plugin reads. */
+export interface SessionLike {
+  header?: { cwd?: string }
+  /**
+   * A hand-built session may carry a plain array. A real one does not: it exposes
+   * this log through `snapshotEvents()`.
+   */
+  events?: readonly SessionEventLike[]
+  snapshotEvents?: (fromSeq?: number, toSeqExclusive?: number) => readonly SessionEventLike[]
+}
+
+/** The slice of an Agent this plugin reads. */
+export interface AgentLike {
+  id?: string
+  session?: SessionLike
+}

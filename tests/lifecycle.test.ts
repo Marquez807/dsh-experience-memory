@@ -26,14 +26,14 @@ const DOMAIN = 'python/testing'
 
 /** A session in which the user said exactly `quote`. */
 function sessionSaying(quote: string, cwd: string) {
+  const events = [{
+    type: 'user/message',
+    data: { source: { kind: 'user' }, content: [{ type: 'text', text: quote }] },
+  }]
   return {
-    session: {
-      header: { cwd },
-      events: [{
-        type: 'user/message',
-        data: { source: { kind: 'user' }, content: [{ type: 'text', text: quote }] },
-      }],
-    },
+    // A real Session exposes its log through `snapshotEvents()`, not as an array
+    // property. Fixtures must match that or they test a path production never takes.
+    session: { header: { cwd }, snapshotEvents: () => events },
   }
 }
 

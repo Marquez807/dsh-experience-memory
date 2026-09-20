@@ -23,9 +23,9 @@ import {
   noteCorroboration, noteUsage, readMeta, upsert, writeMeta, confirmedAfter,
   workspaceRecordsByFingerprint,
 } from './db.ts'
-import { gradeEvidence, type SessionLike } from './evidence.ts'
+import { gradeEvidence } from './evidence.ts'
 import { importance, RESIDENT_EVIDENCE, RETIRE_FLOOR } from './rank.ts'
-import type { Evidence, Kind, MemoryRecord, Scope } from './types.ts'
+import type { AgentLike, Evidence, Kind, MemoryRecord, Scope } from './types.ts'
 
 const DAY = 86_400_000
 
@@ -96,7 +96,7 @@ export interface RememberInput {
   expiresAt?: number
   /** Absolute time at which an unused record should be re-verified by `maintain`. */
   reviewAfter?: number
-  agent?: SessionLike
+  agent?: AgentLike
   now: number
 }
 
