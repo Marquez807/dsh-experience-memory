@@ -27,10 +27,10 @@ dsh plugin --profile <name> add /path/to/dsh-experience-memory-0.1.0.tgz
 |---|---|---|
 | 自动注入 | 常驻摘要：核心层（跨项目印证过）+ 查询层，共享 1536 字节 | 无 |
 | 自动维护 | `agent/turn-stopping` 有界维护，批量 32 条带游标 | 无 |
-| **模型工具**（4 个） | `memory_recall` / `remember` / `feedback` / `forget` | 模型 |
+| **模型工具**（5 个） | `memory_recall` / `remember` / `feedback` / `forget` / **`stats`** | 模型 |
 | **斜杠命令**（5 个） | 状态、预览、维护、审计、导入 | **人** |
 
-工具和命令的分工是刻意的：审计与导入会伸到库外面（扫描任意目录、批量写入），所以留在人的触发之后；这也让模型的工具表保持 4 个，不增加每轮的 schema 开销。
+工具和命令的分工是刻意的：审计与导入会伸到库外面（扫描任意目录、批量写入），所以留在人的触发之后。`memory_stats` 是唯一给模型的运维视角工具——只读、无参数，用来回答「你记得什么」，或者自查「我记的东西到底有没有送达」。
 
 ## 安装（开发期细节）
 
@@ -220,6 +220,7 @@ DSH_TELEMETRY_DISABLED=1 node <dsh>/lib/bin.js --profile <name> --patch boot-acc
 | `memory_remember` | 记录一条事实/经验/策略；不提供可验证原文则存为候选。可选 `expires_in_days` / `review_after_days` 给易腐事实上一道窗口 |
 | `memory_feedback` | 关联一次真实结果；成功清除失败连击，两次连续失败即退役 |
 | `memory_forget` | 退役（默认）或彻底删除 |
+| `memory_stats` | 只读普查：库里有几条、多少条够常驻线、复用与纠错计数、最近退役原因。无参数。`/memory-status` 是它的给人版本 |
 
 ## 斜杠命令（给人用，模型看不到）
 
@@ -383,9 +384,9 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 
 内容只在命中集合真正变化时才改变，因此对前缀缓存的影响限于变化的轮次。核心层是稳定的，因此对缓存最友好的一段是它。
 
-### 四个工具
+### 五个工具
 
-`memory_recall` / `memory_remember` / `memory_feedback` / `memory_forget`，见上表。
+`memory_recall` / `memory_remember` / `memory_feedback` / `memory_forget` / `memory_stats`，见上表。
 
 ### 五个斜杠命令
 
@@ -432,7 +433,7 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 | `audit` | **散文粘连的路径不算缺失**、真缺失路径带最长存在前缀、**标识符不当命令查**、精确/近重复、漏斗每步、**注入实测**、报告不含过期硬编码数字、空目录不崩 |
 | `census` | 状态/证据/作用域分组、**只审 confirmed 且恰好卡在常驻线上的那一条**、审计轨迹计数、退役原因与「无纠错记录」、渲染 |
 | `commands` | 参数解析、**5 个命令都注册在真实的 command 服务上**、**用斜杠菜单读的同一个 `list()` 断言可发现性（描述、参数提示、排序）**、**`recordInput: false` 使运维输入不进会话**、预览与状态/维护/审计/导入、**导入默认不写入**、坏清单报错、**模型工具表没有变大** |
-| `plugin` | 挂载真实服务、四个工具闭环、**同一条主张有无引文导致不同召回结果**、**候选默认不可见但可显式复核并带出待复核说明**、**驱动真实 `assemble` 断言注入**、**跨工作区印证后无关的一轮仍出现**、**驱动真实 `agent/turn-stopping` 断言维护执行且失败不破坏回合**、**工具收到的天数落库为绝对到期时间且 0 天被拒** |
+| `plugin` | 挂载真实服务、五个工具闭环、**`memory_stats` 的计数与库实际状态一致且只读**、**同一条主张有无引文导致不同召回结果**、**候选默认不可见但可显式复核并带出待复核说明**、**驱动真实 `assemble` 断言注入**、**跨工作区印证后无关的一轮仍出现**、**驱动真实 `agent/turn-stopping` 断言维护执行且失败不破坏回合**、**工具收到的天数落库为绝对到期时间且 0 天被拒** |
 
 外加**构建产物与打包契约**验收（`tests/built.mjs`，纯 `node` 不加 flag）：每个 `lib/*.js` 都能导入、
 导出名与 `src/*.ts` 一一对应、`lib/index.js` 是合法 Cordis 插件、挂载后行为与源码一致、**随包命令注册成功**，

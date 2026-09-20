@@ -21,7 +21,7 @@ import { openDb } from '../src/db.ts'
 import { assert, eq } from './assert.ts'
 import type { DatabaseSync } from 'node:sqlite'
 
-const TOOLS = ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_forget'] as const
+const TOOLS = ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_forget', 'memory_stats'] as const
 
 interface Agent {
   id?: string
@@ -130,6 +130,23 @@ export async function run(): Promise<void> {
     eq(goodRecall.returned, 1, 'the confirmed record is recalled')
     assert(goodRecall.text.includes(verified.id), 'the recall names the record id so it can be acted on')
     eq(goodRecall.truncated, false, 'a small answer is not marked truncated')
+
+    // ── The model can ask what it holds ───────────────────────────────────
+    // Read-only, and the numbers must describe the store rather than the tool's
+    // own idea of it. The candidate was upgraded in place, so there is one record.
+    const stats = await call<{
+      records: number; confirmed: number; candidates: number; retired: number
+      resident_eligible: number; usage_total: number; corrections: number; text: string
+    }>('memory_stats', {}, agentFor([]))
+    eq(stats.records, 1, 'stats counts the records that exist')
+    eq(stats.confirmed, 1, 'and separates confirmed from candidates')
+    eq(stats.candidates, 0, 'with nothing left as a candidate')
+    eq(stats.retired, 0, 'and nothing retired yet')
+    eq(stats.resident_eligible, 1, 'and reports how many would be injected right now')
+    eq(stats.usage_total, 0, 'a census records no usage of its own, because it is read-only')
+    assert(stats.text.includes('记录 1 条'), 'the readable rendering agrees with the structured counts')
+    eq((await call<{ records: number; usage_total: number }>('memory_stats', {}, agentFor([]))).records, 1,
+      'and asking twice changes nothing')
 
     // The same record now reaches the prompt through the resident context. This
     // also pins the layer's real contract: `retrieve` returns nothing when the

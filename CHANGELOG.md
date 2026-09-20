@@ -4,6 +4,12 @@
 
 ### Plug-and-play packaging and operator commands
 
+- **`memory_stats`: a read-only census the model can ask for.** It reports how many
+  records exist, how many are eligible for the always-on digest right now, what has
+  been reused, and what was retired and why. No parameters and no writes, so it
+  costs one small schema and answers questions the model otherwise could not —
+  "what do you remember", and "did the thing I recorded actually reach me". The
+  operator command `/memory-status` is the human-facing half of the same census.
 - **One command installs it.** `dsh plugin --profile <name> add <tarball>` also
   reconciles `dsh.profile.bundles` against what is installed, so a package that
   declares `dsh.bundle` joins the layer stack by itself. Verified end to end: the

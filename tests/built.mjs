@@ -27,7 +27,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const TOOLS = ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_forget']
+const TOOLS = ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_forget', 'memory_stats']
 
 let failures = 0
 const check = (ok, label) => {

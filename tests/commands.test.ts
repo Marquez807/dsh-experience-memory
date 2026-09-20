@@ -201,9 +201,11 @@ export async function run(): Promise<void> {
     eq(missing.kind, 'error', 'an unreadable selection file is an error')
     assert(text(missing).includes('无法读取清单'), 'and says which file it could not read')
 
-    // ── The model surface did not grow ───────────────────────────────────
+    // ── The model surface did not grow with the commands ─────────────────
+    // Exactly the five registered tools and nothing else: the operator commands
+    // are a menu, not tools, so they cost the model nothing per turn.
     const toolNames = ctx.tools.schemas().map(schema => schema.name).sort()
-    eq(toolNames, ['memory_feedback', 'memory_forget', 'memory_recall', 'memory_remember'],
+    eq(toolNames, ['memory_feedback', 'memory_forget', 'memory_recall', 'memory_remember', 'memory_stats'],
       'the operator commands added no model-facing tool')
 
     // ── Unmounting releases the database ─────────────────────────────────

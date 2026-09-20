@@ -49,10 +49,12 @@ try {
   await ctx.plugin(memory, { enabled: true, dbPath: join(dir, 'memory.db') })
 
   const registered = ctx.tools.schemas().map(s => s.name)
-  for (const tool of ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_forget']) {
+  const expectedTools = ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_forget', 'memory_stats']
+  for (const tool of expectedTools) {
     check(registered.includes(tool), `installed plugin registers ${tool}`)
   }
-  check(registered.length === 4, 'and the model tool surface is exactly those four')
+  check(registered.length === expectedTools.length,
+    `and the model tool surface is exactly those ${expectedTools.length}`)
 
   const call = async (name, args, events = []) =>
     await ctx.tools.get(name).execute(args, {
