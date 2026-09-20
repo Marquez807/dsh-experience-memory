@@ -47,6 +47,32 @@ console.log(`  by evidence  : ${side.prepare(
 console.log(`  by scope     : ${side.prepare(
   'SELECT scope, count(*) AS n FROM record GROUP BY scope ORDER BY n DESC',
 ).all().map(row => `${row.scope}=${row.n}`).join(' ')}`)
+
+// The audit trail: `usage` and `correction` are append-only and were written but
+// never read by anything, so "why did this lose its place, or leave entirely?"
+// had no answer short of opening SQLite by hand. That is the question this tool
+// exists to answer, so it reads them here.
+const trail = side.prepare(
+  'SELECT (SELECT count(*) FROM usage) AS uses,'
+  + ' (SELECT count(*) FROM usage WHERE outcome = ?) AS successes,'
+  + ' (SELECT count(*) FROM usage WHERE outcome = ?) AS failures,'
+  + ' (SELECT count(*) FROM correction) AS corrections',
+).get('success', 'failure')
+console.log(`  usage rows   : ${trail.uses} (success ${trail.successes} / failure ${trail.failures})`)
+console.log(`  corrections  : ${trail.corrections}`)
+
+const retired = side.prepare(
+  "SELECT r.id, r.title, r.scope, c.reason, c.at FROM record r"
+  + " LEFT JOIN correction c ON c.record_id = r.id"
+  + " WHERE r.status = 'retired' ORDER BY c.at DESC LIMIT 20",
+).all()
+if (retired.length > 0) {
+  console.log(`  retired      : ${retired.length}${retired.length === 20 ? '+' : ''} (newest first)`)
+  for (const row of retired) {
+    const when = row.at === null ? 'no correction row' : new Date(row.at).toISOString().slice(0, 10)
+    console.log(`    ${when}  [${row.id}] ${String(row.title).slice(0, 48)} — ${row.reason ?? 'unknown'}`)
+  }
+}
 side.close()
 
 const ctx = new Context()

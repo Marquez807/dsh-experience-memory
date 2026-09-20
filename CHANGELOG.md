@@ -76,6 +76,12 @@ data. Everything below came out of that audit.
   both injected services against the real base tree, and ran `apply()`. That
   second point is not checkable from `--dump-config` — a plugin whose `inject`
   dependencies are absent from the tree simply never activates, silently.
+- **The audit trail is now readable.** `usage` and `correction` are append-only
+  tables that the framework wrote and nothing ever read, so "why did this record
+  lose its place, or leave the pool entirely?" had no answer inside the plugin —
+  it required opening SQLite by hand. `tools/preview.mjs` now reports usage
+  totals, correction counts and the most recent retirements with their reasons.
+  The tables are small and worth keeping; what they lacked was a reader.
 - **`tools/preview.mjs`** prints what the model would actually see for a given
   database, directory and query, by driving the real assembly path. "Not in the
   store" and "in the store but not in the prompt" have different fixes and neither
