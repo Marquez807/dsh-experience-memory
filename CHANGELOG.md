@@ -2,6 +2,62 @@
 
 ## 0.1.0 — unreleased
 
+### The always-on layer was injecting records unrelated to the turn
+
+Found by testing the *use* path rather than the store: a record about a `batchSize` cap
+was injected into "把这个仓库的 README 用一句话改写", a turn about nothing of the kind.
+Reproduced deterministically — `identifierMatches=0`, bm25 −0.59, and an empty
+`excluded` tally, meaning no filter objected. FTS5's expression is an OR over CJK
+bigrams and the record's body contained `这个值`, so one shared function word retrieved
+it; the resident gate then asked only whether its *importance* cleared the floor, and
+it did.
+
+The gate now has two independent halves and both must pass: grade (evidence plus
+history) and **relevance** — an identifier hit, or at least one shared word that is not
+a CJK function word. A function-word list rather than a corpus frequency threshold,
+because frequency does not work in a store this small: `这个` appeared in one of three
+records, which any ratio test reads as rare. The first attempt demanded two shared terms
+instead, and the suite rejected it at once — a two-character Chinese word yields exactly
+one bigram, so it refused the obvious match as readily as the accidental one.
+
+A perverse incentive disappears with it: importance rises with successful reuse, so
+grading alone made a record's *usefulness* raise its chance of leaking into unrelated
+turns.
+
+### A re-record left its candidate behind, forever
+
+Identity is the assertion, so re-recording a claim in different words creates a second
+record. A live store showed the consequence: three "candidate + confirmed" pairs, all
+formed the same way — record with no passage, see it graded `inferred`, re-record with a
+file quote. The candidate was never injectable, never visible, and swept by nothing:
+43% of the store.
+
+Writing a graded record now retires candidates in the same workspace whose title
+matches, with `supersededBy` naming the replacement and a correction entry recording
+why. Titles are compared with punctuation folded, and the live store is the reason: one
+pair differed only by the 「」 around a single word, so exact equality read it as two
+claims and the first version of this fix left that candidate behind.
+
+Body similarity was the first idea and does not work — the real pairs are rewrites, so
+their token overlap sits far below any near-duplicate threshold.
+
+### Disclosed: type annotations are never checked
+
+`stripTypeScriptTypes` removes annotations without checking them, and the toolchain has
+no `tsc`, so a wrong annotation is deleted silently and nothing notices — not the build,
+not a test. Type annotations here are documentation for a reader, not a verified
+contract. Adding a type gate means adding a TypeScript dependency, which is exactly what
+"zero build dependencies" rules out, so this is a deliberate trade rather than an
+oversight, and it is now written where a reader will find it.
+
+### Tests: maintenance assertions no longer depend on id order
+
+`maintain` starts from a persisted cursor and wraps only when a pass finds nothing after
+it, so whether one pass reaches a record depends on where that record's id sorts — and
+ids are random. Adding unrelated records to the lifecycle suite made an expiry assertion
+fail for that reason, not because a rule broke. The suite now drives two passes wider
+than the store, which covers the ring whatever the cursor was.
+
 ### Evidence routes, stated where the model actually reads them
 
 A lesson learned from a tool failure was reaching the store as a candidate that could

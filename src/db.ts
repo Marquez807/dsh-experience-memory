@@ -377,6 +377,23 @@ export function workspaceRecordsByFingerprint(db: DatabaseSync, fingerprint: str
   return rows.map(toRecord)
 }
 
+/**
+ * Unconfirmed records in one workspace.
+ *
+ * Identity in this framework is the assertion, not the title, so re-recording the same
+ * claim in different words creates a second record rather than replacing the first.
+ * That is right for corroboration and wrong for a stranded candidate, which is what
+ * this query exists to find. The caller compares titles itself, because the comparison
+ * has to fold punctuation: two live records carried one claim under titles differing
+ * only by the quotation marks around a single word.
+ */
+export function candidateSiblings(db: DatabaseSync, workspaceId: string): MemoryRecord[] {
+  const rows = db.prepare(
+    'SELECT * FROM record WHERE workspace_id = ? AND status = ?',
+  ).all(workspaceId, 'candidate') as Row[]
+  return rows.map(toRecord)
+}
+
 /** How many distinct workspaces have independently reported this content. */
 export function corroborationCount(db: DatabaseSync, fingerprint: string): number {
   const row = db.prepare(

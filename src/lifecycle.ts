@@ -21,7 +21,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import {
   corroborationCount, deleteRecord, findByFingerprint, getRecord, noteCorrection,
   noteCorroboration, noteUsage, readMeta, upsert, writeMeta, confirmedAfter,
-  workspaceRecordsByFingerprint,
+  workspaceRecordsByFingerprint, candidateSiblings,
 } from './db.ts'
 import { gradeEvidence } from './evidence.ts'
 import { importance, RESIDENT_EVIDENCE, RETIRE_FLOOR } from './rank.ts'
@@ -41,6 +41,21 @@ const CURSOR_KEY = 'maintenance_cursor'
 /** Fold away differences that do not change what a record asserts. */
 export function normalizeContent(text: string): string {
   return text.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * A comparison key for titles, with everything but letters and digits removed.
+ *
+ * Titles are labels, and the records show how loosely they are written: a live pair
+ * carried one claim as `…重载「已加载 bundle」的模块` and `…重载已加载 bundle 的模块`,
+ * differing only by the quotation marks around one word. Exact equality called those
+ * two different claims, so the candidate they shared was never retired. Folding
+ * punctuation and spacing is what lets the title serve as the claim-level handle at
+ * all — it is a weaker key than the content fingerprint on purpose, and the action
+ * taken on a match is reversible for the same reason.
+ */
+export function titleKey(title: string): string {
+  return title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
 }
 
 /**
@@ -209,6 +224,14 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
   }
   upsert(db, record)
 
+  // A candidate left by an earlier, unverifiable attempt at the same claim is not
+  // knowledge — it is the same sentence twice, once weak. Live stores showed three
+  // such pairs, all formed the same way: record without a passage, see it graded
+  // `inferred`, re-record with the file quote. Identity here is the assertion rather
+  // than the title, so the reworded body was a *different* record and the candidate
+  // stayed forever: invisible, un-injectable, and nothing swept it.
+  if (verified) supersedeWeakerCandidates(db, record, input.now)
+
   // A lesson earned in one workspace stays there until a second, different
   // workspace reports the same content. That is the whole barrier between a
   // local quirk and a domain-wide rule.
@@ -218,6 +241,45 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
   }
 
   return { outcome: 'created', record, grade: verdict.grade, reason: verdict.reason, corroborations }
+}
+
+/**
+ * Retire candidates this record has just replaced.
+ *
+ * The handle is the title, because that is the only thing two differently worded
+ * versions of one claim still share. Matching on the body instead was the first idea
+ * and it does not work: the real pairs were rewrites, so their token overlap sat far
+ * below any near-duplicate threshold.
+ *
+ * Comparing titles exactly does not work either, and a live store proved it: one pair
+ * differed only by the 「」 around a single word, so the candidate was left behind. The
+ * comparison therefore folds punctuation and spacing — see {@link titleKey}.
+ *
+ * A shared title is still a weak signal, and it is treated as one: the loser is
+ * *retired*, never deleted, with `supersededBy` pointing at the graded record and the
+ * correction log recording why. Retirement is reversible, so a wrong call costs a
+ * candidate that can be brought back, while the case this fixes costs an invisible
+ * duplicate that nothing would ever remove.
+ */
+function supersedeWeakerCandidates(db: DatabaseSync, record: MemoryRecord, now: number): void {
+  const wanted = titleKey(record.title)
+  if (wanted === '') return
+  for (const sibling of candidateSiblings(db, record.workspaceId)) {
+    if (sibling.id === record.id) continue
+    if (titleKey(sibling.title) !== wanted) continue
+    upsert(db, {
+      ...sibling,
+      status: 'retired',
+      needsReview: null,
+      supersededBy: record.id,
+      updatedAt: now,
+    })
+    noteCorrection(
+      db, sibling.id, 'experience-memory',
+      `superseded by ${record.id}: the same claim recorded with a verifiable passage`,
+      now, record.id,
+    )
+  }
 }
 
 /**

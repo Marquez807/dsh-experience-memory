@@ -141,6 +141,44 @@ export function run(): void {
     assert(byteLength(text) <= 1536, 'the resident digest respects its byte ceiling')
     assert(text.includes('[mine]'), 'the resident digest names the record id so the model can act on it')
 
+    // ── One shared function word is not relevance ───────────────────────────
+    // Reproduced from a live store: a record whose body contained `这个值` was
+    // injected into "把这个仓库的 README 用一句话改写", a turn about nothing of the
+    // kind, purely because FTS5's expression is an OR over bigrams. The on-demand
+    // layer may stay loose (the model asked); the always-on layer may not.
+    upsert(db, make({
+      id: 'noisy',
+      evidence: 'verified-user',
+      title: '部署目标盘',
+      body: '部署一律写到 F 盘；这个值不要改。',
+      contentFingerprint: 'fp-noisy',
+    }))
+    const unrelated = '把这个仓库的 README 用一句话改写。'
+    const loud = retrieve(db, query({ query: unrelated, tier: 'resident' }))
+    assert(!loud.ranked.some(entry => entry.record.id === 'noisy'),
+      'a record sharing only a function word is not injected')
+    assert((loud.excluded['relevance'] ?? 0) >= 1, 'and the refusal is counted as a relevance drop')
+    assert(retrieve(db, query({ query: unrelated, tier: 'recall' })).ranked
+      .some(entry => entry.record.id === 'noisy'),
+    'while the on-demand layer still returns it, because there the model asked')
+
+    // One content word is enough: a two-character Chinese word yields exactly one
+    // bigram, so demanding several shared terms would reject the obvious match as
+    // readily as the accidental one. An earlier version of this gate did exactly
+    // that and the rest of the suite caught it.
+    assert(retrieve(db, query({ query: '部署', tier: 'resident' })).ranked
+      .some(entry => entry.record.id === 'noisy'),
+    'a single shared topic word is enough for the always-on layer')
+    upsert(db, make({
+      id: 'ident',
+      title: '排序',
+      body: '改了 memory_mvp.py 的排序',
+      contentFingerprint: 'fp-ident',
+    }))
+    assert(retrieve(db, query({ query: 'memory_mvp.py', tier: 'resident' })).ranked
+      .some(entry => entry.record.id === 'ident'),
+    'an identifier hit needs no second term — it is specific on its own')
+
     // ── Resident line ceiling holds even with very long lessons ─────────────
     const long = '很长的教训内容。'.repeat(200)
     upsert(db, make({ id: 'long', title: '长', lesson: long, contentFingerprint: 'fp-long' }))

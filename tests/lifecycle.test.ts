@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, eq } from './assert.ts'
-import { openDb } from '../src/db.ts'
+import { openDb, getRecord } from '../src/db.ts'
 import type { DatabaseSync } from 'node:sqlite'
 import {
   fingerprint, forget, maintain, normalizeContent, recordUsage, remember,
@@ -25,8 +25,7 @@ const DAY = 86_400_000
 const DOMAIN = 'python/testing'
 
 /** A session in which the user said exactly `quote`. */
-function sessionSaying(quote: string, cwd: string) {
-  const events = [{
+function sessionSaying(quote: string, cwd: string) {  const events = [{
     type: 'user/message',
     data: { source: { kind: 'user' }, content: [{ type: 'text', text: quote }] },
   }]
@@ -35,6 +34,27 @@ function sessionSaying(quote: string, cwd: string) {
     // property. Fixtures must match that or they test a path production never takes.
     session: { header: { cwd }, snapshotEvents: () => events },
   }
+}
+
+/**
+ * Coverage of maintenance, independent of where the cursor happens to sit.
+ *
+ * `maintain` starts from a persisted cursor and wraps only when a pass finds nothing
+ * after it, so a *single* pass reaches a given record or not depending on how that
+ * record's id sorts — and ids are random. Asserting on one pass tested the id order as
+ * much as the retirement rules, which is why adding unrelated records to this file made
+ * an assertion about expiry fail. Two passes with a batch wider than the store cover
+ * the whole ring whatever the cursor was, which is the contract worth testing.
+ */
+function drainMaintenance(db: DatabaseSync, now: number): Record<string, number> {
+  const reasons: Record<string, number> = {}
+  for (let pass = 0; pass < 2; pass += 1) {
+    const result = maintain(db, { now, batchSize: 1000 })
+    for (const [reason, count] of Object.entries(result.reasons)) {
+      reasons[reason] = (reasons[reason] ?? 0) + count
+    }
+  }
+  return reasons
 }
 
 export function run(): void {
@@ -76,6 +96,47 @@ export function run(): void {
     eq(verified.grade, 'verified-user', 'a verbatim user assertion verifies')
     eq(verified.record.status, 'confirmed', 'a verified claim is confirmed')
     eq(verified.outcome, 'corroborated', 'and it upgrades the existing record rather than adding one')
+
+    // ── A reworded re-record retires the candidate it replaced ─────────────
+    // Three such pairs were found in a live store, all formed the same way: record
+    // with no passage, see it graded `inferred`, re-record it with a file quote.
+    // Identity is the assertion, so the reworded body became a *second* record and the
+    // candidate stayed forever — invisible, un-injectable, and swept by nothing.
+    const stranded = remember(db, {
+      workspaceId: 'ws-dup', domain: DOMAIN, kind: 'fact',
+      title: '采集上限', body: '单次最多 500 条，超了会静默截断。', now: NOW,
+    })
+    eq(stranded.record.status, 'candidate', 'a claim with no passage is a candidate')
+    const replaced = remember(db, {
+      workspaceId: 'ws-dup', domain: DOMAIN, kind: 'fact',
+      // Deliberately punctuated differently from the candidate's title: a live pair
+      // differed only by the 「」 around one word, which exact equality read as two
+      // different claims and left the candidate stranded.
+      title: '「采集上限」',
+      body: 'ingest.batchSize 只能取 1..500；供货方超限静默截断，调大只会丢数据。',
+      quote: '单次最多 500 条', agent: sessionSaying('单次最多 500 条', dir), now: NOW + 1000,
+    })
+    assert(replaced.record.id !== stranded.record.id,
+      'the reworded body is a different record, because identity is the assertion')
+    eq(getRecord(db, stranded.record.id)?.status, 'retired',
+      'so the candidate it replaces is retired')
+    eq(getRecord(db, stranded.record.id)?.supersededBy, replaced.record.id,
+      'and it names its replacement, which is what makes the call auditable')
+    assert(getRecord(db, stranded.record.id)?.body !== '',
+      'retired, not deleted — a wrong call is reversible')
+
+    // The handle is a title, so the sweep reaches no further than one workspace.
+    const elsewhere = remember(db, {
+      workspaceId: 'ws-other', domain: DOMAIN, kind: 'fact',
+      title: '采集上限', body: '另一个工作区的同标题候选。', now: NOW + 500,
+    })
+    remember(db, {
+      workspaceId: 'ws-dup', domain: DOMAIN, kind: 'fact',
+      title: '采集上限', body: '同标题的又一条改写版。',
+      quote: '单次最多 500 条', agent: sessionSaying('单次最多 500 条', dir), now: NOW + 1500,
+    })
+    eq(getRecord(db, elsewhere.record.id)?.status, 'candidate',
+      'a candidate in another workspace is not this record’s to retire')
 
     // ── A second, different workspace promotes the lesson to its domain ────
     const promoted = remember(db, {
@@ -215,7 +276,7 @@ export function run(): void {
       'once past its expiry it stops being returned, without anyone running maintenance')
     assert((after.excluded['expired'] ?? 0) >= 1, 'and the exclusion is counted, not silent')
 
-    const retired = maintain(db, { now: NOW + 6 * DAY, batchSize: 64 })
+    const retired = { reasons: drainMaintenance(db, NOW + 6 * DAY) }
     assert((retired.reasons['expired'] ?? 0) >= 1, 'maintenance then retires it, naming the reason')
 
     // A review window, by contrast, does not remove anything until the grace
@@ -227,10 +288,10 @@ export function run(): void {
     })
     db.prepare('UPDATE record SET status = ?, evidence = ? WHERE id = ?')
       .run('confirmed', 'verified-user', awaitingReview.record.id)
-    const insideGrace = maintain(db, { now: NOW + 5 * DAY, batchSize: 64 })
+    const insideGrace = { reasons: drainMaintenance(db, NOW + 5 * DAY) }
     eq(insideGrace.reasons['review overdue and never reused'] ?? 0, 0,
       'the review date alone does not retire a record; the grace period has to pass first')
-    const pastGrace = maintain(db, { now: NOW + (1 + REVIEW_GRACE_DAYS + 1) * DAY, batchSize: 64 })
+    const pastGrace = { reasons: drainMaintenance(db, NOW + (1 + REVIEW_GRACE_DAYS + 1) * DAY) }
     assert((pastGrace.reasons['review overdue and never reused'] ?? 0) >= 1,
       'and once it has, an unreused record is retired for review')
 
@@ -246,7 +307,7 @@ export function run(): void {
     recordUsage(db, {
       recordId: reused.record.id, outcome: 'success', now: NOW + 2 * DAY, failStreakLimit: 2,
     })
-    maintain(db, { now: NOW + (1 + REVIEW_GRACE_DAYS + 1) * DAY, batchSize: 64 })
+    drainMaintenance(db, NOW + (1 + REVIEW_GRACE_DAYS + 1) * DAY)
     const survivedReview = (db.prepare('SELECT status FROM record WHERE id = ?')
       .get(reused.record.id) as { status: string }).status
     eq(survivedReview, 'confirmed', 'a record that has been reused survives the review deadline')

@@ -134,3 +134,21 @@ export function matchExpression(query: string): string {
   if (terms.length === 0) return ''
   return terms.map(term => `"${term.replace(/"/g, '""')}"`).join(' OR ')
 }
+
+/**
+ * The query's ordinary terms — CJK bigrams and plain words — with identifier keys
+ * removed, so a caller can ask how much *lexical* text a record shares with a query.
+ *
+ * This split exists because an identifier hit and a shared bigram are not the same
+ * kind of evidence. `batchSize` overlapping means the two texts are about the same
+ * thing; a single shared `这个` means only that both contain a two-character function
+ * word. Callers that need precision use the second list to demand more than one hit.
+ *
+ * `includes` on a lowercased record is a valid test for these terms — they are raw
+ * substrings of the text — but it is NOT valid for identifier keys, which are folded
+ * (`memory_mvp_py` for `memory_mvp.py`), which is the other reason they are excluded.
+ */
+export function lexicalQueryTerms(query: string): string[] {
+  const identifierTerms = new Set(identifiers(query).map(identifierKey))
+  return tokenize(query).filter(term => !identifierTerms.has(term))
+}
