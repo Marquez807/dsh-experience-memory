@@ -2,6 +2,53 @@
 
 ## 0.1.0 — unreleased
 
+### Claims nobody was watching
+
+A pass over every documented promise — checked against the code and against the
+DSH host itself — found five statements that were not true. None was a lie told on
+purpose; each was a claim that no test pinned, so nothing ever contradicted it.
+
+- **The README said the two digest sections "together cap at five records".** The
+  record ceiling is applied *per section* — the `.slice()` sits inside the section
+  loop — so with the shipped configuration the real ceiling is 2 + 5 = 7, and only
+  the *byte* budget is shared. The suite asserted that shared byte ceiling and never
+  filled both sections at once, so the prose went unchallenged.
+- **Four comments declared the model's tool surface to be four**, in files that
+  register five tools. The tests said five all along; only the prose said four.
+- **`cordis.patch.yml` described a domain fallback that does not exist** — a
+  "directory name" level, and a `workspace:<id>` default. `inferDomain` ends at the
+  git remote and then returns `''`, deliberately: inventing a domain from a folder
+  name is what leaks one project's habits into every similarly named directory.
+- **`/memory-audit` wrote four reports and named two.** The recommended catalogue
+  and the full record dump reached the disk but never the operator, so the two
+  reports a person most needs when deciding what to import were invisible.
+- **The patch omitted `failStreakLimit`** while its own header states that a patch
+  replaces the whole `config` object, which hid the effective value from the file
+  that sets it.
+
+The remedies matter more than the fixes:
+
+- **`cordis.patch.yml` restates every key**, including the one it was silently
+  defaulting.
+- **Counts moved out of code comments.** A number written into a comment cannot be
+  checked, so the counts now live in the README and the suite, which is where they
+  can be tested.
+- **`/memory-audit` lists every file it wrote**, enumerated from the same
+  `AUDIT_FILES` record the writer uses.
+- **A new `docs` suite makes the remaining claims executable**: the README config
+  table is parsed and compared with `resolveConfig({})` in both directions, every
+  config key must appear in the patch, only `coreMaxRecords` may be zero, the
+  registered tool and command sets must equal the five names the README lists, the
+  digest's per-section ceiling is filled from a real database and counted, and an
+  audit must name all four reports it writes.
+
+Host contracts were re-verified against the installed DSH sources rather than
+assumed: `systemPrompt.context` and the `{agent, scope, signal}` it receives,
+`agent.session.header.cwd`, `agent.id` being a `SessionId`, the
+`agent/turn-stopping` event, `ctx.logger.warn`, the `defineTool` schema DSL, the
+command service's `register`/`list`/`recordInput` semantics, and the `tool/result`
+payload that `verified-tool` grading depends on. All hold.
+
 ### Wrap-up: what was verified, and two documents that were wrong
 
 - **The installed artifact was checked against the source, not assumed to match.**

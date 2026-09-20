@@ -7,8 +7,9 @@
  * and it proves the commands can actually be reached, which a stub asserting its
  * own inputs never would.
  *
- * The suite also pins the design rule these commands exist to satisfy: the model
- * gets four tools, and audit/import stay behind a human trigger.
+ * The suite also pins the design rule these commands exist to satisfy: the model's
+ * tool surface stays at the five knowledge operations, and audit/import stay
+ * behind a human trigger.
  */
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'

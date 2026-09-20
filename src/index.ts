@@ -1,7 +1,7 @@
 /**
  * experience-memory — domain-scoped long-term experience for DeepSeek Harness.
  *
- * Four surfaces:
+ * The plugin contributes four surfaces:
  *
  * 1. A resident digest contributed through `ctx.systemPrompt.context`, which is
  *    re-evaluated at every assembly, so it always reflects the current task
@@ -12,7 +12,12 @@
  * 4. Operator commands (`ctx.commands.register`): status, preview, maintain,
  *    audit, import. These are for the person, not the model — audit and import
  *    reach outside the store, so they stay behind a human trigger and the model's
- *    tool surface stays at four.
+ *    tool surface stays small.
+ *
+ * The tool and command *counts* deliberately live in the README and the test suite
+ * rather than here: a number written into a comment cannot be checked, and this
+ * file previously declared the tool surface to be four in one paragraph while
+ * listing five tools in the paragraph above it.
  *
  * The plugin deliberately has no `agent/pre-step` injection: writing synthetic
  * user messages into the session would put memory text into the transcript,

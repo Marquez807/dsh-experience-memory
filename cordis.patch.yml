@@ -24,8 +24,16 @@
         coreMaxRecords: 2
         # On-demand layer: the ceiling for one memory_recall call.
         recallMaxBytes: 16384
-        # Empty means resolve the domain from the workspace (package.json name,
-        # git remote, directory name) before falling back to workspace:<id>.
+        # Empty means infer the domain from the workspace, most explicit source
+        # first: `.dsh/memory.yml`, then `package.json#name`, then the git
+        # remote's repository name. If none of those resolve, the domain stays
+        # empty and the record is workspace-local only — deliberately not the
+        # directory name, which would broadcast one project's habits to every
+        # directory that happens to share it.
         defaultDomain: ''
         # Maintenance runs at turn end and never on the retrieval hot path.
         maintenanceBatchSize: 32
+        # Consecutive failed outcomes that retire a record. Restated rather than
+        # left out because a patch replaces the whole `config` object: relying on
+        # the code default here would hide the effective value from this file.
+        failStreakLimit: 2

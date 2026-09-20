@@ -18,6 +18,7 @@ import { run as audit } from './audit.test.ts'
 import { run as census } from './census.test.ts'
 import { run as commands } from './commands.test.ts'
 import { run as plugin } from './plugin.test.ts'
+import { run as docs } from './docs.test.ts'
 
 const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
   ['tokenize', tokenize],
@@ -32,6 +33,7 @@ const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
   ['census', census],
   ['commands', commands],
   ['plugin', plugin],
+  ['docs', docs],
 ]
 
 let failed = 0

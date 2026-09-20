@@ -3,10 +3,11 @@
  *
  * These are slash commands rather than tools on purpose. `retrieve` and
  * `import` reach outside the store — one scans arbitrary directories, the other
- * bulk-writes what it finds — so they stay behind a human trigger. The model's
- * tool surface stays at four, which also keeps its schema cost from growing every
- * turn. The framework's own rule is fail-closed: this session's decision about
- * whether to import an archive was a person's, and this keeps it that way.
+ * bulk-writes what it finds — so they stay behind a human trigger, which also
+ * keeps the model's tool surface small (its size is asserted in the test suite,
+ * not stated here). The framework's own rule is fail-closed: this session's
+ * decision about whether to import an archive was a person's, and this keeps it
+ * that way.
  *
  * Registration follows the in-box convention: a `description`, an `input.hint`
  * for the composer, a `handler(invocation)` returning `{kind, text}`, and
@@ -205,12 +206,16 @@ export function commandDefinitions(context: CommandContext): CommandDefinition[]
         const dir = typeof outFlag === 'string' ? resolve(outFlag) : resolveReportDir(context)
         const result = auditLegacy({ root, now: Date.now() })
         const paths = writeAuditReports(result, dir)
+        // Name every file that was actually written. Reporting a subset is how an
+        // operator ends up not knowing that two of the four reports exist — the
+        // recommended catalogue and the full record dump are the two a person
+        // needs most when deciding what to import.
+        const written = Object.entries(paths).map(([kind, file]) => `  ${kind.padEnd(11)} ${file}`)
         return success([
           summarizeAudit(result),
           '',
-          `报告已写入 ${dir}`,
-          `  ${paths.audit}`,
-          `  ${paths.selection}`,
+          `报告已写入 ${dir}（${written.length} 份）：`,
+          ...written,
         ].join('\n'))
       },
     },

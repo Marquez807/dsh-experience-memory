@@ -13,7 +13,11 @@ export interface Config {
   enabled?: boolean
   /** Override the database location. Tests point this at a temp directory. */
   dbPath?: string
-  /** Always-on layer: how many records may reach the model each turn. */
+  /**
+   * Always-on layer: how many records this one section may contribute per turn.
+   * It is a per-section ceiling, not a total — the core section has its own
+   * `coreMaxRecords`, and only the byte budget is shared between them.
+   */
   residentMaxRecords?: number
   /** Always-on layer: hard UTF-8 byte ceiling for the whole digest. */
   residentMaxBytes?: number
