@@ -7,7 +7,7 @@
  * plugin injects — and then exercises the whole loop: record, recall, link an
  * outcome, retire.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
@@ -402,6 +402,21 @@ export async function run(): Promise<void> {
     }
     await dispatchTurnStopping(1)
     eq(statusOf(expiring.id), 'retired', 'the turn-stopping hook ran maintenance and retired the expired record')
+
+    // ── The pass folds the write-ahead log back into the main file ─────────
+    // `memory.db` is not the store on its own: recent writes live in `-wal` until a
+    // checkpoint. Measured on a live store, the main file held 30 records while the store
+    // held 53 — so a copy of that one file was 43% stale, with no error anywhere. The
+    // checkpoint is what stops that, so the assertion is the copy itself: a file copied
+    // away from the WAL must agree with the live store.
+    const mainOnly = join(dir, 'main-only-copy.db')
+    copyFileSync(dbPath, mainOnly)
+    const copied = openDb(mainOnly)
+    const copiedCount = (copied.prepare('SELECT count(*) AS n FROM record').get() as { n: number }).n
+    copied.close()
+    const liveCount = (await call<{ records: number }>('memory_stats', {}, agentFor([]))).records
+    eq(copiedCount, liveCount,
+      'the main file alone is current after a maintenance pass, so copying it is not silently stale')
 
     // ── A read-only observer names its own call, so it can be cited ────────
     // `route: tool-call` used to be reachable only through a failure: the id was

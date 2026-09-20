@@ -198,6 +198,11 @@ export function commandDefinitions(context: CommandContext): CommandDefinition[]
         return success([
           `扫描 ${result.scanned} 条，退役 ${result.retired} 条`,
           reasons.length === 0 ? '没有需要退役的记录。' : `原因：${reasons.map(([r, n]) => `${r} ${n}`).join('、')}`,
+          // A repaired row is worth saying out loud: it is the difference between a gate
+          // that requires two independent reports and one that accepts a single one.
+          ...result.orphanCorroborations === 0
+            ? []
+            : [`清理 ${result.orphanCorroborations} 条无主印证（记录已不在，留着会让一次上报算成两个工作区）`],
           '（同一套规则每轮结束也会自动跑一次，这里只是立刻执行。）',
         ].join('\n'))
       },

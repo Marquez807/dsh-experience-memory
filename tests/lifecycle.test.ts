@@ -238,6 +238,48 @@ export function run(): void {
       'and the index row with them')
     eq(forget(db, { recordId: 'nope', reason: 'x', actor: 'agent', now: NOW }), 'missing', 'an unknown id is missing')
 
+    // ── A purge has to take its corroboration with it ──────────────────────
+    // A corroboration row means "this workspace independently reported this content", and
+    // two of them are what promote a lesson to its domain. A row whose record is gone
+    // keeps asserting it, so the next *single* report of that content counts as two
+    // independent workspaces — the one gate that exists to require independent
+    // confirmation, satisfied by one observation. Found in a live store: a purged
+    // end-to-end test artifact left exactly such a row behind.
+    const fingerprintOf = (id: string): string =>
+      (db.prepare('SELECT content_fingerprint AS f FROM record WHERE id = ?').get(id) as { f: string }).f
+    const corroborationsFor = (fp: string): number =>
+      (db.prepare('SELECT count(*) AS n FROM corroboration WHERE fingerprint = ?').get(fp) as { n: number }).n
+
+    const secret = remember(db, {
+      workspaceId: 'ws-purge', domain: DOMAIN, kind: 'fact',
+      title: '待彻底删除', body: '这段内容被要求从库里彻底删除。', now: NOW + 11000,
+    })
+    const secretPrint = fingerprintOf(secret.record.id)
+    eq(corroborationsFor(secretPrint), 1, 'the report is corroborated while its record lives')
+    eq(forget(db, {
+      recordId: secret.record.id, reason: '用户要求彻底删除', actor: 'agent', purge: true, now: NOW + 12000,
+    }), 'purged', 'the record is purged')
+    eq(corroborationsFor(secretPrint), 0,
+      'and the purge takes the corroboration with it, so one later report cannot count as two')
+
+    // The other direction, which is why the row is not simply deleted by fingerprint: one
+    // workspace purging its copy must not withdraw another workspace's independent report.
+    const sharedBody = '两个工作区各自独立得出同一条结论。'
+    const inA = remember(db, {
+      workspaceId: 'ws-a', domain: DOMAIN, kind: 'fact', title: '共享结论', body: sharedBody, now: NOW + 13000,
+    })
+    const sharedPrint = fingerprintOf(inA.record.id)
+    const inB = remember(db, {
+      workspaceId: 'ws-b', domain: DOMAIN, kind: 'fact', title: '共享结论', body: sharedBody, now: NOW + 14000,
+    })
+    eq(corroborationsFor(sharedPrint), 2, 'two workspaces have reported it')
+    eq(forget(db, {
+      recordId: inA.record.id, reason: 'A 工作区要求删除', actor: 'agent', purge: true, now: NOW + 15000,
+    }), 'purged', 'A purges its copy')
+    eq(corroborationsFor(sharedPrint), 1, "and B's independent report survives it")
+    assert(db.prepare('SELECT 1 FROM record WHERE id = ?').get(inB.record.id) !== undefined,
+      'because the record that justifies it is untouched')
+
     // ── Decay rules ────────────────────────────────────────────────────────
     const asRecord = (over: Partial<MemoryRecord>): MemoryRecord => ({
       ...promoted.record, ...over,
@@ -275,6 +317,25 @@ export function run(): void {
     const secondPass = maintain(db, { now: NOW, batchSize: 3 })
     eq(secondPass.scanned, 3, 'the next pass resumes rather than rescanning from the start')
     assert((secondPass.retired + first.retired) >= 2, 'the two passes together retire more than one')
+
+    // ── The pass repairs rows an older purge left behind ───────────────────
+    // A store written before `deleteRecord` cleaned up after itself still carries the
+    // row, and the repair must not wait for the same content to be purged a second time.
+    const stale = remember(db, {
+      workspaceId: 'ws-legacy', domain: DOMAIN, kind: 'fact',
+      title: '旧库遗留', body: '旧版本 purge 留下的无主印证。', now: NOW + 16000,
+    })
+    const stalePrint = (db.prepare('SELECT content_fingerprint AS f FROM record WHERE id = ?')
+      .get(stale.record.id) as { f: string }).f
+    // Reproduce the old behaviour exactly: drop the record, leave the corroboration.
+    db.prepare('DELETE FROM record_fts WHERE id = ?').run(stale.record.id)
+    db.prepare('DELETE FROM record WHERE id = ?').run(stale.record.id)
+    eq(db.prepare('SELECT count(*) AS n FROM corroboration WHERE fingerprint = ?').get(stalePrint).n, 1,
+      'the orphan row is there, as an older version would have left it')
+    const repair = maintain(db, { now: NOW + 17000, batchSize: 1000 })
+    assert(repair.orphanCorroborations >= 1, 'the pass counts the rows it repaired')
+    eq(db.prepare('SELECT count(*) AS n FROM corroboration WHERE fingerprint = ?').get(stalePrint).n, 0,
+      'and the orphan is gone')
 
     // ── A window can be armed, and both halves of the machinery honour it ──
     // Before this existed, `expiresAt` and `reviewAfter` could only be filled by

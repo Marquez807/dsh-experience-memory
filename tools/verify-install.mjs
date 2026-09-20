@@ -89,15 +89,22 @@ try {
   check(status?.result.kind === 'success', 'and /memory-status answers')
   check(String(status?.result.text ?? '').includes('记录 1 条'), 'and sees the record just written')
 
-  // ── Nothing accumulated ────────────────────────────────────────────────
-  // This is also the hot-reload self-check a caller asked for. Every surface the plugin
-  // contributes is registered through a fiber-scoped effect, so unloading the plugin
-  // takes all three away again; if it ever stopped doing that, the symptom would be the
-  // same names appearing twice, and this is what would show it. Run it after a reload.
+  // ── Nothing accumulated, at mount time ─────────────────────────────────
+  // Every surface the plugin contributes is registered through a fiber-scoped effect, so
+  // unloading the plugin takes all of them away again; if it ever stopped doing that, the
+  // symptom would be the same names appearing twice, and this is what would show it.
+  //
+  // What this does NOT prove, and used to claim: reload-time dedup. The comment here said
+  // "run it after a reload" and the README called it a hot-reload self-check, but under a
+  // junction install HMR never reloads `lib/*.js` at all — the config is correct and the
+  // change is watched, yet the module URL computed from the link path never matches the
+  // realpath-keyed ESM registry, so nothing is replaced and nothing is reported. A reload
+  // that cannot happen cannot leak, so "it still passes after a reload" is a statement
+  // about this mount. Reload-time dedup needs an install form HMR actually reloads.
   const descriptors = ctx.commands.list(commandAgent).map(entry => entry.name)
   const mine = descriptors.filter(name => name.startsWith('memory-'))
   check(new Set(mine).size === mine.length, `no command name is registered twice: ${mine.join(', ')}`)
-  check(mine.length === 5, `the command surface is exactly five, not five per reload: ${mine.length}`)
+  check(mine.length === 5, `the command surface is exactly five, not five per mount: ${mine.length}`)
   const contexts = (await ctx.systemPrompt.assemble({ agent: commandAgent })).contexts
     .map(entry => entry.name)
     .filter(name => name.startsWith('experience-memory:'))

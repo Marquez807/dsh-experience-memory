@@ -452,8 +452,65 @@ export function noteUsage(
     .run(recordId, sessionId ?? null, turn ?? null, outcome, at)
 }
 
-/** Remove a record and its index row. Only `purge` calls this. */
+/**
+ * Corroboration rows that no longer describe anything.
+ *
+ * A corroboration row says "this workspace independently reported this content", and
+ * `corroborations >= 2` is what promotes a workspace lesson to its domain. A row whose
+ * record is gone keeps saying it: the live store had one left behind by a purge, so the
+ * next report of that same content would have counted **two** workspaces when only one
+ * had reported it — a gate that exists to require independent confirmation, quietly
+ * satisfied by a single observation.
+ *
+ * A row is justified exactly when some record still lives in that workspace with that
+ * fingerprint, so that is the test. Deleting by fingerprint alone would be wrong in the
+ * other direction: one workspace purging its copy must not withdraw another workspace's
+ * independent report.
+ *
+ * @returns how many rows were removed.
+ */
+export function pruneCorroboration(db: DatabaseSync, fingerprint?: string): number {
+  // The subquery is correlated, so it is re-evaluated with the outer row's fingerprint.
+  const unjustified = 'workspace_id NOT IN'
+    + ' (SELECT workspace_id FROM record WHERE content_fingerprint = corroboration.fingerprint)'
+  const statement = fingerprint === undefined
+    ? db.prepare(`DELETE FROM corroboration WHERE ${unjustified}`)
+    : db.prepare(`DELETE FROM corroboration WHERE fingerprint = ? AND ${unjustified}`)
+  const result = fingerprint === undefined ? statement.run() : statement.run(fingerprint)
+  return Number(result.changes ?? 0)
+}
+
+/**
+ * Remove a record, its index row, and any corroboration it was the last justification for.
+ *
+ * `usage` and `correction` rows are deliberately left alone: neither carries content, and
+ * both are the audit trail a "forget this" is supposed to leave. A corroboration row is
+ * different — it carries no content either, but it **changes a later decision**, which is
+ * why it cannot outlive the record that justified it.
+ */
 export function deleteRecord(db: DatabaseSync, id: string): void {
+  const row = db.prepare('SELECT content_fingerprint AS f FROM record WHERE id = ?').get(id) as
+    | { f: string }
+    | undefined
   db.prepare('DELETE FROM record_fts WHERE id = ?').run(id)
   db.prepare('DELETE FROM record WHERE id = ?').run(id)
+  if (row !== undefined) pruneCorroboration(db, row.f)
+}
+
+/**
+ * Fold the write-ahead log back into `memory.db`, best effort.
+ *
+ * Without this the main file only catches up when SQLite happens to checkpoint on its
+ * own, and a live store proved it can go a long time without doing so: the main file held
+ * 30 records while the store held 53, so anyone copying `memory.db` alone would have got a
+ * 43%-stale database and no error. `PASSIVE` never blocks and writes back whatever it can
+ * without waiting for readers, which is what a turn-end hook needs; the size of `-wal`
+ * shrinking is a bonus, not the point.
+ */
+export function checkpointWal(db: DatabaseSync): void {
+  try {
+    db.exec('PRAGMA wal_checkpoint(PASSIVE)')
+  } catch {
+    // A checkpoint that cannot run is not a failure of the pass it ran in.
+  }
 }

@@ -2,6 +2,88 @@
 
 ## 0.1.0 — unreleased
 
+### A purge now takes its corroboration, and maintenance repairs the ones already left
+
+A live store had a corroboration row whose record had been purged. It matters because
+`corroborations >= 2` is the whole barrier between a local quirk and a domain-wide rule:
+the row kept asserting "this workspace independently reported this content", so the next
+*single* report of that content would have been counted as two independent workspaces —
+the one gate that exists to require independent confirmation, satisfied by one
+observation. `deleteRecord` now drops a corroboration row once no record justifies it, and
+the rule is deliberately not "delete by fingerprint": one workspace purging its copy must
+not withdraw another workspace's independent report. `PRAGMA foreign_keys` was never the
+mechanism here (the table has no FK), so nothing else was going to catch it.
+
+The maintenance pass also sweeps pre-existing orphans, so a store written by an older
+version is repaired rather than waiting for the same content to be purged twice, and
+`/memory-maintain` says how many rows it repaired.
+
+### The write-ahead log is folded back at the end of a pass
+
+`memory.db` is not the store on its own — recent writes live in `memory.db-wal` until a
+checkpoint. Measured on a live store: the main file held **30 records while the store held
+53**, so anything copying `memory.db` alone would have got a 43%-stale database and no
+error, and the file had not been updated across a restart. The plugin only ever set
+`journal_mode = WAL` and never asked for a checkpoint, so it now runs
+`PRAGMA wal_checkpoint(PASSIVE)` at the end of each maintenance pass: never blocking,
+writes back what it can without waiting for readers, and a failure there cannot fail the
+turn. Copying the store is still three files (`memory.db`, `-wal`, `-shm`).
+
+### Disclosed: `link:` does not buy hot reload, and the install self-check was overclaimed
+
+The install-form table said a `link:` install only needs `node tools/build.mjs` because
+"HMR makes a restart unnecessary". Another session falsified that with a four-way
+elimination — correct `hmr: disabled: false` and root in the merged config, host really
+started with `--expose-internals`, `node_modules/<pkg>` really a Junction, and no
+`--preserve-symlinks` — and then changed a rendered string and saw no change. The cause is
+that **watching a file is not locating a module**: the module URL computed from the link
+path never matches the realpath-keyed ESM registry, so the change is emitted and nothing
+is replaced, silently. Everything this repository said about "restart to pick it up" was
+already consistent with that; the table was not.
+
+The same session caught the second half: `tools/verify-install.mjs` was described as a
+hot-reload self-check, but under a junction install no reload can happen, so passing after
+a "reload" only shows this mount did not double-register. The README and the script now say
+**mount-time** dedup, and name what reload-time dedup would actually require.
+
+### The build id is the only anchor
+
+A verifier compared a receipt's 10-line sha256 table against the checkout and found 7/10
+matching, 3/10 not — because a further version had shipped after he verified. His
+argument, now adopted: the build id hashes the **loaded compiled modules**, which is closer
+to "what the process actually runs" than a list of files on disk, and a redundant snapshot
+is an expiry source that makes readers suspect tampering. Per-file hashes are now
+documented as a diagnostic for diffing a checkout, and must carry the build id they belong
+to.
+
+### The model-side caller can read the build id, and cite what it just read
+
+Two callers verified a restart and, without talking to each other, reported the same gap
+plus two wording defects.
+
+- `/memory-status` is a human slash command the model cannot invoke, and `harness.log`
+  carries only the process's `stdout`/`stderr`, so "which build is running" had no surface
+  a model could read. `memory_stats` now leads with the same
+  `插件构建 <id>（<n> 个模块）` line, from the same `buildIdentity()` call site, pinned by
+  a test against the real identity rather than a literal.
+- `route: tool-call` was reachable only through a failure: grading matches a tool result's
+  `callId`, and the one place that id was ever printed as text was the reason of a *failing*
+  record. So "record what the tool just told me" cost a wasted attempt spent discovering
+  the id. `memory_stats` and `memory_recall` now name their own call id; the three writers
+  do not, because a write is not a fact about the workspace and `source_ref` is for claims a
+  later session can re-check.
+- The nearest-existing-directory diagnostic said "the nearest existing directory X holds …"
+  and then listed files among the directories. Directories now sort first, carry a trailing
+  `/`, and the truncation is admitted (`showing the first 12 of 16`) instead of hidden, so
+  the entry that explains a miss can no longer be cut off.
+- A candidate's retirement claimed "the same claim recorded with a verifiable passage" even
+  when the replacement was an ungraded candidate too, which is exactly what two failed
+  writes produce. The sentence now reads the grade.
+- Counts are printed by the tools that quote them: `tests/run.ts` reports
+  `PASS 13 suites · N assertions` and `verify-install.mjs` reports its own total. A receipt
+  said 27 checks while every run printed 26, and the README said "470+" while the suites
+  execute 661.
+
 ### A copy can now identify itself, and a tool call can be cited
 
 Two questions from a caller that the framework could not answer, and one it made

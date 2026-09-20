@@ -21,7 +21,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import {
   corroborationCount, deleteRecord, findByFingerprint, getRecord, noteCorrection,
   noteCorroboration, noteUsage, readMeta, upsert, writeMeta, confirmedAfter,
-  workspaceRecordsByFingerprint, candidateSiblings,
+  workspaceRecordsByFingerprint, candidateSiblings, pruneCorroboration, checkpointWal,
 } from './db.ts'
 import { gradeEvidence, type EvidenceRoute } from './evidence.ts'
 import { importance, RESIDENT_EVIDENCE, RETIRE_FLOOR } from './rank.ts'
@@ -452,6 +452,8 @@ export interface MaintainResult {
   retired: number
   /** Why records were retired, counted. */
   reasons: Record<string, number>
+  /** Corroboration rows dropped because no record justified them any more. */
+  orphanCorroborations: number
 }
 
 /** Why one record should leave the resident pool, or `undefined` to keep it. */
@@ -513,5 +515,14 @@ export function maintain(db: DatabaseSync, input: MaintainInput): MaintainResult
   if (last !== undefined) writeMeta(db, CURSOR_KEY, last.id)
   else writeMeta(db, CURSOR_KEY, '')
 
-  return { scanned: batch.length, retired, reasons }
+  // Stores written before `deleteRecord` learned to clean up after a purge still carry
+  // the rows that would mis-count a future corroboration, so the sweep runs here too and
+  // repairs them rather than waiting for the next purge of the same content.
+  const orphanCorroborations = pruneCorroboration(db)
+
+  // Last, and best effort: fold the log back into the main file so the store is not one
+  // file that is current plus one that carries everything recent.
+  checkpointWal(db)
+
+  return { scanned: batch.length, retired, reasons, orphanCorroborations }
 }
