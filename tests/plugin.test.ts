@@ -119,6 +119,21 @@ export async function run(): Promise<void> {
     eq(await digestOf([userMessage('部署')]), '',
       'and a query with no matching record still renders nothing')
 
+    // ── The record hint survives an empty store ───────────────────────────
+    // Measured, not assumed: across five real sessions and ~5,900 tool calls, with
+    // the memory tools offered in every request epoch, `memory_remember` was never
+    // called until a human asked for a record by name. Folding the reminder into the
+    // digest would have left it silent exactly here — an empty store is the state in
+    // which the model most needs to be told that recording exists.
+    const emptyAssembly = await ctx.systemPrompt.assemble({ agent: agentFor([]) })
+    const emptyDigest = emptyAssembly.contexts.find(c => c.name === 'experience-memory:resident')
+    const emptyHint = emptyAssembly.contexts.find(c => c.name === 'experience-memory:record-hint')
+    assert(emptyDigest === undefined || emptyDigest.text === '',
+      'with nothing stored, the digest contributes nothing')
+    assert(emptyHint !== undefined, 'but the record hint is still contributed')
+    assert(emptyHint!.text.includes('memory_remember'),
+      'and it names the tool, so it is actionable rather than advice')
+
     // ── An unverifiable claim stays a candidate and is not recalled ────────
     const weak = await call<{ outcome: string; id: string; status: string; evidence: string }>(
       'memory_remember',

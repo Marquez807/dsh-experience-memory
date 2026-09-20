@@ -38,7 +38,7 @@ import { AUDIT_FILES } from '../src/audit.ts'
 import { COMMAND_NAMES, commandDefinitions } from '../src/commands.ts'
 import { resolveConfig } from '../src/config.ts'
 import { defaultDbPath, openDb, upsert } from '../src/db.ts'
-import { CORE_LABEL, MATCHED_LABEL, buildDigest } from '../src/digest.ts'
+import { CORE_LABEL, MATCHED_LABEL, RECORD_HINT, RECORD_HINT_MAX_BYTES, buildDigest } from '../src/digest.ts'
 import { byteLength, renderDigest } from '../src/inject.ts'
 import * as experienceMemory from '../src/index.ts'
 import type { MemoryRecord, RankedRecord } from '../src/types.ts'
@@ -141,18 +141,24 @@ function readmeConfigDefaults(): Record<string, string> {
 }
 
 /**
- * One `## `-level section of the README, so a claim is checked where it is made.
+ * One section of the README, so a claim is checked where it is made.
  *
- * Presence anywhere in the file is too weak: this assertion first failed to catch
- * a reinstated error precisely because the same token appeared in an unrelated
- * table row. Scoping to the section that makes the promise fixes that.
+ * Presence anywhere in the file is too weak: this assertion first failed to catch a
+ * reinstated error precisely because the same token appeared in an unrelated table
+ * row. A section ends at the next heading of the same or a higher level, so
+ * requesting `#### Token effect` yields that subsection alone rather than everything
+ * up to the next top-level heading.
  */
 function sectionOf(text: string, heading: string): string {
+  const level = /^#+/.exec(heading.trim())?.[0].length ?? 1
   const lines = text.split('\n')
   const start = lines.findIndex(line => line.trim() === heading)
   assert(start >= 0, `the README still has a ${heading} section to check`)
   const rest = lines.slice(start + 1)
-  const end = rest.findIndex(line => line.startsWith('## '))
+  const end = rest.findIndex(line => {
+    const found = /^(#+)\s/.exec(line.trim())
+    return found !== null && found[1]!.length <= level
+  })
   return (end < 0 ? rest : rest.slice(0, end)).join('\n')
 }
 
@@ -290,6 +296,31 @@ export async function run(): Promise<void> {
     for (const name of [...TOOL_NAMES, ...COMMAND_LIST]) {
       assert(readme.includes(name), `${name} is named in the README, so the identifier and the docs agree`)
     }
+
+    // ── The always-on hint is bounded, and its cost is documented ───────────
+    // It is injected on every turn whether or not there is anything to remember,
+    // which is the only way it can reach a store that is still empty — so its cost
+    // is a decision that must not drift upward unnoticed. The README states both the
+    // current size and the ceiling, so both are checked rather than remembered.
+    assert(RECORD_HINT.trim() !== '', 'the standing record hint is not empty')
+    assert(RECORD_HINT.includes('memory_remember'),
+      'and it names the tool, so the model can act on it without guessing')
+    assert(byteLength(RECORD_HINT) <= RECORD_HINT_MAX_BYTES,
+      `the standing record hint costs at most ${RECORD_HINT_MAX_BYTES} bytes on every turn;`
+      + ` it is now ${byteLength(RECORD_HINT)}`)
+    // The README states this cost in three separate places, so each is checked where
+    // it is written. Searching the whole file was the mistake made twice already: a
+    // wrong number in one place passes as long as the right one survives elsewhere.
+    const size = `${byteLength(RECORD_HINT)} 字节`
+    const hintCeiling = `${RECORD_HINT_MAX_BYTES} 字节`
+    const surfaces = sectionOf(readme, '### 它挂了四个表面')
+    const tokenEffect = sectionOf(readme, '#### Token effect')
+    const limitations = sectionOf(readme, '## Known Limitations and Deferred Work')
+    assert(surfaces.includes(size), `the surface table states the hint's cost as ${size}`)
+    assert(tokenEffect.includes(size), `the token-effect section states the hint's cost as ${size}`)
+    assert(tokenEffect.includes(hintCeiling), `the token-effect section states the ceiling as ${hintCeiling}`)
+    assert(limitations.includes(size), `the limitations section states the hint's cost as ${size}`)
+    assert(limitations.includes(hintCeiling), `the limitations section states the ceiling as ${hintCeiling}`)
 
     // ── The digest ceiling is per section, not in total ─────────────────────
     // The mechanism, stated as a mechanism: `maxRecords` is applied inside the

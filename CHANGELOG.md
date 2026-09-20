@@ -2,6 +2,42 @@
 
 ## 0.1.0 — unreleased
 
+### The store was empty because nothing asked it to fill
+
+Measured across five real sessions and roughly 5,900 tool calls: the memory tools
+were offered in **every** request epoch after installation, and `memory_remember`
+was **never called once** until a human asked for a record by name. The only five
+records that ever reached a database came from explicit verification prompts. The
+plugin was working — it was just never used, so the digest had nothing to inject
+and the whole framework was inert in daily work.
+
+Two changes, both about giving the model a reason rather than a capability:
+
+- **A standing one-line instruction, `RECORD_HINT`**, contributed as its own
+  `ctx.systemPrompt.context` entry rather than appended to the digest. That
+  separation is the point: the digest renders `''` whenever no record is eligible,
+  and an empty store is exactly when the model needs to be told that recording
+  exists. Folded into the digest, the reminder would vanish with the memories —
+  and the empty store would maintain itself. It costs 149 bytes on every turn
+  whether or not there is anything to remember, which is a deliberate price; a
+  test bounds it at 256 bytes so it cannot drift upward unnoticed.
+- **Directive tool descriptions.** `memory_remember` now opens with the moment to
+  call it ("the moment you learn something that will still matter in a later
+  session"), and `memory_recall` with the occasion ("before starting work in an
+  unfamiliar area, before repeating a decision that may already have been made").
+  Costs nothing extra: a description already ships inside the tool schema. The
+  constraints stay at the end — no one-off detail, transient output, secrets or
+  unverified guesses.
+
+Also corrected: the README described the digest as appended to the persona. It is
+not in the system prompt at all. `ctx.systemPrompt.context` contributions are
+composed into the harness's runtime-context snapshot, which reaches the model as a
+**plugin-sourced message** (`source.kind === 'plugin'`). That is precisely why both
+the query builder and the evidence grader must skip plugin-sourced messages, or the
+digest would be read back as the user's own words and the same few records would
+reinforce themselves — the loop that turned Mem0's production store into 97.8%
+noise. Both skip paths are now confirmed against real session logs.
+
 ### Claims nobody was watching
 
 A pass over every documented promise — checked against the code and against the
