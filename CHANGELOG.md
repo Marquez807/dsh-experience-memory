@@ -54,6 +54,13 @@ data. Everything below came out of that audit.
   entry cannot ambiguously name two records, a dry run reports what the list
   excludes before anything is written, and an empty list imports nothing rather
   than everything.
+- **Candidates can be reviewed.** `retrieve` supported an `includeCandidates`
+  window from the start, but no tool exposed it, so a candidate — a claim recorded
+  without a verifiable passage — could be created and then never listed again.
+  `memory_recall` now takes `include_candidates`, which is the only way to see what
+  was recorded but never verified, and the rendered detail carries the `待复核`
+  note explaining what the record is waiting for. Without it a store fills with
+  assertions nobody can act on, and the note written for that review had no reader.
 - **Records can be given a decay window, so perishable facts stop being answered.**
   `expiresAt` and `reviewAfter` were only ever filled by the legacy importer, which
   meant two of the three retirement paths — expired, and review overdue — were

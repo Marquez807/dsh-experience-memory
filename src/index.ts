@@ -212,6 +212,13 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
     parameters: {
       query: { type: 'string', required: true, description: 'What to look for, in the words of the current task.' },
       include_retired: { type: 'boolean', description: 'Also return retired records, for auditing.' },
+      include_candidates: {
+        type: 'boolean',
+        description: 'Also return candidates — claims recorded without a verifiable passage. '
+          + 'Use this to review what you recorded but never verified, and either re-record it with '
+          + 'evidence or forget it. Candidates are never injected into the prompt, so this is the only '
+          + 'way to see them again.',
+      },
       limit: { type: 'integer', description: 'Maximum records to return (1-32).' },
     },
     output: {
@@ -229,7 +236,12 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         { type: 'text', text: (value as { text: string }).text },
       ],
     },
-    execute: (args: { query: string; include_retired?: boolean; limit?: number }, exec: ToolExec) => {
+    execute: (args: {
+      query: string
+      include_retired?: boolean
+      include_candidates?: boolean
+      limit?: number
+    }, exec: ToolExec) => {
       const workspace = workspaceOf(exec.agent, resolved.defaultDomain)
       const limit = Math.max(1, Math.min(RECALL_MAX, Math.trunc(args.limit ?? 8)))
       const { ranked } = retrieve(db, {
@@ -240,6 +252,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         limit,
         tier: 'recall',
         includeRetired: args.include_retired ?? false,
+        includeCandidates: args.include_candidates ?? false,
       })
       const pack = renderRecall(ranked, resolved.recallMaxBytes)
       return {

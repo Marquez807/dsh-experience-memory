@@ -98,8 +98,18 @@ export async function run(): Promise<void> {
     )
     eq(weak.evidence, 'inferred', 'a claim with no passage is graded as an inference')
     eq(weak.status, 'candidate', 'and stays a candidate')
-    const weakRecall = await call<{ returned: number }>('memory_recall', { query: '部署' }, agentFor([]))
+    const weakRecall = await call<{ returned: number; text: string }>('memory_recall', { query: '部署' }, agentFor([]))
     eq(weakRecall.returned, 0, 'a candidate is not recalled, because only confirmed records are')
+    // A candidate is a claim recorded without a verifiable passage. If it could
+    // never be listed again, the model could record unverified claims and never
+    // see them — a store filling with assertions nobody can act on. `retrieve`
+    // supported the review window from the start; no tool exposed it.
+    const candidates = await call<{ returned: number; text: string }>(
+      'memory_recall', { query: '部署', include_candidates: true }, agentFor([]),
+    )
+    eq(candidates.returned, 1, 'an explicit review can list candidates')
+    assert(candidates.text.includes(weak.id), 'and names the record so it can be acted on')
+    assert(candidates.text.includes('待复核'), 'and says what it is waiting for')
 
     // ── The same claim with a verbatim passage is confirmed and recalled ───
     const quote = '部署一律写到 F 盘，不要写 C 盘'
