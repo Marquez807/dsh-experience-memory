@@ -78,6 +78,33 @@ export async function run(): Promise<void> {
       assert(settled !== undefined, `/${name} is registered on the real command service`)
     }
 
+    // ── They are discoverable the way the composer discovers them ─────────
+    // The slash menu renders `ctx.commands.list(agent)`, so this is the data a
+    // person would actually see. A command that does not appear here is not
+    // reachable however well its handler works — which is the failure this suite
+    // exists to catch, since this surface is a menu rather than an import.
+    const descriptors = ctx.commands.list(agent())
+    const mine = descriptors.filter(entry => entry.name.startsWith('memory-'))
+    eq(mine.map(entry => entry.name), [...COMMAND_NAMES].sort(),
+      'the slash menu lists exactly the five operator commands')
+    const listed = descriptors.map(entry => entry.name)
+    eq(listed, [...listed].sort(), 'and the service returns them name-sorted')
+    for (const entry of mine) {
+      assert(typeof entry.description === 'string' && entry.description.trim() !== '',
+        `/${entry.name} carries a description for the menu`)
+    }
+    // The three that take arguments must advertise their syntax, or the composer
+    // has nothing to hint.
+    for (const name of ['memory-preview', 'memory-audit', 'memory-import']) {
+      const entry = mine.find(item => item.name === name)
+      assert(entry?.input?.hint !== undefined && entry.input.hint !== '',
+        `/${name} advertises its argument hint`)
+    }
+    for (const name of ['memory-status', 'memory-maintain']) {
+      eq(mine.find(item => item.name === name)?.input, undefined,
+        `/${name} takes no arguments and advertises none`)
+    }
+
     // ── The registration-time rules hold ─────────────────────────────────
     eq(appended.filter(entry => entry.type === 'command/run').length, COMMAND_NAMES.length,
       'running each command opened a lifecycle pair')
