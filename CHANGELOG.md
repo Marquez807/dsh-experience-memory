@@ -2,6 +2,59 @@
 
 ## 0.1.0 — unreleased
 
+### The lesson now arrives at the call it is about, not at the turn before
+
+The case that started this: a record saying *confirm Steam is logged in before launching
+Bannerlord*, confirmed, with a real file as its evidence. In the session that produced it, it
+was injected on nine of fifteen turns and **absent on the turn the user typed "开始吧"** — the
+turn the work started. The agent launched, the run was wasted, and the memory was not at
+fault: it was the delivery that was.
+
+Two mechanisms, and both were measured against that session's log (444 tool calls) rather than
+argued for:
+
+1. **The turn's query includes what the agent is doing.** It was the last two user messages
+   only, so the digest competed for its slots against whatever the user happened to type
+   rather than against the work in front of it. Tool-call arguments, the assistant's own
+   written text, and the todo list now go in too, and plugin-sourced messages are skipped so a
+   hint can never feed itself back into the next query. An empty activity list reproduces the
+   old query byte for byte, which is asserted.
+2. **Just-in-time recall, at `tools/execute`.** A tool call names the thing it is about: the
+   script it runs, the file it edits, the symbol it searches for. The matcher reads the
+   call's argument **values** for identifiers (paths, file names, symbols, switches), and when
+   a confirmed record mentions one that *discriminates* — no more than
+   `PRECALL_MAX_DOC_FREQ` (2) of the records that workspace can see mention it — that record is
+   attached to the call as a plugin-sourced message, one per call, 300 bytes.
+
+Three things were tried and thrown away, each because the replay said so rather than because
+they were hard:
+
+- **Argument keys as identifiers.** Merged `file_path`, `old_string`, `job_id` count as
+  identifiers, and every edit carries them: **232 of 444** calls matched something, two in
+  three, and the lesson that mattered was never the one chosen. Values only.
+- **A per-turn limit of one** — and then 2, 3, 4, 5, 6. Every one of them handed the turn's
+  single slot to whichever *other* record some earlier call in that turn matched, and the
+  Steam lesson was **never delivered at all**, in any turn. The throttle is the per-record
+  cooldown plus a session ceiling, and the code says so where a future reader would otherwise
+  re-add the limit.
+- **`Bannerlord` as a match.** It appears in 13 of the 17 records that workspace could see, so
+  a `Bannerlord` hit identifies nothing; `launch-a-runtime-clean.ps1` appears in 2 and `ERC403`
+  in 1, which is what the lesson is actually about. Document frequency is computed with the
+  same tokenizer the ranker counts hits with, over exactly the records the caller could be
+  shown, so "discriminating" means the same thing in both places.
+
+What that leaves, on the real session: **20 hints across 4 of its 15 turns**, and the Steam
+lesson rides on the write of the launch script — same turn as the launch, before it. Not on the
+launch call itself: within a turn the first call that touches the thing takes the hint, and
+that is stated in the README rather than papered over.
+
+One defect was found by a test rather than by reading: `retrieve` derives its identifiers from
+the query text, and the tokenizer reads two adjacent Latin identifiers as **one multi-word
+phrase**, so `drain-campaign-state.ps1 campaign` became the single key
+`drain_campaign_state_ps1_campaign` — a term in no record — and every identifier hit counted
+as zero. `RetrieveInput` now takes `identifiers` so a caller that already knows them hands
+them over instead of having them re-derived.
+
 ### MIT, so the plugin can be listed where it is meant to be installed from
 
 The licence was `UNLICENSED`, with a `LICENSE` file stating that no permission was granted to

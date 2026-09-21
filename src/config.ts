@@ -53,6 +53,26 @@ export interface Config {
   harvestPoolLimit?: number
   /** Days an untouched candidate may sit before the maintenance pass retires it. */
   harvestCandidateTtlDays?: number
+  /**
+   * Show a lesson at the moment a tool call is about to do the thing it warns about.
+   *
+   * Default on: it costs nothing until an identifier in the call matches one in a record,
+   * and the case it exists for is a launch that was wasted because the lesson arrived a
+   * turn too early to matter.
+   */
+  precallEnabled?: boolean
+  /**
+   * Hints one session may be shown this way, counted in hints delivered.
+   *
+   * There is deliberately no per-turn limit. One was tried — the obvious "at most one hint per
+   * turn" — and replayed against the session this feature exists for: the turn's single slot
+   * went to whichever record some other call matched first, and the lesson about launching the
+   * game was never delivered at all, in any turn. A ceiling anywhere from one to six lost the
+   * same way; only the per-record cooldown below throttles without deciding which record wins.
+   */
+  precallMaxPerSession?: number
+  /** Minutes before the same lesson may be shown again in one session. */
+  precallCooldownMinutes?: number
 }
 
 /** Schemastery validation. Invalid values fail plugin load rather than degrade. */
@@ -71,6 +91,9 @@ export const Config: z<Config> = z.object({
   harvestMaxPerTurn: z.number(),
   harvestPoolLimit: z.number(),
   harvestCandidateTtlDays: z.number(),
+  precallEnabled: z.boolean(),
+  precallMaxPerSession: z.number(),
+  precallCooldownMinutes: z.number(),
 })
 
 /** Fully resolved configuration, with defaults applied and bounds enforced. */
@@ -89,6 +112,9 @@ export interface ResolvedConfig {
   harvestMaxPerTurn: number
   harvestPoolLimit: number
   harvestCandidateTtlDays: number
+  precallEnabled: boolean
+  precallMaxPerSession: number
+  precallCooldownMinutes: number
 }
 
 /**
@@ -125,5 +151,8 @@ export function resolveConfig(config: Config): ResolvedConfig {
     harvestMaxPerTurn: integer(config.harvestMaxPerTurn, 1, 'harvestMaxPerTurn', 0),
     harvestPoolLimit: positive(config.harvestPoolLimit, 200, 'harvestPoolLimit'),
     harvestCandidateTtlDays: positive(config.harvestCandidateTtlDays, 14, 'harvestCandidateTtlDays'),
+    precallEnabled: config.precallEnabled ?? true,
+    precallMaxPerSession: positive(config.precallMaxPerSession, 20, 'precallMaxPerSession'),
+    precallCooldownMinutes: positive(config.precallCooldownMinutes, 30, 'precallCooldownMinutes'),
   }
 }

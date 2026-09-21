@@ -90,6 +90,17 @@ export interface RetrieveInput {
   now: number
   limit: number
   tier: Tier
+  /**
+   * Identifiers the caller already knows, when they are not `query`'s own terms.
+   *
+   * The query tier normally derives them from `query`, which is right when the query *is* the
+   * text to match — a user message, a search box. It is wrong for a caller that assembled the
+   * query out of identifiers it already holds: two adjacent Latin identifiers separated by a
+   * space read as one multi-word phrase, so `drain-campaign-state.ps1 campaign` yields the
+   * single key `drain_campaign_state_ps1_campaign`, which appears in no record, and every
+   * identifier hit silently counts as zero. Passing them in keeps each one itself.
+   */
+  identifiers?: readonly string[]
   /** Recall may widen the status window; the resident layer never does. */
   includeCandidates?: boolean
   includeRetired?: boolean
@@ -180,7 +191,7 @@ export function retrieve(db: DatabaseSync, input: RetrieveInput): RetrieveResult
   if (match === '') return { ranked: [], excluded }
 
   const statuses = new Set(statuteStatuses(input))
-  const queryIdentifiers = identifiers(input.query).map(identifierKey)
+  const queryIdentifiers = (input.identifiers ?? identifiers(input.query)).map(identifierKey)
   // Only needed for the always-on layer, whose bar is relevance as well as grade.
   const lexicalTerms = input.tier === 'resident' ? lexicalQueryTerms(input.query) : []
   const now = input.now

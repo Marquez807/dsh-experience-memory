@@ -28,12 +28,14 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { DatabaseSync } from 'node:sqlite'
 import { Config, resolveConfig, type Config as ExperienceConfig } from './config.ts'
 import { buildIdentity } from './build-id.ts'
 import { commandDefinitions } from './commands.ts'
 import { openDb, noteRetrieval, countCandidates } from './db.ts'
 import { harvestFrom, lastTurn } from './harvest.ts'
+import { recallForCall, renderPrecall } from './precall.ts'
 import { eventsOf } from './session.ts'
 import { buildDigest, recentQueryText, workspaceOf, RECORD_HINT, type AgentLike } from './digest.ts'
 import { census, renderCensus } from './census.ts'
@@ -95,6 +97,69 @@ function callIdLine(exec: ToolExec): string {
   return typeof exec.callId === 'string' && exec.callId !== ''
     ? `\n本调用 id ${exec.callId}（把它填进 source_ref 即可判 verified-tool）`
     : ''
+}
+
+/** What a tool execution hands the `tools/execute` waterfall. */
+interface ToolExecutionLike {
+  agent?: AgentLike
+  arguments?: unknown
+  /** Present on a real execution; absent on a hand-built one. */
+  deferContext?: (message: unknown) => void
+}
+
+/**
+ * Just-in-time recall, attached to the tool call it is about.
+ *
+ * Runs on the `tools/execute` waterfall, which wraps the tool body and hands out an execution
+ * carrying `deferContext`. Whatever it defers is ferried into the turn as a plugin-sourced
+ * message, so the agent reads it immediately after the result — at the moment it is about to
+ * act, rather than whenever the resident digest next happens to carry it. A lesson about
+ * launching a game is worth nothing on the turn before the launch.
+ *
+ * Two rules are absolute, and both are about not making things worse:
+ *
+ *   - **`next()` is always called, by the caller, whatever happens here.** This waterfall runs
+ *     outermost-first and a listener that never calls `next()` vetoes everything after it,
+ *     including the tool itself. A recall hint must never be able to stop a tool call.
+ *   - **Nothing escapes.** A throw here would surface as an `isError` result on a call that was
+ *     otherwise fine. The only acceptable consequence of a failure is that this turn got no
+ *     hint.
+ */
+function attachPrecall(
+  db: DatabaseSync,
+  exec: ToolExecutionLike,
+  config: ResolvedConfig,
+  sent: Map<string, number>,
+  budget: { session: number },
+  report: (what: string, error: unknown) => void,
+): void {
+  try {
+    if (typeof exec.deferContext !== 'function') return
+    const workspace = workspaceOf(exec.agent, config.defaultDomain)
+    const now = Date.now()
+    const record = recallForCall(db, workspace.id, workspace.domain, exec.arguments, now)
+    if (record === undefined) return
+
+    // A cooldown per record, and a hard session ceiling counted in hints actually delivered.
+    // A hint on every matching call would be noise the agent learns to skip, which is worse
+    // than never sending it — but the throttle is the *cooldown*, not a per-turn limit: a
+    // per-turn limit was measured against the real session this feature exists for, and it
+    // handed the turn's slot to whatever else matched first, so the lesson about launching
+    // the game never went out at all.
+    const last = sent.get(record.id)
+    if (last !== undefined && now - last < config.precallCooldownMinutes * 60_000) return
+    if (budget.session >= config.precallMaxPerSession) return
+    sent.set(record.id, now)
+    budget.session += 1
+
+    exec.deferContext(createUserMessage({
+      content: [{ type: 'text', text: renderPrecall(record) }],
+      source: { kind: 'plugin', plugin: 'experience-memory' },
+    }))
+  } catch (error) {
+    // Visible in the log, and never fatal to the call it was riding on.
+    report('just-in-time recall', error)
+  }
 }
 
 /**
@@ -229,6 +294,19 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       }
     }
   })
+
+  // ── Just-in-time recall ───────────────────────────────────────────────────
+  // Attached to the tool call it is about, on the waterfall that wraps the tool body. The
+  // listener always calls `next()`: in this waterfall a listener that does not is a veto,
+  // and a recall hint must never be able to stop a tool call.
+  const hinted = new Map<string, number>()
+  const hintBudget = { session: 0 }
+  if (resolved.precallEnabled) {
+    ctx.on('tools/execute', (exec: ToolExecutionLike, next: () => unknown) => {
+      attachPrecall(db, exec, resolved, hinted, hintBudget, report)
+      return next()
+    })
+  }
 
   // ── On-demand recall ──────────────────────────────────────────────────────
   ctx.tools.register(defineTool({

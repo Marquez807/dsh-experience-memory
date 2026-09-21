@@ -50,3 +50,13 @@
         # the maintenance pass. Candidates were previously never swept at all.
         harvestPoolLimit: 200
         harvestCandidateTtlDays: 14
+        # Just-in-time recall: when a tool call touches a file, a symbol or a path that
+        # some confirmed record already names, that record is attached to the call itself
+        # instead of waiting for the model to think of asking. Two throttles, and neither is a
+        # per-turn limit — one was tried and it handed the turn's slot to whatever else matched
+        # first, so the lesson never went out. `precallCooldownMinutes` keeps one lesson from
+        # coming back too soon; `precallMaxPerSession` counts hints actually delivered and is
+        # the hard stop. 0 for `precallEnabled` removes the listener entirely.
+        precallEnabled: true
+        precallMaxPerSession: 20
+        precallCooldownMinutes: 30

@@ -52,12 +52,15 @@ const TOOL_NAMES = ['memory_recall', 'memory_remember', 'memory_feedback', 'memo
 /** Exactly the five the README's command table lists. */
 const COMMAND_LIST = ['memory-status', 'memory-preview', 'memory-maintain', 'memory-harvest', 'memory-audit', 'memory-import']
 
-/** Every key `Config` accepts, mirrored from `src/config.ts`. */
-const CONFIG_KEYS = [
-  'enabled', 'residentMaxRecords', 'residentMaxBytes', 'coreMaxRecords',
-  'recallMaxBytes', 'defaultDomain', 'maintenanceBatchSize', 'failStreakLimit',
-  'harvestEnabled', 'harvestBroad', 'harvestMaxPerTurn', 'harvestPoolLimit', 'harvestCandidateTtlDays',
-]
+/**
+ * Every key `Config` accepts, read from the code rather than listed here.
+ *
+ * This was a hand-written mirror of `src/config.ts`, and the assertion below computed
+ * `resolveConfig({})` only to compare it against the mirror. Adding a config key without
+ * documenting it therefore passed in silence — which is the one thing the assertion claims to
+ * catch. Reading the keys off the resolver is the difference between a check and a habit.
+ */
+const configKeys = (): string[] => Object.keys(resolveConfig({}))
 
 const readme = readFileSync(join(ROOT, 'README.md'), 'utf8')
 const patch = readFileSync(join(ROOT, 'cordis.patch.yml'), 'utf8')
@@ -174,7 +177,7 @@ export async function run(): Promise<void> {
     // fails, edit the table alone and this fails too.
     const resolved = resolveConfig({})
     const documented = readmeConfigDefaults()
-    eq(Object.keys(documented).sort(), [...CONFIG_KEYS, 'dbPath'].sort(),
+    eq(Object.keys(documented).sort(), configKeys().sort(),
       'the README config table documents exactly the keys the plugin accepts, and no others')
     assert((documented['dbPath'] ?? '').includes('experience-memory/memory.db'),
       `README: the default store lives at <DSH_HOME>/experience-memory/memory.db, table says ${String(documented['dbPath'])}`)
@@ -259,7 +262,8 @@ export async function run(): Promise<void> {
     // that file. `failStreakLimit` was missing until this suite existed.
     // `dbPath` is the deliberate exception: omitting it is what selects the
     // default location asserted above.
-    for (const key of CONFIG_KEYS) {
+    for (const key of configKeys()) {
+      if (key === 'dbPath') continue
       assert(new RegExp(`^\\s*${key}:`, 'm').test(patch),
         `cordis.patch.yml restates ${key}, because a patch replaces the whole config object`)
     }
