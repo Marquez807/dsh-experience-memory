@@ -453,6 +453,14 @@ export function candidateRecords(db: DatabaseSync, limit: number): MemoryRecord[
   return rows.map(toRecord)
 }
 
+/** How many live candidates there are, across every workspace. */
+export function countCandidates(db: DatabaseSync, origin?: 'model' | 'harvest'): number {
+  const row = origin === undefined
+    ? db.prepare('SELECT count(*) AS n FROM record WHERE status = ?').get('candidate')
+    : db.prepare('SELECT count(*) AS n FROM record WHERE status = ? AND origin = ?').get('candidate', origin)
+  return (row as { n: number }).n
+}
+
 /** How many distinct workspaces have independently reported this content. */
 export function corroborationCount(db: DatabaseSync, fingerprint: string): number {
   const row = db.prepare(

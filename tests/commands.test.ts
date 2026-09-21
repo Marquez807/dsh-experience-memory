@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Operator-command regressions.
  *
  * These drive the commands through the **real** command service — the same one
@@ -88,7 +88,7 @@ export async function run(): Promise<void> {
     const descriptors = ctx.commands.list(agent())
     const mine = descriptors.filter(entry => entry.name.startsWith('memory-'))
     eq(mine.map(entry => entry.name), [...COMMAND_NAMES].sort(),
-      'the slash menu lists exactly the five operator commands')
+      'the slash menu lists exactly the operator commands')
     const listed = descriptors.map(entry => entry.name)
     eq(listed, [...listed].sort(), 'and the service returns them name-sorted')
     for (const entry of mine) {

@@ -32,7 +32,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { Config, resolveConfig, type Config as ExperienceConfig } from './config.ts'
 import { buildIdentity } from './build-id.ts'
 import { commandDefinitions } from './commands.ts'
-import { openDb, noteRetrieval } from './db.ts'
+import { openDb, noteRetrieval, countCandidates } from './db.ts'
 import { harvestFrom, lastTurn } from './harvest.ts'
 import { eventsOf } from './session.ts'
 import { buildDigest, recentQueryText, workspaceOf, RECORD_HINT, type AgentLike } from './digest.ts'
@@ -290,11 +290,19 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       // budget, so the tail of `ranked` never reached the caller and must not be
       // recorded as having been looked at.
       noteRetrieval(db, ranked.slice(0, pack.returned).map(entry => entry.record.id), Date.now())
+      // A harvester that fills a pool nobody looks at is just a store-filling machine. This
+      // line appears exactly when the model is already thinking about memory, which is the
+      // one moment it can act on it — and it costs nothing on turns that never recall.
+      const pending = args.include_candidates === true ? 0 : countCandidates(db, 'harvest')
+      const footer = pending === 0
+        ? ''
+        : `\n另有 ${pending} 条自动采集的候选待确认（include_candidates: true 可看；`
+          + '有用的用 memory_remember 复述一遍即可转正，没用的不必管，14 天后自动退役）'
       return {
         returned: pack.returned,
         total: pack.total,
         truncated: pack.truncated,
-        text: (pack.text === '' ? 'no matching experience' : pack.text) + callIdLine(exec),
+        text: (pack.text === '' ? 'no matching experience' : pack.text) + footer + callIdLine(exec),
       }
     },
   }))

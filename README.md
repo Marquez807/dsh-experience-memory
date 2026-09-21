@@ -12,7 +12,7 @@ dsh plugin --profile <name> add /path/to/dsh-experience-memory-0.1.0.tgz
 
 **这一步就够了。** `dsh plugin add` 不只是装依赖——它会把 `dsh.profile.bundles` 与已安装状态**对账**：任何声明了 `dsh.bundle` 的依赖都会被自动追加进 layer stack（见 `@deepseek-ai/dsh` 的 `reconcilePlugins`）。所以不需要手工编辑 profile 的 `package.json`。
 
-装完重启应用即可。**零配置**：不提供任何 config 也能工作——默认库在 `$DSH_HOME/experience-memory/memory.db` 自动建立，五个工具、五个斜杠命令与常驻注入立即生效。
+装完重启应用即可。**零配置**：不提供任何 config 也能工作——默认库在 `$DSH_HOME/experience-memory/memory.db` 自动建立，五个工具、六个斜杠命令与常驻注入立即生效。
 
 想在装之前确认它是在工作的，用斜杠命令（见下）：
 
@@ -150,7 +150,7 @@ node tools/build.mjs && node tests/built.mjs     # 构建产物
 
 只读观测者带，三个写工具不带：**一次写操作不是关于工作区的事实**，而 `source_ref` 是给"后来能重新核对"的主张用的。
 
-`tools/verify-install.mjs` 还会顺带断言**命令恰好 5 个、上下文恰好 2 条**。**它验的是挂载期去重，不是重载期去重** —— 这个区分是必要的：重载后名字翻倍是 HMR 泄漏的症状，但在**联接安装下根本不会发生重载**（见上一节），所以"重载后再跑一遍"并不能证明重载安全，只能证明这次挂载没有重复注册。要验重载期去重，需要一种 HMR 真能重载模块的安装形态（真实目录 + `--preserve-symlinks`，或整包重载）。
+`tools/verify-install.mjs` 还会顺带断言**命令恰好 6 个、上下文恰好 2 条**。**它验的是挂载期去重，不是重载期去重** —— 这个区分是必要的：重载后名字翻倍是 HMR 泄漏的症状，但在**联接安装下根本不会发生重载**（见上一节），所以"重载后再跑一遍"并不能证明重载安全，只能证明这次挂载没有重复注册。要验重载期去重，需要一种 HMR 真能重载模块的安装形态（真实目录 + `--preserve-symlinks`，或整包重载）。
 
 它的断言条数由脚本自己打印（`PASS installed package (26 checks)`），不在文档里手抄。
 
@@ -401,6 +401,7 @@ DSH_TELEMETRY_DISABLED=1 node <dsh>/lib/bin.js --profile <name> --patch boot-acc
 | `/memory-status` | — | 库普查：条数、状态/证据/作用域分布、**多少条够常驻线**、复用与纠错计数、最近退役记录及原因 |
 | `/memory-preview` | `[<query>]` | 打印该查询下**实际会被注入的摘要**，以及按需检索会补上什么。不传 query 时用最近两条用户消息——与插件自己的查询推导是同一套逻辑 |
 | `/memory-maintain` | — | 立刻跑一次有界维护并报告退役了几条、为什么（同一套规则每轮结束也会自动跑） |
+| `/memory-harvest` | `[--retire <id>]` | 列出自动采集的候选，或退役其中一条 |
 | `/memory-audit` | `<root> [--out <dir>]` | 审计归档库的正确性并落盘四份报告 |
 | `/memory-import` | `<root> [--selection <file>] [--apply]` | **默认只试运行**；只有显式加 `--apply` 才写入 |
 
@@ -533,6 +534,10 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 | `defaultDomain` | `''` | 固定领域；空则推断 |
 | `maintenanceBatchSize` | `32` | 每次维护处理的记录数 |
 | `failStreakLimit` | `2` | 连续失败几次退役 |
+| `harvestEnabled` | `false` | 是否在每轮结束时自动采集候选（**默认关**，理由见下） |
+| `harvestMaxPerTurn` | `1` | 每轮最多采集几条（0 = 关闭采集） |
+| `harvestPoolLimit` | `200` | 候选池上限，超了退役最旧的 |
+| `harvestCandidateTtlDays` | `14` | 候选多少天没人确认也没被查过就退役 |
 
 非法值在**加载期**报错并拒绝启动插件，而不是静默降级。`coreMaxRecords` 是唯一允许为 `0` 的限额，
 因为 0 有明确含义（关闭核心层），而其他限额为 0 与「关闭」无法区分。
@@ -567,10 +572,52 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 
 `memory_recall` / `memory_remember` / `memory_feedback` / `memory_forget` / `memory_stats`，见上表。
 
-### 五个斜杠命令
+### 六个斜杠命令
 
-`/memory-status` / `/memory-preview` / `/memory-maintain` / `/memory-audit` / `/memory-import`，见上表。
+`/memory-status` / `/memory-preview` / `/memory-maintain` / `/memory-harvest` / `/memory-audit` / `/memory-import`，见上表。
 它们**不进入模型上下文**，所以对每轮 token 成本没有影响；`/memory-preview` 的输出就是这一轮真正会被注入的内容。
+
+### 自动采集：把"模型没想到要记"的东西接住
+
+记不记得住，取决于模型**选择**调用 `memory_remember`。这件事在本项目里是量过的：五个真实会话、约 5,900 次工具调用
+里，`memory_remember` **一次都没被调用过**，直到有人明确点名。那句无条件的提示把这个缺口收窄了，但结构性的问题还在 ——
+**模型压根没想到的那条教训，没人接得住。**
+
+每轮结束时，采集器读**这一轮**（不是整份会话），命中五类"值得记的时刻"就存一条候选，按优先级取**一条**：
+
+| 信号 | 判据 | 存什么 |
+|---|---|---|
+| `failure-recovered` | 同一轮里某个工具先报错、之后同一工具成功 | 工具名 + **原始错误文本** |
+| `user-correction` | 用户否定了上一轮的说法（不对/错了/其实…） | 用户那句**原话** |
+| `user-statement` | 用户说了**明确的持久规则**（以后/一律/禁止/never…） | 原话 |
+| `user-statement` | 用户说的**不是问句、且点到具体东西**（标识符/路径/版本/数字/结论词） | 原话 |
+| `goal-changed` / `action-refused` | `goal/change`；`approval/decided` 且不是 allowed | 新目标原文 / 被否决这件事 |
+
+**它不是判官，只捡原话。** 判据认的是"时刻"，不是"经验"：存下来的是**逐字原话**加一个机械标题。
+把一句话提炼成一条主张是判断，而采集器没有判断 —— 所以它不提炼。
+
+**宽的那条才是重点**：只认祈使句会漏掉教训最常出现的样子 ——「原来那个 bug 是因为…」「这个 API 在 1.5.2 里不触发…」
+「最后发现要加 `--preserve-symlinks` 才行」。这些都不是命令句。
+
+**三条性质让它不会变成这个框架最想避开的那种东西：**
+
+1. **永远是候选。** 采集直接写库，**不走** `remember`，所以永远不会凭空给它一个等级。它由构造决定就是候选，
+   常驻层不会看它；唯一的转正路径是模型把同一句复述一遍，那时照常过证据门禁。测试里钉的就是这条 —— 用的还是一条
+   **引文本身就是用户原话**的采集记录（按普通定级它会被判 `verified-user`），它仍然必须停在候选。
+2. **什么都不推断。** 五条判据读的都是会话**已经写下**的标记；`origin` 与 `harvest_signal` 记下是哪条触发的，可审计。
+3. **不花 LLM 调用。** 这个插件本来一次都不花。
+
+**边界是不变量，不是定量票**：没有每日配额（最忙的日子正是学到最多的日子，配额会在最需要时静悄悄用光）。
+取而代之：**每轮至多 1 条**、**候选池上限 200**（超了退役最旧的）、**14 天**没被确认也没被查过就退役。
+最后那条同时补上一个原有的洞：维护回合过去只扫已确认记录，**候选是永生的**。
+
+**候选怎么被看见** —— 否则采集只是往池子里倒：`memory_recall` 的返回末尾会带一行
+`另有 N 条自动采集的候选待确认`（只在模型正在看记忆时出现，不占每轮固定开销）；`/memory-harvest` 给人列出来、
+可单条退役；`memory_stats` 报出采集总数／已确认／待确认。
+
+**判据是按真实日志钉的，不是按事件注册表。** 注册表列了一些这台 harness 从不发出的事件：`feedback/record` 是已知类型，
+而本工作区最忙的那份日志 **11,735 个事件里它出现 0 次**。那条判据在写之前就被删掉了 —— 建在永不触发的事件上的判据
+是一个静默的空操作。
 
 ## Known Limitations and Deferred Work
 

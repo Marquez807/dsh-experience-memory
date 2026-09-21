@@ -109,7 +109,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     defaultDomain: config.defaultDomain ?? '',
     maintenanceBatchSize: positive(config.maintenanceBatchSize, 32, 'maintenanceBatchSize'),
     failStreakLimit: positive(config.failStreakLimit, 2, 'failStreakLimit'),
-    harvestEnabled: config.harvestEnabled ?? true,
+    harvestEnabled: config.harvestEnabled ?? false,
     // 0 is meaningful for the per-turn throttle: it is the switch that stops the harvester
     // contributing without disabling the feature, so it may be zero.
     harvestMaxPerTurn: integer(config.harvestMaxPerTurn, 1, 'harvestMaxPerTurn', 0),

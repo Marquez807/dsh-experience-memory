@@ -50,12 +50,13 @@ const NOW = 1_800_000_000_000
 /** Exactly the five the README's tool table lists. */
 const TOOL_NAMES = ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_forget', 'memory_stats']
 /** Exactly the five the README's command table lists. */
-const COMMAND_LIST = ['memory-status', 'memory-preview', 'memory-maintain', 'memory-audit', 'memory-import']
+const COMMAND_LIST = ['memory-status', 'memory-preview', 'memory-maintain', 'memory-harvest', 'memory-audit', 'memory-import']
 
 /** Every key `Config` accepts, mirrored from `src/config.ts`. */
 const CONFIG_KEYS = [
   'enabled', 'residentMaxRecords', 'residentMaxBytes', 'coreMaxRecords',
   'recallMaxBytes', 'defaultDomain', 'maintenanceBatchSize', 'failStreakLimit',
+  'harvestEnabled', 'harvestMaxPerTurn', 'harvestPoolLimit', 'harvestCandidateTtlDays',
 ]
 
 const readme = readFileSync(join(ROOT, 'README.md'), 'utf8')

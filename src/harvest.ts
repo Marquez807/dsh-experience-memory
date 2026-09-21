@@ -126,6 +126,20 @@ function isUserText(event: SessionEventLike): boolean {
   return event.type === 'user/message' && event.data?.source?.kind !== 'plugin'
 }
 
+/**
+ * Text that arrives as a user message without the user having said it.
+ *
+ * Measured on real logs, and this was the first thing the replay caught: `<system-reminder>`,
+ * `<goal_round>` and `Agent … sent a message:` all arrive with `source.kind === 'user'` and
+ * were harvested as if the user had stated something. They are harness wrapper text and a
+ * peer session's relay, so no detector may read them as a statement.
+ */
+const WRAPPER_START = /^<[a-z_][\w:-]*>/i
+const WRAPPER_RELAY = /sent a message:|^\[?(?:system|reminder|goal_round)/i
+
+const looksLikeWrapper = (line: string): boolean =>
+  WRAPPER_START.test(line) || WRAPPER_RELAY.test(line)
+
 const isQuestion = (sentence: string): boolean => QUESTION.test(sentence)
 
 const isConcrete = (sentence: string): boolean => CONCRETE.some(pattern => pattern.test(sentence))
@@ -218,7 +232,10 @@ export function harvestFrom(turn: readonly SessionEventLike[]): HarvestCandidate
 
   const userLines: string[] = []
   for (const event of turn) {
-    if (isUserText(event)) userLines.push(...sentences(textOf(event.data?.content)))
+    if (!isUserText(event)) continue
+    for (const line of sentences(textOf(event.data?.content))) {
+      if (!looksLikeWrapper(line)) userLines.push(line)
+    }
   }
 
   const correction = userLines.find(line =>

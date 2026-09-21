@@ -20,10 +20,10 @@ import type { DatabaseSync } from 'node:sqlite'
 import { auditLegacy, summarizeAudit, writeAuditReports } from './audit.ts'
 import { census, renderCensus } from './census.ts'
 import type { ResolvedConfig } from './config.ts'
-import { defaultDbPath } from './db.ts'
+import { candidateRecords, countCandidates, defaultDbPath, getRecord } from './db.ts'
 import { previewMemory, recentQueryText, workspaceOf, type AgentLike } from './digest.ts'
 import { parseSelection, runImport, scanForStores, summarizeImport } from './import.ts'
-import { maintain } from './lifecycle.ts'
+import { forget, maintain } from './lifecycle.ts'
 
 /** What a command handler returns. The command service validates this shape. */
 export type CommandResult =
@@ -203,8 +203,48 @@ export function commandDefinitions(context: CommandContext): CommandDefinition[]
           ...result.orphanCorroborations === 0
             ? []
             : [`清理 ${result.orphanCorroborations} 条无主印证（记录已不在，留着会让一次上报算成两个工作区）`],
+          ...result.candidatesAged + result.candidatesEvicted === 0
+            ? []
+            : [`候选：超期退役 ${result.candidatesAged} 条，池满淘汰 ${result.candidatesEvicted} 条`],
           '（同一套规则每轮结束也会自动跑一次，这里只是立刻执行。）',
         ].join('\n'))
+      },
+    },
+
+    {
+      // The harvester's output is raw material, and raw material has to be visible or the
+      // only thing it does is fill a pool. Listing it for the person is the cheap half of
+      // that; the model gets its own reminder in the `memory_recall` footer.
+      name: 'memory-harvest',
+      description: 'list the candidates the turn harvester collected, or retire one',
+      input: { hint: '[--retire <id>]' },
+      recordInput: false,
+      handler: (invocation: { args?: string }) => {
+        const args = (invocation.args ?? '').trim()
+        const retire = /^--retire\s+(\S+)$/.exec(args)
+        if (retire !== null) {
+          const id = retire[1]!
+          const record = getRecord(db, id)
+          if (record === undefined) return failure(`没有这条记录：${id}`)
+          if (record.status !== 'candidate') return failure(`这条不是候选（${record.status}），不在这里处理`)
+          forget(db, { recordId: id, reason: '人工丢弃：采集的候选没有价值', actor: 'operator', now: Date.now() })
+          return success(`已退役 ${id}（退役可逆，字节没删）`)
+        }
+
+        const pending = candidateRecords(db, 50).filter(record => record.origin === 'harvest')
+        const total = countCandidates(db, 'harvest')
+        if (total === 0) return success('没有待确认的采集候选。')
+        const lines = [`自动采集的候选 ${total} 条（最多列 50 条）：`, '']
+        for (const record of pending) {
+          const days = Math.floor((Date.now() - record.createdAt) / 86_400_000)
+          const flag = record.retrieveCount > 0 ? ` · 被查过 ${record.retrieveCount} 次` : ''
+          lines.push(`[${record.id}] ${record.harvestSignal ?? '?'} · ${days} 天前${flag}`)
+          lines.push(`    ${record.body.slice(0, 160)}`)
+        }
+        lines.push('')
+        lines.push('有用的：让模型用 memory_remember 把同一句话复述一遍并附出处，即转正。')
+        lines.push('没用的：`/memory-harvest --retire <id>`，或者不管它 —— 14 天后自动退役。')
+        return success(lines.join('\n'))
       },
     },
 
@@ -266,5 +306,5 @@ export function commandDefinitions(context: CommandContext): CommandDefinition[]
 
 /** The command names this plugin contributes, for tests and documentation. */
 export const COMMAND_NAMES = [
-  'memory-status', 'memory-preview', 'memory-maintain', 'memory-audit', 'memory-import',
+  'memory-status', 'memory-preview', 'memory-maintain', 'memory-harvest', 'memory-audit', 'memory-import',
 ] as const
