@@ -534,7 +534,8 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 | `defaultDomain` | `''` | 固定领域；空则推断 |
 | `maintenanceBatchSize` | `32` | 每次维护处理的记录数 |
 | `failStreakLimit` | `2` | 连续失败几次退役 |
-| `harvestEnabled` | `false` | 是否在每轮结束时自动采集候选（**默认关**，理由见下） |
+| `harvestEnabled` | `true` | 是否在每轮结束时自动采集候选 |
+| `harvestBroad` | `false` | 是否启用实测不可靠的宽判据（宽陈述句、失败后成功、目标变更） |
 | `harvestMaxPerTurn` | `1` | 每轮最多采集几条（0 = 关闭采集） |
 | `harvestPoolLimit` | `200` | 候选池上限，超了退役最旧的 |
 | `harvestCandidateTtlDays` | `14` | 候选多少天没人确认也没被查过就退役 |
@@ -618,6 +619,21 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 **判据是按真实日志钉的，不是按事件注册表。** 注册表列了一些这台 harness 从不发出的事件：`feedback/record` 是已知类型，
 而本工作区最忙的那份日志 **11,735 个事件里它出现 0 次**。那条判据在写之前就被删掉了 —— 建在永不触发的事件上的判据
 是一个静默的空操作。
+
+**而且判据是拿真实日志标定过的，标定结果直接决定了默认值。** 回放本工作区最大的 6 份日志（**235 轮**）：
+
+| 判据 | 235 轮命中 | 抽样看到的东西 | 结论 |
+|---|---|---|---|
+| `user-correction` | **4** | 「不是实现 bug，是我的期望值错了…」「量化是量化，bigfat 是价值投资」「补一条反例测试：`root=None` 必须被拒」 | 精度可接受（4 条里 3 条），**默认开** |
+| `user-statement`（宽） | 105 | 技能目录、`Objective: "…"`、`Round: 5/256`、问句、任务请求 | 精度约 5–10%，**默认关** |
+| `failure-recovered` | 5（加 denylist 前 71） | `edit`/`write` 没先读文件、`old_string` 没找到；剩下的也多是 `rg` 在 `System Volume Information` 上崩 | **默认关** |
+| `goal-changed` | 23 | 同一段目标文本被反复发出 —— 目标系统本来就已经存着 | **默认关**（重复采集） |
+
+所以 `harvestBroad` 默认 `false`：**默认只跑那条测出来站得住的判据**（`user-correction`，外加不花成本的 `action-refused`），
+产出约 **1.7 条 / 100 轮**。加过滤之前是 63.8 条 / 100 轮，而里面大部分不是经验。
+
+**这不是判据写错了，是规则做不到那件事**：要分清"用户陈述了一件持久的事"和"harness 把一大段文本当成用户消息送进来"，
+那是语义判断；买它就得花一次 LLM 调用，而这个插件一次都不花。所以宽判据留作开关，等精度被量到值得打开再打开。
 
 ## Known Limitations and Deferred Work
 

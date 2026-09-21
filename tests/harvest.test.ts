@@ -49,8 +49,10 @@ const toolResult = (callId: string, text: string, isError: boolean): SessionEven
   },
 })
 
-const signalOf = (events: SessionEventLike[]): HarvestSignal | undefined =>
-  harvestFrom(events)?.signal
+/** Most cases below cover the two opt-in detectors, so broad defaults to on here. The
+ * suite separately pins that the plugin's own default is off. */
+const signalOf = (events: SessionEventLike[], broad = true): HarvestSignal | undefined =>
+  harvestFrom(events, { broad })?.signal
 
 export function run(): void {
   // ── The turn boundary is where harvesting starts ──────────────────────────
@@ -73,7 +75,7 @@ export function run(): void {
     toolResult('c1', 'Error: present accepts 1 to 8 files', true),
     toolCall('c2', 'pwsh'),
     toolResult('c2', 'ok', false),
-  ])
+  ], { broad: true })
   assert(repaired !== undefined && repaired.text.includes('present accepts 1 to 8 files'),
     `and the failure text is kept verbatim, because that is what a later session searches for: ${repaired?.text}`)
   // Failure alone is not a lesson: something has to have worked afterwards.
@@ -130,12 +132,24 @@ export function run(): void {
     user('不对，应该用另一个命令'),
   ]), 'failure-recovered', 'a repaired failure outranks a correction in the same turn')
 
+  // ── The broad detectors are opt-in, and off is the default ────────────────
+  // Measured over 235 real turns: the broad statement rule and failure-then-recovery
+  // produced 110 candidates between them, most of them questions, task requests, harness
+  // boilerplate (`A skill is a reusable set…`, `Objective: "…"`, `Round: 5/256`) or
+  // environment quirks (`rg` failing on `System Volume Information`). The correction
+  // detector kept its precision, so it is the one that runs by default.
+  const statementish = [user('原来那个 bug 是因为 junction 的路径和 realpath 对不上')]
+  eq(harvestFrom(statementish), undefined, 'the broad detectors do not run unless asked for')
+  eq(signalOf(statementish, true), 'user-statement', 'and they do when they are')
+  eq(harvestFrom([turnStart(1), user('不对，部署一律写到 F 盘')])?.signal, 'user-correction',
+    'the correction detector runs without being asked, because the replay showed it holds')
+
   // ── A harvested row is a candidate, and stays one ─────────────────────────
   const dir = mkdtempSync(join(tmpdir(), 'expmem-harvest-'))
   const db = openDb(join(dir, 'memory.db'))
   try {
     const sentence = '原来那个 bug 是因为 junction 的路径和 realpath 对不上'
-    const candidate = harvestFrom([turnStart(1), user(sentence)])
+    const candidate = harvestFrom([turnStart(1), user(sentence)], { broad: true })
     assert(candidate !== undefined, 'the statement is harvested')
     eq(harvest(db, { workspaceId: 'ws1', domain: '', candidate: candidate!, now: NOW }), 'created',
       'the sentence is filed')
@@ -167,7 +181,7 @@ export function run(): void {
     assert(getRecord(db, rows[0]!.id)?.body !== '', 'so it can be brought back')
 
     // ── But one that was searched out survives its window ──────────────────
-    const keptCandidate = harvestFrom([turnStart(2), user('这条在 1.5.2 里不触发 OnGameLoaded')])
+    const keptCandidate = harvestFrom([turnStart(2), user('这条在 1.5.2 里不触发 OnGameLoaded')], { broad: true })
     harvest(db, { workspaceId: 'ws1', domain: '', candidate: keptCandidate!, now: NOW })
     const keptId = (db.prepare("SELECT id FROM record WHERE status = 'candidate'").get() as { id: string }).id
     db.prepare('UPDATE record SET retrieve_count = 1 WHERE id = ?').run(keptId)

@@ -56,7 +56,7 @@ const COMMAND_LIST = ['memory-status', 'memory-preview', 'memory-maintain', 'mem
 const CONFIG_KEYS = [
   'enabled', 'residentMaxRecords', 'residentMaxBytes', 'coreMaxRecords',
   'recallMaxBytes', 'defaultDomain', 'maintenanceBatchSize', 'failStreakLimit',
-  'harvestEnabled', 'harvestMaxPerTurn', 'harvestPoolLimit', 'harvestCandidateTtlDays',
+  'harvestEnabled', 'harvestBroad', 'harvestMaxPerTurn', 'harvestPoolLimit', 'harvestCandidateTtlDays',
 ]
 
 const readme = readFileSync(join(ROOT, 'README.md'), 'utf8')

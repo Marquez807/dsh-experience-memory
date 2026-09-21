@@ -41,7 +41,10 @@
         # row it files is a candidate, so this can never put anything in front of the
         # model — it can only fill the candidate pool. Setting `harvestMaxPerTurn` to 0
         # stops the harvester without touching anything else.
-        harvestEnabled: false
+        harvestEnabled: true
+        # The two detectors the replay measured as unreliable (broad user-statement, and
+        # failure-then-recovery). Off until the precision is worth turning on.
+        harvestBroad: false
         harvestMaxPerTurn: 1
         # Ceiling on live candidates, and the age at which an untouched one is retired by
         # the maintenance pass. Candidates were previously never swept at all.

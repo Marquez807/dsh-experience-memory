@@ -40,6 +40,13 @@ export interface Config {
    * cannot put anything in front of the model.
    */
   harvestEnabled?: boolean
+  /**
+   * Also run the two detectors the replay measured as unreliable: the broad user-statement
+   * rule and failure-then-recovery. Left off because 235 real turns produced 110 candidates
+   * from them and most were questions, task requests, harness boilerplate or environment
+   * quirks. Turn on after reading /memory-harvest output on your own traffic.
+   */
+  harvestBroad?: boolean
   /** Candidates one turn may contribute. The only throttle at the source. */
   harvestMaxPerTurn?: number
   /** Ceiling on live candidates; beyond it the oldest are retired. */
@@ -60,6 +67,7 @@ export const Config: z<Config> = z.object({
   maintenanceBatchSize: z.number(),
   failStreakLimit: z.number(),
   harvestEnabled: z.boolean(),
+  harvestBroad: z.boolean(),
   harvestMaxPerTurn: z.number(),
   harvestPoolLimit: z.number(),
   harvestCandidateTtlDays: z.number(),
@@ -77,6 +85,7 @@ export interface ResolvedConfig {
   maintenanceBatchSize: number
   failStreakLimit: number
   harvestEnabled: boolean
+  harvestBroad: boolean
   harvestMaxPerTurn: number
   harvestPoolLimit: number
   harvestCandidateTtlDays: number
@@ -109,7 +118,8 @@ export function resolveConfig(config: Config): ResolvedConfig {
     defaultDomain: config.defaultDomain ?? '',
     maintenanceBatchSize: positive(config.maintenanceBatchSize, 32, 'maintenanceBatchSize'),
     failStreakLimit: positive(config.failStreakLimit, 2, 'failStreakLimit'),
-    harvestEnabled: config.harvestEnabled ?? false,
+    harvestEnabled: config.harvestEnabled ?? true,
+    harvestBroad: config.harvestBroad ?? false,
     // 0 is meaningful for the per-turn throttle: it is the switch that stops the harvester
     // contributing without disabling the feature, so it may be zero.
     harvestMaxPerTurn: integer(config.harvestMaxPerTurn, 1, 'harvestMaxPerTurn', 0),

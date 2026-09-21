@@ -95,7 +95,38 @@ const CONCRETE = [
 ]
 
 /** A question is a request for information, not a statement of fact. */
-const QUESTION = /[?？]\s*$|^(请问|为什么|怎么|如何|是不是|能不能|可不可以|什么|哪个|哪一|多少|是否)/
+const QUESTION = /[?？]\s*$|^(请问|为什么|怎么|如何|是不是|能不能|可不可以|什么|哪个|哪一|多少|是否)|[吗呢]\s*[?？]?\s*$/
+
+/**
+ * Boilerplate this harness delivers *as* a user message.
+ *
+ * The replay's largest single source of junk. The skill catalogue arrives as a user
+ * message and reads like prose, the goal text arrives as `Objective: "..."`, and both were
+ * harvested as if the user had stated a fact. These are matched by their opening, which is
+ * the only stable part.
+ */
+const INJECTED = [
+  /^A skill is a reusable set/i,
+  /skill catalog changed/i,
+  /^The following skills are available/i,
+  /^Objective:\s*"/i,
+  /^Current runtime context/i,
+]
+
+/**
+ * Tools whose failures teach the agent how to use the tool, not how the project works.
+ *
+ * This is the other half of the replay's noise: 71 of 150 candidates were `edit`/`write`
+ * complaining that a file had not been read, that an `old_string` was not found, or that
+ * the two strings were identical. Those are the agent's own bookkeeping rules, so a later
+ * session gains nothing from them, while a failing *shell command* is a fact about the
+ * project and is kept. The list is empirical and drawn from the replay, not a principle.
+ */
+const AGENT_TOOLING = new Set([
+  'edit', 'write', 'read', 'str_replace_editor', 'present', 'todo_write', 'ask_user_question',
+  'exit_plan_mode', 'skill', 'get_goal', 'create_goal', 'update_goal',
+  'memory_remember', 'memory_recall', 'memory_feedback', 'memory_forget', 'memory_stats',
+])
 
 const textOf = (value: unknown): string => {
   if (typeof value === 'string') return value
@@ -138,7 +169,7 @@ const WRAPPER_START = /^<[a-z_][\w:-]*>/i
 const WRAPPER_RELAY = /sent a message:|^\[?(?:system|reminder|goal_round)/i
 
 const looksLikeWrapper = (line: string): boolean =>
-  WRAPPER_START.test(line) || WRAPPER_RELAY.test(line)
+  WRAPPER_START.test(line) || WRAPPER_RELAY.test(line) || INJECTED.some(pattern => pattern.test(line))
 
 const isQuestion = (sentence: string): boolean => QUESTION.test(sentence)
 
@@ -200,6 +231,9 @@ function failureRecovered(turn: readonly SessionEventLike[]): string | undefined
     if (typeof callId !== 'string') continue
     const name = toolOf.get(callId)
     if (name === undefined) continue
+    // A failure of the agent's own tooling is a rule about the tool, not knowledge about
+    // the project, and the replay showed it crowding out everything else.
+    if (AGENT_TOOLING.has(name)) continue
     const blocks = event.data?.message?.content ?? event.data?.content
     if (!Array.isArray(blocks)) continue
     const failed = blocks.some(block =>
@@ -224,10 +258,17 @@ function failureRecovered(turn: readonly SessionEventLike[]): string | undefined
  * repaired failure is stronger than both, so one turn produces at most one candidate and
  * it is the best available rather than the first encountered.
  */
-export function harvestFrom(turn: readonly SessionEventLike[]): HarvestCandidate | undefined {
-  const repaired = failureRecovered(turn)
-  if (repaired !== undefined) {
-    return { text: repaired, signal: 'failure-recovered', title: titleFrom(repaired) }
+export function harvestFrom(
+  turn: readonly SessionEventLike[],
+  options: { broad?: boolean } = {},
+): HarvestCandidate | undefined {
+  const broad = options.broad ?? false
+
+  if (broad) {
+    const repaired = failureRecovered(turn)
+    if (repaired !== undefined) {
+      return { text: repaired, signal: 'failure-recovered', title: titleFrom(repaired) }
+    }
   }
 
   const userLines: string[] = []
@@ -244,23 +285,29 @@ export function harvestFrom(turn: readonly SessionEventLike[]): HarvestCandidate
     return { text: correction.slice(0, TEXT_MAX), signal: 'user-correction', title: titleFrom(correction) }
   }
 
-  const durable = userLines.find(line =>
-    line.length >= MIN_DURABLE_CHARS && hasMarker(line, DURABLE_MARKERS))
-  if (durable !== undefined) {
-    return { text: durable.slice(0, TEXT_MAX), signal: 'user-statement', title: titleFrom(durable) }
-  }
+  if (broad) {
+    const durable = userLines.find(line =>
+      line.length >= MIN_DURABLE_CHARS && hasMarker(line, DURABLE_MARKERS))
+    if (durable !== undefined) {
+      return { text: durable.slice(0, TEXT_MAX), signal: 'user-statement', title: titleFrom(durable) }
+    }
 
-  // The broad case, and the reason this is not a hunt for imperatives: a user sentence
-  // that is not a question and names something concrete is usually a fact about the
-  // project. It is the noisiest detector here, which is why the pool has a ceiling.
-  const statement = userLines.find(line =>
-    line.length >= MIN_STATEMENT_CHARS && !isQuestion(line) && isConcrete(line))
-  if (statement !== undefined) {
-    return { text: statement.slice(0, TEXT_MAX), signal: 'user-statement', title: titleFrom(statement) }
+    // The broad case, and the reason this is not a hunt for imperatives: a user sentence
+    // that is not a question and names something concrete is usually a fact about the
+    // project. It is also, measured on 235 real turns, wrong about nine times in ten —
+    // see the note on `broad` above — which is why it is off by default.
+    const statement = userLines.find(line =>
+      line.length >= MIN_STATEMENT_CHARS && !isQuestion(line) && isConcrete(line))
+    if (statement !== undefined) {
+      return { text: statement.slice(0, TEXT_MAX), signal: 'user-statement', title: titleFrom(statement) }
+    }
   }
 
   for (const event of turn) {
-    if (event.type === 'goal/change') {
+    // A changed goal is already durable somewhere else: the goal system stores it and
+    // re-emits it every round, so harvesting it produced the same sentence twenty-three
+    // times in the replay. It rides with the broad set rather than duplicating that.
+    if (event.type === 'goal/change' && broad) {
       const objective = event.data?.goal?.objective
       if (typeof objective === 'string' && objective.trim() !== '') {
         const text = objective.trim().slice(0, TEXT_MAX)

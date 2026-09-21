@@ -116,7 +116,7 @@ function harvestTurn(
   now: number,
 ): void {
   const workspace = workspaceOf(agent, config.defaultDomain)
-  const candidate = harvestFrom(lastTurn(eventsOf(agent)))
+  const candidate = harvestFrom(lastTurn(eventsOf(agent)), { broad: config.harvestBroad })
   if (candidate === undefined) return
   harvest(db, { workspaceId: workspace.id, domain: workspace.domain, candidate, now })
 }
