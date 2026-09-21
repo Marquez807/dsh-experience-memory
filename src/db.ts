@@ -16,7 +16,7 @@ import { tokenize } from './tokenize.ts'
 import type { Evidence, Kind, MemoryRecord, Scope, Status } from './types.ts'
 
 /** Bumped whenever a migration below changes the schema. */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 /** `$DSH_HOME/experience-memory/memory.db`, with `~/.dsh` as the documented fallback. */
 export function defaultDbPath(): string {
@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS record (
   content_fingerprint TEXT NOT NULL,
   superseded_by       TEXT,
   needs_review        TEXT,
+  origin              TEXT NOT NULL DEFAULT 'model',
+  harvest_signal      TEXT,
   embedding           BLOB
 );
 -- Identity is per scope, and the two scopes identify differently. A
@@ -139,6 +141,8 @@ export function migrate(db: DatabaseSync): void {
   addMissingColumns(db, 'record', {
     retrieve_count: 'INTEGER NOT NULL DEFAULT 0',
     last_retrieved_at: 'INTEGER',
+    origin: "TEXT NOT NULL DEFAULT 'model'",
+    harvest_signal: 'TEXT',
   })
   db.prepare('INSERT OR REPLACE INTO meta VALUES (?, ?)').run('schema_version', String(SCHEMA_VERSION))
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
@@ -203,6 +207,8 @@ interface Row {
   fail_streak: number
   retrieve_count: number
   last_retrieved_at: number | null
+  origin: string
+  harvest_signal: string | null
   distinct_workspaces: number
   created_at: number
   occurred_at: number
@@ -237,6 +243,8 @@ export function toRecord(row: Row): MemoryRecord {
     failStreak: row.fail_streak,
     retrieveCount: row.retrieve_count,
     lastRetrievedAt: row.last_retrieved_at,
+    origin: row.origin === 'harvest' ? 'harvest' : 'model',
+    harvestSignal: row.harvest_signal,
     distinctWorkspaces: row.distinct_workspaces,
     createdAt: row.created_at,
     occurredAt: row.occurred_at,
@@ -266,7 +274,8 @@ export function upsert(db: DatabaseSync, record: MemoryRecord): void {
       retrieve_count, last_retrieved_at,
       created_at, occurred_at, updated_at, last_used_at, review_after, expires_at,
       content_fingerprint, superseded_by, needs_review
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      , origin, harvest_signal
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       workspace_id=excluded.workspace_id, domain=excluded.domain, scope=excluded.scope,
       kind=excluded.kind, status=excluded.status, evidence=excluded.evidence,
@@ -279,7 +288,8 @@ export function upsert(db: DatabaseSync, record: MemoryRecord): void {
       updated_at=excluded.updated_at, last_used_at=excluded.last_used_at,
       review_after=excluded.review_after, expires_at=excluded.expires_at,
       content_fingerprint=excluded.content_fingerprint, superseded_by=excluded.superseded_by,
-      needs_review=excluded.needs_review
+      needs_review=excluded.needs_review,
+      origin=excluded.origin, harvest_signal=excluded.harvest_signal
   `).run(
     record.id, record.workspaceId, record.domain, record.scope, record.kind, record.status, record.evidence,
     record.title, record.body, record.trigger, record.failureMode, record.lesson, record.sourceRef,
@@ -290,6 +300,7 @@ export function upsert(db: DatabaseSync, record: MemoryRecord): void {
     record.retrieveCount ?? 0, record.lastRetrievedAt ?? null,
     record.createdAt, record.occurredAt, record.updatedAt, record.lastUsedAt, record.reviewAfter, record.expiresAt,
     record.contentFingerprint, record.supersededBy, record.needsReview,
+    record.origin ?? 'model', record.harvestSignal ?? null,
   )
   db.prepare('DELETE FROM record_fts WHERE id = ?').run(record.id)
   db.prepare('INSERT INTO record_fts VALUES (?,?,?,?,?,?)').run(record.id, ...indexRow(record))
@@ -423,6 +434,22 @@ export function candidateSiblings(db: DatabaseSync, workspaceId: string): Memory
   const rows = db.prepare(
     'SELECT * FROM record WHERE workspace_id = ? AND status = ?',
   ).all(workspaceId, 'candidate') as Row[]
+  return rows.map(toRecord)
+}
+
+/**
+ * Every live candidate, oldest first.
+ *
+ * The maintenance pass used to look only at confirmed records, so a candidate with no
+ * successor lived forever: nothing aged it, and only a later graded record with the same
+ * title retired it. That was survivable while candidates were rare. It stops being
+ * survivable the moment the turn harvester is filling the pool, which is why this exists
+ * alongside the aging rule that consumes it.
+ */
+export function candidateRecords(db: DatabaseSync, limit: number): MemoryRecord[] {
+  const rows = db.prepare(
+    'SELECT * FROM record WHERE status = ? ORDER BY created_at, id LIMIT ?',
+  ).all('candidate', limit) as Row[]
   return rows.map(toRecord)
 }
 

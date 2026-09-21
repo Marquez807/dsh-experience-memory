@@ -611,7 +611,7 @@ node tools/audit-legacy.mjs --root "F:\GPT工作区"
 
 ## 测试
 
-13 个套件，全部用 DSH 自带 Node 运行，无测试框架：
+14 个套件，全部用 DSH 自带 Node 运行，无测试框架：
 
 | 套件 | 覆盖 |
 |---|---|

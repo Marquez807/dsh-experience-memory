@@ -13,6 +13,7 @@ import { run as retrieve } from './retrieve.test.ts'
 import { run as domain } from './domain.test.ts'
 import { run as evidence } from './evidence.test.ts'
 import { run as lifecycle } from './lifecycle.test.ts'
+import { run as harvest } from './harvest.test.ts'
 import { run as importLegacy } from './import.test.ts'
 import { run as audit } from './audit.test.ts'
 import { run as census } from './census.test.ts'
@@ -29,6 +30,7 @@ const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
   ['domain', domain],
   ['evidence', evidence],
   ['lifecycle', lifecycle],
+  ['harvest', harvest],
   ['import', importLegacy],
   ['audit', audit],
   ['census', census],

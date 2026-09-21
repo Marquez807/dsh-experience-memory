@@ -22,7 +22,9 @@ import {
   corroborationCount, deleteRecord, findByFingerprint, getRecord, noteCorrection,
   noteCorroboration, noteUsage, readMeta, upsert, writeMeta, confirmedAfter,
   workspaceRecordsByFingerprint, candidateSiblings, pruneCorroboration, checkpointWal,
+  candidateRecords,
 } from './db.ts'
+import type { HarvestCandidate } from './harvest.ts'
 import { gradeEvidence, type EvidenceRoute } from './evidence.ts'
 import { importance, RESIDENT_EVIDENCE, RETIRE_FLOOR } from './rank.ts'
 import type { AgentLike, Evidence, Kind, MemoryRecord, Scope } from './types.ts'
@@ -444,10 +446,143 @@ export function forget(db: DatabaseSync, input: ForgetInput): ForgetOutcome {
   return 'retired'
 }
 
+export interface HarvestInput {
+  workspaceId: string
+  /** The workspace's resolved domain, recorded so the row is filed like any other. */
+  domain: string
+  candidate: HarvestCandidate
+  now: number
+}
+
+export type HarvestOutcome = 'created' | 'duplicate'
+
+/**
+ * File one harvested sentence as a candidate.
+ *
+ * This deliberately does **not** go through {@link remember}. `remember` grades, and a
+ * grade is a judgement about a claim — but the harvester does not have a claim, it has a
+ * sentence it noticed. Writing straight to the store with `origin: 'harvest'` keeps that
+ * distinction in the data instead of in a convention: a harvested row is a candidate by
+ * construction, the always-on layer will not look at it, and the only route to becoming a
+ * real record is the model saying the same thing again, at which point the ordinary
+ * evidence gate decides on its merits.
+ *
+ * Identity is the content, as everywhere else, so a sentence harvested twice is one row.
+ */
+export function harvest(db: DatabaseSync, input: HarvestInput): HarvestOutcome {
+  const body = input.candidate.text.trim()
+  if (body === '') return 'duplicate'
+  const contentFingerprint = fingerprint('fact', body)
+  if (findByFingerprint(db, contentFingerprint, 'workspace', input.workspaceId, input.domain) !== undefined) {
+    return 'duplicate'
+  }
+  upsert(db, {
+    id: newId(),
+    workspaceId: input.workspaceId,
+    domain: input.domain,
+    scope: 'workspace',
+    kind: 'fact',
+    status: 'confirmed',
+    title: input.candidate.title,
+    body,
+    trigger: '',
+    failureMode: '',
+    lesson: '',
+    sourceRef: '',
+    reuseCount: 0,
+    successCount: 0,
+    failureCount: 0,
+    failStreak: 0,
+    retrieveCount: 0,
+    lastRetrievedAt: null,
+    distinctWorkspaces: 1,
+    createdAt: input.now,
+    occurredAt: input.now,
+    updatedAt: input.now,
+    lastUsedAt: null,
+    reviewAfter: null,
+    expiresAt: null,
+    contentFingerprint,
+    supersededBy: null,
+    // Saying what it is, where the model will read it: a harvested row is raw material
+    // waiting for a judgement, and the review note is the only prompt it will ever get.
+    needsReview: `采集自一轮会话（${input.candidate.signal}）——确认它成为经验，或丢弃`,
+    status: 'candidate',
+    evidence: 'inferred',
+    origin: 'harvest',
+    harvestSignal: input.candidate.signal,
+  })
+  return 'created'
+}
+
+/**
+ * Retire harvested candidates that nothing ever did anything with, and any that overflow
+ * the pool.
+ *
+ * The maintenance pass used to look only at confirmed records, so a candidate was
+ * immortal: nothing aged it out, and only a graded record with the same title retired it.
+ * That was tolerable while candidates were rare and is not tolerable once a harvester is
+ * filling the pool, which is why both rules live here.
+ *
+ * A candidate that was *searched out* is kept regardless of age — someone reached for it,
+ * which is the one piece of evidence a candidate can have while still unconfirmed.
+ */
+function sweepCandidates(
+  db: DatabaseSync,
+  now: number,
+  ttlDays: number,
+  poolLimit: number,
+): { aged: number; evicted: number } {
+  const live = candidateRecords(db, poolLimit + CANDIDATE_SWEEP_LIMIT)
+  const cutoff = now - ttlDays * DAY
+  const retire = (record: MemoryRecord, reason: string): void => {
+    upsert(db, { ...record, status: 'retired', needsReview: null, updatedAt: now })
+    noteCorrection(db, record.id, 'experience-memory', reason, now)
+  }
+
+  let aged = 0
+  const survivors: MemoryRecord[] = []
+  for (const record of live) {
+    if (record.createdAt < cutoff && record.retrieveCount === 0) {
+      retire(record, `maintenance: 采集的候选 ${ttlDays} 天无人确认也无人查过`)
+      aged += 1
+      continue
+    }
+    survivors.push(record)
+  }
+
+  let evicted = 0
+  const overflow = survivors.length - poolLimit
+  if (overflow > 0) {
+    for (const record of survivors.slice(0, overflow)) {
+      retire(record, `maintenance: 候选池超过 ${poolLimit} 条，退役最旧的一条`)
+      evicted += 1
+    }
+  }
+  return { aged, evicted }
+}
+
 export interface MaintainInput {
   now: number
   batchSize: number
+  /** Days an untouched candidate may sit before it is retired. */
+  candidateTtlDays?: number
+  /** Live candidates allowed; the oldest beyond this are retired. */
+  candidatePoolLimit?: number
 }
+
+/** How far past the pool ceiling the candidate sweep is allowed to look. */
+const CANDIDATE_SWEEP_LIMIT = 64
+
+/**
+ * Fallbacks for the candidate sweep when a caller passes none.
+ *
+ * They mirror the config defaults rather than importing them, because `config.ts` imports
+ * nothing from here and a cycle would be a worse price than repeating two numbers that the
+ * suite already checks agree.
+ */
+const CANDIDATE_TTL_DAYS_DEFAULT = 14
+const CANDIDATE_POOL_DEFAULT = 200
 
 export interface MaintainResult {
   scanned: number
@@ -456,6 +591,10 @@ export interface MaintainResult {
   reasons: Record<string, number>
   /** Corroboration rows dropped because no record justified them any more. */
   orphanCorroborations: number
+  /** Harvested candidates retired for sitting untouched past their window. */
+  candidatesAged: number
+  /** Harvested candidates retired because the pool was over its ceiling. */
+  candidatesEvicted: number
 }
 
 /** Why one record should leave the resident pool, or `undefined` to keep it. */
@@ -522,9 +661,25 @@ export function maintain(db: DatabaseSync, input: MaintainInput): MaintainResult
   // repairs them rather than waiting for the next purge of the same content.
   const orphanCorroborations = pruneCorroboration(db)
 
+  // Candidates are swept here because nothing else sweeps them: the scan above only
+  // reaches confirmed records, so without this a candidate is immortal.
+  const candidates = sweepCandidates(
+    db,
+    input.now,
+    input.candidateTtlDays ?? CANDIDATE_TTL_DAYS_DEFAULT,
+    input.candidatePoolLimit ?? CANDIDATE_POOL_DEFAULT,
+  )
+
   // Last, and best effort: fold the log back into the main file so the store is not one
   // file that is current plus one that carries everything recent.
   checkpointWal(db)
 
-  return { scanned: batch.length, retired, reasons, orphanCorroborations }
+  return {
+    scanned: batch.length,
+    retired,
+    reasons,
+    orphanCorroborations,
+    candidatesAged: candidates.aged,
+    candidatesEvicted: candidates.evicted,
+  }
 }

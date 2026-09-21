@@ -73,6 +73,23 @@ export interface Census {
     scanned: number
   }
   corrections: number
+  /**
+   * What the harvester did, and whether anyone is acting on it.
+   *
+   * Harvesting only earns its place if the material gets confirmed. If nothing ever
+   * promotes a harvested candidate, the feature is a store-filling machine — and this is
+   * the number that says so rather than leaving it to opinion. `confirmed` counts rows the
+   * harvester filed that were later re-stated with a passage, which is the only route from
+   * candidate to record.
+   */
+  harvest: {
+    /** Rows ever filed by the harvester. */
+    total: number
+    /** Harvested rows later confirmed through the ordinary evidence gate. */
+    confirmed: number
+    /** Harvested rows still sitting as candidates. */
+    pending: number
+  }
   retirements: Retirement[]
   retirementsTruncated: boolean
 }
@@ -101,8 +118,14 @@ export function census(
     'SELECT (SELECT count(*) FROM usage) AS total,'
     + ' (SELECT count(*) FROM usage WHERE outcome = ?) AS successes,'
     + ' (SELECT count(*) FROM usage WHERE outcome = ?) AS failures,'
-    + ' (SELECT count(*) FROM correction) AS corrections',
-  ).get('success', 'failure') as { total: number; successes: number; failures: number; corrections: number }
+    + ' (SELECT count(*) FROM correction) AS corrections,'
+    + ' (SELECT count(*) FROM record WHERE origin = ?) AS harvestTotal,'
+    + " (SELECT count(*) FROM record WHERE origin = ? AND status = 'confirmed') AS harvestConfirmed,"
+    + " (SELECT count(*) FROM record WHERE origin = ? AND status = 'candidate') AS harvestPending",
+  ).get('success', 'failure', 'harvest', 'harvest', 'harvest') as {
+    total: number; successes: number; failures: number; corrections: number
+    harvestTotal: number; harvestConfirmed: number; harvestPending: number
+  }
 
   const retirements = db.prepare(
     'SELECT r.id, r.title, r.scope, c.reason, c.at FROM record r'
@@ -134,6 +157,11 @@ export function census(
       scanned: confirmed.length,
     },
     corrections: trail.corrections,
+    harvest: {
+      total: trail.harvestTotal,
+      confirmed: trail.harvestConfirmed,
+      pending: trail.harvestPending,
+    },
     retirements: retirements.map(row => ({
       id: row.id,
       title: row.title,
@@ -170,6 +198,11 @@ export function renderCensus(result: Census, options: { dbPath?: string } = {}):
   // retrieval was recorded at all.
   lines.push(`  被查过 ${result.reach.searched}/${result.reach.scanned} 条（已确认范围内）`
     + ` · 从没被查过也没被确认有用的 ${result.reach.untouched} 条`)
+  // Only worth a line once the harvester has done something; before that it is noise.
+  if (result.harvest.total > 0) {
+    lines.push(`  自动采集 ${result.harvest.total} 条`
+      + `（其中 ${result.harvest.confirmed} 条已被确认成经验 · ${result.harvest.pending} 条待确认）`)
+  }
   if (result.retirements.length > 0) {
     lines.push(`  已退役 ${result.retirements.length}${result.retirementsTruncated ? '+' : ''} 条（新的在前）：`)
     for (const item of result.retirements) {

@@ -31,6 +31,21 @@ export interface Config {
   maintenanceBatchSize?: number
   /** Consecutive failed outcomes that retire a record. */
   failStreakLimit?: number
+  /**
+   * Harvest raw material from a finished turn.
+   *
+   * Default on, because the failure it addresses is the model not thinking of something:
+   * across five sessions and ~5,900 tool calls `memory_remember` was never called once
+   * until it was named explicitly. Everything it writes is a candidate, so being on
+   * cannot put anything in front of the model.
+   */
+  harvestEnabled?: boolean
+  /** Candidates one turn may contribute. The only throttle at the source. */
+  harvestMaxPerTurn?: number
+  /** Ceiling on live candidates; beyond it the oldest are retired. */
+  harvestPoolLimit?: number
+  /** Days an untouched candidate may sit before the maintenance pass retires it. */
+  harvestCandidateTtlDays?: number
 }
 
 /** Schemastery validation. Invalid values fail plugin load rather than degrade. */
@@ -44,6 +59,10 @@ export const Config: z<Config> = z.object({
   defaultDomain: z.string(),
   maintenanceBatchSize: z.number(),
   failStreakLimit: z.number(),
+  harvestEnabled: z.boolean(),
+  harvestMaxPerTurn: z.number(),
+  harvestPoolLimit: z.number(),
+  harvestCandidateTtlDays: z.number(),
 })
 
 /** Fully resolved configuration, with defaults applied and bounds enforced. */
@@ -57,6 +76,10 @@ export interface ResolvedConfig {
   defaultDomain: string
   maintenanceBatchSize: number
   failStreakLimit: number
+  harvestEnabled: boolean
+  harvestMaxPerTurn: number
+  harvestPoolLimit: number
+  harvestCandidateTtlDays: number
 }
 
 /**
@@ -86,5 +109,11 @@ export function resolveConfig(config: Config): ResolvedConfig {
     defaultDomain: config.defaultDomain ?? '',
     maintenanceBatchSize: positive(config.maintenanceBatchSize, 32, 'maintenanceBatchSize'),
     failStreakLimit: positive(config.failStreakLimit, 2, 'failStreakLimit'),
+    harvestEnabled: config.harvestEnabled ?? true,
+    // 0 is meaningful for the per-turn throttle: it is the switch that stops the harvester
+    // contributing without disabling the feature, so it may be zero.
+    harvestMaxPerTurn: integer(config.harvestMaxPerTurn, 1, 'harvestMaxPerTurn', 0),
+    harvestPoolLimit: positive(config.harvestPoolLimit, 200, 'harvestPoolLimit'),
+    harvestCandidateTtlDays: positive(config.harvestCandidateTtlDays, 14, 'harvestCandidateTtlDays'),
   }
 }

@@ -73,6 +73,19 @@ export interface MemoryRecord {
   contentFingerprint: string
   supersededBy: string | null
   needsReview: string | null
+  /**
+   * Who put this here: the model, or the turn harvester.
+   *
+   * The harvester stores raw material — a verbatim sentence plus the mechanical
+   * title it was filed under — and never a distilled claim, because distilling is
+   * judgement and the harvester has none. So `harvest` records are always
+   * candidates, and this field is how that stays auditable rather than implied:
+   * `origin` is what a reader looks at to ask "did anyone actually think about
+   * this", and it is what the census counts to report the confirmation rate.
+   */
+  origin: 'model' | 'harvest'
+  /** Which detector fired, for harvested records. `null` for everything else. */
+  harvestSignal: string | null
 }
 
 /** A record plus the ranking facts computed for one retrieval. */
@@ -92,9 +105,21 @@ export interface RankedRecord {
 // `src/session.ts` is the only place that reads them; see its comment for why
 // centralising this mattered.
 
-/** The slice of one logged event this plugin reads. */
+/**
+ * The slice of one logged event this plugin reads.
+ *
+ * Every field below was read off a real session log rather than inferred from the
+ * event registry, because the registry lists event types this harness never emits:
+ * `feedback/record` is a known type and does not appear in a single one of the
+ * 11,735 events of the busiest session in this workspace. Building a detector on a
+ * type that never fires is a silent no-op, which is the failure mode this project
+ * keeps running into.
+ */
 export interface SessionEventLike {
   type?: string
+  /** Event position in the session log; envelope fields, both always present. */
+  seq?: number
+  time?: number
   data?: {
     source?: { kind?: string; callId?: string }
     content?: unknown
@@ -105,6 +130,15 @@ export interface SessionEventLike {
     /** `tool/call` carries the id and name at the top level of its payload. */
     callId?: string
     name?: string
+    /** `turn/start`, `turn/end` and `tool/result` all say which turn they belong to. */
+    turn?: number
+    step?: number
+    /** `user/message` and `assistant/message` carry the role explicitly. */
+    role?: string
+    /** `goal/change` carries the new objective here. */
+    goal?: { objective?: string }
+    /** `approval/decided` carries e.g. `allowed-once`; anything else is a refusal. */
+    outcome?: string
   }
 }
 
