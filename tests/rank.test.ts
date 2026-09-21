@@ -19,6 +19,8 @@ function facts(over: Partial<ImportanceFacts> = {}): ImportanceFacts {
     reuseCount: 0,
     failStreak: 0,
     distinctWorkspaces: 1,
+    retrieveCount: 0,
+    lastRetrievedAt: null,
     createdAt: NOW,
     lastUsedAt: null,
     reviewAfter: null,
@@ -47,6 +49,8 @@ function record(over: Partial<MemoryRecord> = {}): MemoryRecord {
     successCount: 0,
     failureCount: 0,
     failStreak: 0,
+    retrieveCount: 0,
+    lastRetrievedAt: null,
     distinctWorkspaces: 1,
     createdAt: NOW,
     occurredAt: NOW,
@@ -85,10 +89,30 @@ export function run(): void {
 
   // ── Staleness decays, and never below zero influence ─────────────────────
   const fresh = importance(facts({ lastUsedAt: NOW }))
-  const stale = importance(facts({ lastUsedAt: NOW - 200 * DAY }))
+  const stale = importance(facts({ createdAt: NOW - 200 * DAY, lastUsedAt: NOW - 200 * DAY }))
   assert(stale < fresh, 'an unused record must decay')
   assert(Number.isFinite(importance(facts({ lastUsedAt: NOW - 100_000 * DAY }))),
     'extreme staleness must stay finite')
+
+  // ── Being searched out is a touch, and that is what closed the loop ──────
+  // The defect this pins: a memory could be found and used by a later session and still
+  // decay exactly as if nothing had ever looked at it, because only a recorded *outcome*
+  // refreshed it. `memory_feedback` was called three times in the store's whole life, so
+  // in practice everything went silent within hours of being written.
+  const aged = { createdAt: NOW - 200 * DAY }
+  assert(importance(facts({ ...aged, lastRetrievedAt: NOW })) > importance(facts(aged)),
+    'a record searched out just now is not stale')
+  eq(importance(facts({ ...aged, lastRetrievedAt: NOW })), importance(facts({ ...aged, lastUsedAt: NOW })),
+    'retrieval and a recorded use both count as having been touched')
+
+  // The term is bounded, or calling `memory_recall` repeatedly would be a way to keep
+  // anything resident forever — and a lookup is worth less than a recorded success.
+  const once = importance(facts({ retrieveCount: 1 }))
+  const often = importance(facts({ retrieveCount: 1_000_000 }))
+  assert(often > once, 'being searched out repeatedly is worth more than being searched out once')
+  assert(often - once < 1.0, `the retrieval term is capped: ${often - once}`)
+  assert(importance(facts({ successCount: 4 })) > often,
+    'and it never outranks a record with recorded successes')
 
   // ── Identifier bonus is real but CAPPED ───────────────────────────────────
   // Archived defect: the recovered downstream patch sorted on

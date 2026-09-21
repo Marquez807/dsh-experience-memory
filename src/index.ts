@@ -32,7 +32,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { Config, resolveConfig, type Config as ExperienceConfig } from './config.ts'
 import { buildIdentity } from './build-id.ts'
 import { commandDefinitions } from './commands.ts'
-import { openDb } from './db.ts'
+import { openDb, noteRetrieval } from './db.ts'
 import { buildDigest, recentQueryText, workspaceOf, RECORD_HINT, type AgentLike } from './digest.ts'
 import { census, renderCensus } from './census.ts'
 import { forget, maintain, recordUsage, remember } from './lifecycle.ts'
@@ -243,6 +243,10 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         includeCandidates: args.include_candidates ?? false,
       })
       const pack = renderRecall(ranked, resolved.recallMaxBytes)
+      // Count only what was actually handed over: `renderRecall` stops at the byte
+      // budget, so the tail of `ranked` never reached the caller and must not be
+      // recorded as having been looked at.
+      noteRetrieval(db, ranked.slice(0, pack.returned).map(entry => entry.record.id), Date.now())
       return {
         returned: pack.returned,
         total: pack.total,

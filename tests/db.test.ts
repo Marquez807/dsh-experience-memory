@@ -10,7 +10,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, eq } from './assert.ts'
-import { candidates, defaultDbPath, findByFingerprint, getRecord, indexRow, openDb, upsert } from '../src/db.ts'
+import { candidates, defaultDbPath, findByFingerprint, getRecord, indexRow, openDb, upsert, SCHEMA_VERSION } from '../src/db.ts'
 import { matchExpression } from '../src/tokenize.ts'
 import type { MemoryRecord } from '../src/types.ts'
 
@@ -56,10 +56,41 @@ export function run(): void {
   try {
     // ── Schema ───────────────────────────────────────────────────────────────
     const version = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
-    eq(version, 1, 'schema version is stamped')
+    // Derived, not transcribed: a schema bump must not leave the suite asserting a
+    // version the store no longer stamps.
+    eq(version, SCHEMA_VERSION, 'schema version is stamped')
     // Foreign keys must be on in the one place that opens a connection.
     const fk = (db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number }).foreign_keys
     eq(fk, 1, 'foreign keys are enabled by openDb')
+
+    // ── A store written by an older build gains the new columns ──────────────
+    // `SCHEMA` is entirely `CREATE TABLE IF NOT EXISTS`, so adding a column to that
+    // definition brings a *new* store up to date and does nothing at all to an existing
+    // one — the column would silently never appear on anybody's real database. This
+    // reproduces a store from before `retrieve_count` existed and reopens it.
+    const legacyPath = join(dir, 'legacy.db')
+    const older = openDb(legacyPath)
+    upsert(older, make({ id: 'legacy-1', contentFingerprint: 'fp-legacy' }))
+    older.exec('ALTER TABLE record DROP COLUMN retrieve_count')
+    older.exec('ALTER TABLE record DROP COLUMN last_retrieved_at')
+    older.exec('PRAGMA user_version = 1')
+    older.close()
+
+    const upgraded = openDb(legacyPath)
+    try {
+      const columns = (upgraded.prepare('PRAGMA table_info(record)').all() as { name: string }[])
+        .map(column => column.name)
+      assert(columns.includes('retrieve_count') && columns.includes('last_retrieved_at'),
+        'reopening an older store adds the columns the schema now declares')
+      eq((upgraded.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
+        SCHEMA_VERSION, 'and stamps the new version')
+      const kept = getRecord(upgraded, 'legacy-1')
+      assert(kept !== undefined && kept.title === '标题', 'existing rows survive the upgrade')
+      eq(kept?.retrieveCount, 0, 'and start out as never searched for')
+      eq(kept?.lastRetrievedAt, null, 'with no retrieval time')
+    } finally {
+      upgraded.close()
+    }
 
     // ── Round trip ───────────────────────────────────────────────────────────
     upsert(db, make())

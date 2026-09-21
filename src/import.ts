@@ -332,6 +332,8 @@ export function mapStore(store: LegacyStore, now: number): MappedRecords {
       successCount: 0,
       failureCount: 0,
       failStreak: 0,
+      retrieveCount: 0,
+      lastRetrievedAt: null,
       distinctWorkspaces: 1,
       createdAt: created,
       occurredAt: created,

@@ -2,6 +2,51 @@
 
 ## 0.1.0 — unreleased
 
+### Memories were being written and never read: retrieval now counts
+
+A user read the store and asked the plain question — "are these things actually being
+used?" — and the honest answer was that nothing could say. Four facts composed into a
+closed loop:
+
+- a record reaches the always-on layer at importance `>= 6.0`;
+- a file-verified record scores **exactly** `6.0` (`3.0 x 2.0`) at the moment it is
+  written, so any staleness at all — hours, not days — puts it below the line. In a live
+  store of 76 records, 2 were above it;
+- the only thing that lifts a record clear is the reuse bonus, which requires someone to
+  call `memory_feedback` and say it helped. That call had happened **three times in the
+  store's entire life**;
+- so the remaining records were reachable only by an explicit `memory_recall`, and the
+  unconditional hint asked the model to *record* and never to *look*. Worse: **retrieval
+  left no trace at all**, so a memory that a later session did search out and use gained
+  nothing from it and decayed exactly as if nothing had ever touched it.
+
+The loop is now open at all four points. `memory_recall` records that a record was
+searched out (only the ones actually handed over — `renderRecall` stops at the byte budget
+and the tail never reached the caller). Being searched out counts as having been touched,
+so the staleness anchor is `max(created, last used, last retrieved)` and a record a later
+session reaches for stops decaying and climbs back. The term is capped at `1.0`, so a
+lookup is worth less than a recorded success and calling `memory_recall` repeatedly cannot
+keep anything resident permanently. Automatic injection deliberately does **not** count: a
+record that counted its own injection would keep itself injected, and the number would stop
+meaning "someone looked for this".
+
+The standing hint now asks for both halves in the order that matters — search before you
+start, record when you learn, report when it helped. The hint exists because "offered is
+not used" was already measured once for recording (five sessions, ~5,900 tool calls,
+`memory_remember` never called); retrieval had the same problem and no hint at all.
+
+Measured on a copy of the live store: of 43 confirmed file-verified records, 42 were below
+the bar; one of them sat at `5.999`. A single search took it to `6.300` and back into the
+always-on layer, and all 42 return under the same treatment. `memory_stats` gained the line
+that answers the question directly — how many records have ever been searched out, and how
+many nobody has touched in either direction.
+
+The schema change (`retrieve_count`, `last_retrieved_at`) needed a real migration: `SCHEMA`
+is entirely `CREATE TABLE IF NOT EXISTS`, so a column added to that definition reaches a
+new store and does nothing whatsoever to an existing one. Columns are now added by
+inspection of `PRAGMA table_info`, which is idempotent and leaves no half-migrated state —
+verified by reopening a store from the previous version (76 records in, 76 out).
+
 ### A purge now takes its corroboration, and maintenance repairs the ones already left
 
 A live store had a corroboration row whose record had been purged. It matters because

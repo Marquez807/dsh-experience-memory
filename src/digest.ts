@@ -49,8 +49,22 @@ export const MATCHED_LABEL = '经验记忆（与本轮相关）：'
  * Kept to one short line and bounded by a test, because it costs tokens on every
  * single turn whether or not the memory has anything to say.
  */
+/**
+ * The standing hint. Unconditional, query-independent, paid for on every turn.
+ *
+ * It asks for both halves of the loop. Recording was the half that got a hint first,
+ * and the reason is measured rather than assumed: across five real sessions and ~5,900
+ * tool calls the memory tools were offered on every request after installation, and
+ * `memory_remember` was never called once until someone named it explicitly. Being
+ * available was not the same as being used.
+ *
+ * Retrieval had exactly the same problem and no hint. The consequence was worse than
+ * symmetric: a memory that no later session looks for cannot earn the reuse bonus that
+ * keeps it in the always-on layer, so it fell silent within hours of being written and
+ * the store filled with records nothing would ever read. Hence "查" first, then "记".
+ */
 export const RECORD_HINT =
-  '记录：遇到会跨任务复用的约定、边界或教训时，用 memory_remember 记下并附上原文与出处；一次性的细节不要记。'
+  '经验记忆：动手前先用 memory_recall 查有没有相关经验；学到可复用的约定/边界/教训就用 memory_remember 记下（附原文与出处），用过就 memory_feedback 记一笔。'
 
 /**
  * The ceiling the standing hint may not exceed, in UTF-8 bytes.

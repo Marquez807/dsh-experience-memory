@@ -192,6 +192,31 @@ export async function run(): Promise<void> {
     assert(goodRecall.text.includes(verified.id), 'the recall names the record id so it can be acted on')
     eq(goodRecall.truncated, false, 'a small answer is not marked truncated')
 
+    // ── Searching a record out is recorded ────────────────────────────────
+    // It is the only trace that a memory written earlier was ever reached for later. The
+    // store could say what was written and nothing about what was read, so "is this pile
+    // being used" had no answer — and a record nobody looks for cannot earn the bonus that
+    // keeps it in the always-on layer, so it went silent and stayed that way.
+    const readCount = (): number => {
+      const side = openDb(dbPath)
+      try {
+        return (side.prepare('SELECT retrieve_count AS n FROM record WHERE id = ?')
+          .get(verified.id) as { n: number }).n
+      } finally {
+        side.close()
+      }
+    }
+    eq(readCount(), 2,
+      'both recalls above recorded it: the candidate review and this one, onto the same row')
+    // Automatic injection must not count, or a record once injected would keep itself
+    // injected forever and the number would stop meaning "someone looked for this".
+    await digestOf([userMessage('部署')])
+    eq(readCount(), 2, 'being injected automatically is not the same as being searched for')
+    await call('memory_recall', { query: '部署' }, agentFor([]))
+    eq(readCount(), 3, 'and searching again counts again')
+    const recalledText = (await call<{ text: string }>('memory_recall', { query: '部署' }, agentFor([]))).text
+    assert(recalledText.includes('被查过'), `a recall says whether the record has been reached for before: ${recalledText}`)
+
     // ── The model can ask what it holds ───────────────────────────────────
     // Read-only, and the numbers must describe the store rather than the tool's
     // own idea of it. The candidate was upgraded in place, so there is one record.

@@ -39,6 +39,18 @@ export interface MemoryRecord {
   reuseCount: number
   successCount: number
   failureCount: number
+  /**
+   * How many times a caller has explicitly searched this record out.
+   *
+   * Distinct from `reuseCount`, which counts recorded *outcomes*: this counts
+   * *lookups*. Automatic injection deliberately does not count, or a record once
+   * injected would keep itself injected forever. It exists because nothing else
+   * did: retrieval was invisible, so a memory that a later session actually
+   * reached for was indistinguishable from one no session ever touched.
+   */
+  retrieveCount: number
+  /** When it was last searched out, or `null` if never. */
+  lastRetrievedAt: number | null
   /** Consecutive failures since the last success. Two retires the record. */
   failStreak: number
   distinctWorkspaces: number

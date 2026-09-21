@@ -213,6 +213,8 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
     successCount: 0,
     failureCount: 0,
     failStreak: 0,
+    retrieveCount: 0,
+    lastRetrievedAt: null,
     distinctWorkspaces: corroborations,
     createdAt: input.now,
     occurredAt: input.now,
