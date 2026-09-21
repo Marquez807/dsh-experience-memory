@@ -395,7 +395,9 @@ export function auditLegacy(input: AuditInput): AuditResult {
   // "Worth importing" and "will be injected" are different questions, and the
   // answer is decided by the framework's own ranking function rather than by
   // opinion. A `verified-file` record carries a base of exactly 3.0 x 2.0 = 6.0
-  // against a resident bar of 6.0, so age alone can push it under.
+  // against a bar of 5.5, so it clears the line on its own for about two months
+  // and then needs to be searched out or used. This number is the check on that:
+  // it was 0 for every file-verified record while the bar sat exactly on the base.
   let ready = 0
   let blocked = 0
   let withIdentifier = 0
@@ -668,8 +670,9 @@ function renderAuditReport(result: AuditResult): string {
   p('「值得导入」和「会被注入」是两个问题。后者不该靠判断，所以这里直接调用框架自己的')
   p('`importance` 与 `eligibleForResident` 来量：')
   p('')
-  p('- `verified-file` 的基础分是 `3.0 × 2.0 = 6.0`，而常驻资格线也正好是 `6.0`')
-  p('- 陈旧度按默认 180 天复核周期计算，所以记录一出生就开始被扣分')
+  p('- `verified-file` 的基础分是 `3.0 × 2.0 = 6.0`，常驻资格线是 `5.5`，')
+  p('  所以它靠自己就能过线约 **60 天**；60 天里没被查过、没被确认有用，才会沉下去被扣出线外')
+  p('- 陈旧度按默认 180 天复核周期计算，每天扣 `1.5 / 180 ≈ 0.0083` 分')
   p('')
   p('| 结果 | 条数 | 含义 |')
   p('|---|---|---|')

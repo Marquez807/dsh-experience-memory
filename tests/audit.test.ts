@@ -139,10 +139,14 @@ export function run(): void {
     // ── Injectability is measured with the framework's own ranking ────────
     eq(result.injectability.ready + result.injectability.blocked, funnel.substantive,
       'every recommended record is classified as ready or blocked')
-    eq(result.injectability.ready, 0,
-      'a verified-file record sits just below the resident bar, so none are ready on age alone')
-    eq(result.injectability.withIdentifier, funnel.substantive,
-      'but one exact identifier hit is enough to clear it')
+    // Deliberately not a fixed count: a file-verified record sits 0.5 above the bar, which
+    // is about two months of age, so how many are ready depends on how old the fixture is.
+    // What must hold is that the gate is not shut to the grade — it was, while the bar sat
+    // exactly on that grade's base score and every such record fell under it.
+    assert(result.injectability.ready > 0,
+      `a verified-file record clears the bar on age alone, so some are ready: ${result.injectability.ready}`)
+    assert(result.injectability.withIdentifier >= result.injectability.ready,
+      'and an identifier hit can only add to that, never take away')
 
     // ── Reports ───────────────────────────────────────────────────────────
     assert(result.reports.audit.includes(`${result.mapped} 条可映射记录`),

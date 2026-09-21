@@ -6,7 +6,7 @@
  * cases pin the replacement: an explicit, bounded, monotone score.
  */
 import { assert, eq } from './assert.ts'
-import { compareRanked, eligibleForResident, importance, RETIRE_FLOOR, type ImportanceFacts } from '../src/rank.ts'
+import { compareRanked, eligibleForResident, importance, RESIDENT_MIN_IMPORTANCE, RETIRE_FLOOR, type ImportanceFacts } from '../src/rank.ts'
 import type { MemoryRecord, RankedRecord } from '../src/types.ts'
 
 const DAY = 86_400_000
@@ -131,7 +131,22 @@ export function run(): void {
   assert(!eligibleForResident(record({ status: 'retired' }), high, NOW), 'a retired record is never resident')
   assert(!eligibleForResident(record({ evidence: 'inferred' }), high, NOW), 'an inference is never resident')
   assert(!eligibleForResident(record({ expiresAt: NOW - 1 }), high, NOW), 'an expired record is never resident')
-  assert(!eligibleForResident(record(), 5.9, NOW), 'importance below the threshold is not resident')
+  assert(!eligibleForResident(record(), RESIDENT_MIN_IMPORTANCE - 0.1, NOW),
+    'importance below the threshold is not resident')
+  assert(eligibleForResident(record(), RESIDENT_MIN_IMPORTANCE, NOW),
+    'and exactly on the threshold it is — the comparison is inclusive')
+  // The gap above the most common grade is the whole policy, so it is asserted rather than
+  // left to arithmetic: 0.5 of headroom is about two months at the decay rate, and it was
+  // zero by accident until it was made deliberate.
+  const fileBase = importance(facts({
+    evidence: 'verified-file', createdAt: NOW - 30 * DAY, lastUsedAt: null,
+  }))
+  assert(fileBase > RESIDENT_MIN_IMPORTANCE,
+    `a month-old file claim is still above the bar: ${fileBase.toFixed(3)}`)
+  assert(importance(facts({
+    evidence: 'verified-file', createdAt: NOW - 90 * DAY, lastUsedAt: null,
+  })) < RESIDENT_MIN_IMPORTANCE,
+    'and after three months of nobody touching it, it is not')
 
   // ── Ordering is total and stable ─────────────────────────────────────────
   const mk = (id: string, score: number, bm25: number): RankedRecord => ({

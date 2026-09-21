@@ -2,6 +2,35 @@
 
 ## 0.1.0 — unreleased
 
+### The resident bar now leaves the commonest grade room, on purpose
+
+A user asked why a memory should decay the moment it is written. It was not a design: three
+weights chosen separately happened to land exactly on each other.
+
+    base score = 3.0 x evidence weight      bar = 6.0
+    verified-tool  3.0 -> 9.0               ~360 days of room
+    verified-user  2.5 -> 7.5               ~180 days
+    verified-file  2.0 -> 6.0                0 days -- under the line the instant it exists
+    inferred       0.5 -> 1.5               excluded by grade
+
+`verified-file` is the grade almost everything actually gets (43 of 45 confirmed records in a
+live store), and it was the one grade with no headroom at all, because its base score *was*
+the bar. The intent recorded in the code — "evidence grade alone should not be enough; a
+memory must earn its place" — was therefore executed as "you must be used in the instant you
+are written", which in practice means never: 42 of those 43 records sat below a line they
+could not clear, and the always-on layer held 2 records out of 76.
+
+The bar is now `5.5`, and the gap is the policy rather than an accident: 0.5 of headroom is
+60 days at the decay rate, so **a new memory is visible on its own for two months and after
+that has to be earned** by being searched out or recorded as useful. On a copy of the live
+store the eligible pool went from 3 of 45 to 45 of 45 — not 45 lines per turn, because the
+layer is query-gated and byte-budgeted, but 45 records the ranking may choose from instead of
+a closed door.
+
+Both directions are now asserted rather than left to arithmetic: a month-old file claim is
+above the bar, a three-month-old untouched one is not, and the audit report's injectability
+section no longer states the old collision as if it were a rule.
+
 ### Memories were being written and never read: retrieval now counts
 
 A user read the store and asked the plain question — "are these things actually being
