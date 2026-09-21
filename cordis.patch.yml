@@ -67,3 +67,12 @@
         # message changes by a word.
         failureTracking: true
         failureShapeLimit: 200
+        # Which agent presets ("modes") get no memory at all, by preset id, e.g. [model-test].
+        #
+        # Why the switch lives here and not in the mode: a preset cannot switch off a plugin the
+        # profile installed — the `disabled` flags in a preset only affect rows that preset
+        # declares itself. So "this mode has no memory" can only be decided by the plugin, which
+        # reads the preset id out of the session header. Listed modes get: no digest, no record
+        # hint, no just-in-time hints, no harvesting, no failure counting, and the memory tools
+        # refuse with the reason. Empty by default: every mode has memory unless named here.
+        disabledPresets: []

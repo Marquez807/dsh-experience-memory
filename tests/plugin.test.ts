@@ -515,6 +515,104 @@ export async function run(): Promise<void> {
     }
     assert(survived, 'a failing maintenance pass is swallowed, so it can never fail a turn')
 
+    // ── A mode can be left without memory ──────────────────────────────────
+    // Why this has to live in the plugin rather than in the mode: a preset cannot switch off a
+    // plugin the profile installed — its own `disabled` flags only affect rows it declares — so
+    // "this mode has no memory" is decided here, by reading the preset id the session records.
+    // Everything a session could notice is checked: the two prompt contributions, the recording
+    // path, and the tools.
+    const offDir = mkdtempSync(join(tmpdir(), 'expmem-off-'))
+    const offPath = join(offDir, 'memory.db')
+    const offQuote = '这条内容足够长，可以被注入也可以被查出来'
+    const off = new Context()
+    try {
+      await off.plugin(SystemPrompt, {})
+      await off.plugin(ToolRuntime, {})
+      await off.plugin(Commands, {})
+      await off.plugin(experienceMemory, { enabled: true, dbPath: offPath, disabledPresets: ['model-test'] })
+
+      const presetAgent = (preset: string | undefined, switched?: string): Agent => {
+        // The digest is query-gated, so "empty in the listed mode" only means anything if the
+        // same session shape gets a non-empty digest in a normal mode. The user message is both
+        // the evidence that confirms the record and the query that pulls it back.
+        const events: unknown[] = [userMessage(offQuote)]
+        if (switched !== undefined) events.push({ type: 'agent-preset/selected', data: { agentPreset: switched } })
+        return {
+          id: 'session-off',
+          session: {
+            header: preset === undefined ? { cwd: offDir } : { cwd: offDir, agentPreset: preset },
+            snapshotEvents: () => events,
+          },
+        }
+      }
+      // Something worth injecting, so "empty digest" means the mode is off and not the store.
+      await off.tools.get('memory_remember')!.execute(
+        { kind: 'fact', title: '这条本来会被注入', body: `${offQuote}，所以它够长、也够可信`, quote: offQuote },
+        { signal: new AbortController().signal, agent: presetAgent('standard') },
+      )
+
+      const assembled = async (agent: Agent): Promise<string> =>
+        (await off.systemPrompt.assemble({ agent })).contexts
+          .map(context => context.text ?? '').join('\n')
+
+      const normal = await assembled(presetAgent('standard'))
+      const disabledPreset = await assembled(presetAgent('model-test'))
+      assert(normal.includes('这条本来会被注入'), 'a normal mode still gets its memory')
+      assert(!disabledPreset.includes('这条本来会被注入'),
+        'and a listed mode gets no digest at all')
+      assert(!disabledPreset.includes('memory_recall'),
+        'nor the standing instruction that tells it recording exists — a test mode should not be told')
+      eq(disabledPreset.trim(), '', 'the two prompt contributions are both empty, so nothing is left')
+      // A session that STARTED in a normal mode and switched into the listed one: the header
+      // alone would say "has memory" and the mode would leak. The events decide.
+      assert(!(await assembled(presetAgent('standard', 'model-test'))).includes('这条本来会被注入'),
+        'a session that switched into the listed mode is treated as the mode it is in')
+
+      // The tools refuse instead of answering. The preset's own filter hides them from the
+      // catalogue, so this is the second line of defence — and it is the one that matters if
+      // the filter is ever missing.
+      let refused: string | undefined
+      try {
+        await off.tools.get('memory_recall')!.execute(
+          { query: '随便问点什么' },
+          { signal: new AbortController().signal, agent: presetAgent('model-test') },
+        )
+      } catch (error) {
+        refused = error instanceof Error ? error.message : String(error)
+      }
+      assert(refused !== undefined && refused.includes('disabledPresets'),
+        `a tool call in a listed mode is refused with the reason: ${refused}`)
+      assert(refused !== undefined && refused.includes('Remove the preset id'),
+        'and the message carries the remedy, not just the refusal')
+
+      // Recording is off too: a turn that would normally file a harvested candidate files none.
+      const countRecords = (): number => {
+        const side = openDb(offPath)
+        try {
+          return (side.prepare('SELECT count(*) AS n FROM record').get() as { n: number }).n
+        } finally {
+          side.close()
+        }
+      }
+      const before = countRecords()
+      // A user correction is the one detector the calibration kept on by default, so a turn like
+      // this files a candidate in any normal mode.
+      await agentEvents(off, {
+        id: 'session-off',
+        session: {
+          header: { cwd: offDir, agentPreset: 'model-test' },
+          snapshotEvents: () => [
+            { type: 'turn/start', data: { turn: 1 } },
+            userMessage('不是实现的问题，是我预期错了'),
+          ],
+        },
+      }).serial('agent/turn-stopping', { turn: 1, signal: new AbortController().signal })
+      eq(countRecords(), before, 'a turn in a listed mode writes nothing to the store')
+    } finally {
+      await off.fiber.dispose()
+      rmSync(offDir, { recursive: true, force: true })
+    }
+
     // ── The plugin releases its database on unmount ────────────────────────
     await ctx.fiber.dispose()
     stopped = true

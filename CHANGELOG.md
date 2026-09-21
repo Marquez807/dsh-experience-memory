@@ -2,6 +2,40 @@
 
 ## 0.1.0 — unreleased
 
+### A mode can be left without memory, and only the plugin can arrange that
+
+Asked for directly: a model-test mode that has no memory. The obvious place to switch it off is
+the mode, and that is where it cannot be done. A mode is an agent preset, and a preset can only
+*add* rows — its `disabled` flags affect nothing but its own list. This plugin is installed by the
+profile, so its tools and its digest reach every preset in the process; the user's own
+`bigfat-value` preset already carried a comment saying exactly that about a different plugin.
+
+So the switch lives here, keyed by preset id: `disabledPresets` (empty by default). Listed modes
+get no digest, no "look before you record" instruction, no just-in-time hints, no harvesting and
+no failure counting, and the memory tools refuse with the reason in the message.
+
+Two details a plausible-looking implementation gets wrong:
+
+- **Which preset a session is in is not just a header field.** The header records what the
+  session *started* with, and a session may switch mode while blank — the switch is an
+  `agent-preset/selected` event. Reading only the header would leave memory switched off in a
+  session the user moved *into* an ordinary mode; reading only the events would miss every
+  session that never switched. Both are read, events last.
+- **Hiding the tools is a separate mechanism, and it belongs to the mode.** `tools.restrict()`
+  refuses to run outside a scoped context, on purpose — a context-global restriction would mask
+  every agent's tools. A preset *is* a scope, so the mode ships a fifteen-line local plugin that
+  denies the five memory tools for its own agents. The two layers are independent: the config
+  decides "does not inject or record", the preset decides "not in the tool catalogue".
+
+Maintenance still runs in a disabled mode, deliberately: it is store hygiene that no session sees,
+and skipping it would let a memory-free mode quietly stop the whole store from aging out.
+
+Verified with five break-tests, one per enforcement point, each proved to fail its own assertion:
+digest, standing instruction, tool refusal, harvest, and the events-over-header rule. The digest
+case had to be made honest first — an empty digest in the listed mode proves nothing unless the
+same session shape gets a non-empty one in an ordinary mode, which needs the query and the
+evidence both present in the fixture.
+
 ### Ask whether a lesson worked, not just whether it was stored
 
 Counting records and recalls shows storage and use. It does not show effect, and "is experience

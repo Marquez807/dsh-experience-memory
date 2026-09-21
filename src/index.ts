@@ -37,7 +37,7 @@ import { openDb, noteRetrieval, countCandidates } from './db.ts'
 import { noteFailures } from './failure.ts'
 import { harvestFrom, lastTurn } from './harvest.ts'
 import { recallForCall, renderPrecall } from './precall.ts'
-import { eventsOf } from './session.ts'
+import { eventsOf, memoryDisabled } from './session.ts'
 import { buildDigest, recentQueryText, workspaceOf, RECORD_HINT, type AgentLike } from './digest.ts'
 import { census, renderCensus } from './census.ts'
 import { forget, maintain, recordUsage, remember, harvest } from './lifecycle.ts'
@@ -136,6 +136,7 @@ function attachPrecall(
 ): void {
   try {
     if (typeof exec.deferContext !== 'function') return
+    if (memoryDisabled(exec.agent, config.disabledPresets)) return
     const workspace = workspaceOf(exec.agent, config.defaultDomain)
     const now = Date.now()
     const record = recallForCall(db, workspace.id, workspace.domain, exec.arguments, now)
@@ -242,6 +243,10 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
     order: CONTEXT_ORDER,
     text: (context: { agent?: AgentLike }): string => {
       try {
+        // A mode listed in `disabledPresets` gets nothing: no digest, and (below) no record
+        // hint either. Both halves matter — the hint is what tells a mode that recording
+        // exists, and a model-test mode should not be told.
+        if (memoryDisabled(context.agent, resolved.disabledPresets)) return ''
         return buildDigest({
           db,
           config: resolved,
@@ -257,14 +262,16 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
   })
 
   // ── Standing instruction ──────────────────────────────────────────────────
-  // Deliberately separate from the digest above, and deliberately unconditional:
-  // the digest is empty whenever no record is eligible, and that is the state in
-  // which the model most needs to be told that recording exists. See RECORD_HINT
-  // for the measurement behind this.
+  // Deliberately separate from the digest above, and deliberately unconditional for every mode
+  // that has memory: the digest is empty whenever no record is eligible, and that is the state
+  // in which the model most needs to be told that recording exists. See RECORD_HINT for the
+  // measurement behind this. A disabled mode is the one exception, and it is checked per
+  // assembly for the same reason the digest is: the mode can change inside one process.
   ctx.systemPrompt.context({
     name: HINT_CONTEXT_NAME,
     order: CONTEXT_ORDER + 1,
-    text: RECORD_HINT,
+    text: (context: { agent?: AgentLike }): string =>
+      memoryDisabled(context.agent, resolved.disabledPresets) ? '' : RECORD_HINT,
   })
 
   // ── Maintenance, harvest, and what keeps failing ──────────────────────────
@@ -284,8 +291,12 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       report('maintenance pass', error)
     }
     // Harvesting runs after maintenance, so a candidate written now is aged by the next
-    // pass rather than in the same breath.
-    if (resolved.harvestEnabled && resolved.harvestMaxPerTurn > 0) {
+    // pass rather than in the same breath. A mode with memory disabled is skipped here — that
+    // is the *recording* half of "no memory", and it is what keeps a test session's turns out
+    // of the store. Maintenance itself still runs: it is store hygiene that no session sees,
+    // and skipping it would mean a memory-free mode silently stops aging out everyone's store.
+    const disabled = memoryDisabled(payload?.agent, resolved.disabledPresets)
+    if (!disabled && resolved.harvestEnabled && resolved.harvestMaxPerTurn > 0) {
       try {
         harvestTurn(db, payload?.agent, resolved, now)
       } catch (error) {
@@ -297,14 +308,16 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
     // Counting the turn's failures runs here because this is the only place the plugin
     // already holds the turn's events for free. It writes no record and injects nothing —
     // see `failure.ts` for why the count and the lesson are deliberately kept apart.
-    try {
-      const workspace = workspaceOf(payload?.agent, resolved.defaultDomain)
-      noteFailures(db, payload?.agent, workspace.id, payload?.agent?.id ?? '', now, {
-        enabled: resolved.failureTracking,
-        shapeLimit: resolved.failureShapeLimit,
-      })
-    } catch (error) {
-      report('failure shape count', error)
+    if (!disabled) {
+      try {
+        const workspace = workspaceOf(payload?.agent, resolved.defaultDomain)
+        noteFailures(db, payload?.agent, workspace.id, payload?.agent?.id ?? '', now, {
+          enabled: resolved.failureTracking,
+          shapeLimit: resolved.failureShapeLimit,
+        })
+      } catch (error) {
+        report('failure shape count', error)
+      }
     }
   })
 
@@ -322,6 +335,25 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
   }
 
   // ── On-demand recall ──────────────────────────────────────────────────────
+  /**
+   * Refuse to act, loudly, in a mode that has memory switched off.
+   *
+   * The preset's own tool filter removes these tools from the catalogue, so this should never
+   * fire — which is exactly why it exists. If the filter is ever missing or ineffective, the
+   * alternative is a model-test session quietly reading and writing the shared store, and the
+   * operator would have no way to tell. A refusal with the remedy in the message is the honest
+   * failure. Thrown rather than returned because every tool here has its own required output
+   * shape, and an error result carries the same sentence through all five.
+   */
+  const refuseWhenDisabled = (exec: ToolExec): void => {
+    if (!memoryDisabled(exec.agent, resolved.disabledPresets)) return
+    throw new TypeError(
+      'experience-memory: this agent preset is listed in `disabledPresets`, so this mode has no '
+      + 'memory — nothing is recalled, nothing is recorded, and nothing is injected. Remove the '
+      + 'preset id from that list to use memory here.',
+    )
+  }
+
   ctx.tools.register(defineTool({
     name: 'memory_recall',
     description:
@@ -364,6 +396,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       include_candidates?: boolean
       limit?: number
     }, exec: ToolExec) => {
+      refuseWhenDisabled(exec)
       const workspace = workspaceOf(exec.agent, resolved.defaultDomain)
       const limit = Math.max(1, Math.min(RECALL_MAX, Math.trunc(args.limit ?? 8)))
       const { ranked } = retrieve(db, {
@@ -429,6 +462,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
     // No arguments and no writes: a census the model can ask for while reasoning,
     // without the schema cost of options it would rarely use.
     execute: (_args: Record<string, never>, exec: ToolExec) => {
+      refuseWhenDisabled(exec)
       const result = census(db, { now: Date.now() })
       return {
         records: result.records,
@@ -537,6 +571,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       expires_in_days?: number
       review_after_days?: number
     }, exec: ToolExec) => {
+      refuseWhenDisabled(exec)
       const workspace = workspaceOf(exec.agent, resolved.defaultDomain)
       const now = Date.now()
       // Days are the model-facing unit because they are what a claim about the
@@ -603,6 +638,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       render: jsonRender,
     },
     execute: (args: { record_id: string; outcome: 'success' | 'failure' }, exec: ToolExec) => {
+      refuseWhenDisabled(exec)
       const result = recordUsage(db, {
         recordId: args.record_id,
         outcome: args.outcome,
@@ -645,7 +681,8 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       },
       render: jsonRender,
     },
-    execute: (args: { record_id: string; reason: string; purge?: boolean }) => {
+    execute: (args: { record_id: string; reason: string; purge?: boolean }, exec: ToolExec) => {
+      refuseWhenDisabled(exec)
       const outcome = forget(db, {
         recordId: args.record_id,
         reason: args.reason,

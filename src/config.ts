@@ -82,6 +82,18 @@ export interface Config {
   failureTracking?: boolean
   /** Shapes kept per workspace before the least frequent and stalest are dropped. */
   failureShapeLimit?: number
+  /**
+   * Agent presets ("modes") that get no memory at all.
+   *
+   * A mode is a preset, and a preset cannot switch off a plugin the profile installed — the rows
+   * a preset declares only control what it adds. So the switch lives here, keyed by preset id:
+   * sessions whose mode is listed get no digest, no record hint, no just-in-time hints, no
+   * harvesting and no failure counting, and the memory tools refuse instead of answering.
+   *
+   * It exists for a model-test mode, where the point is to watch the model rather than the
+   * accumulated experience. Empty by default: nothing is disabled unless asked for.
+   */
+  disabledPresets?: string[]
 }
 
 /** Schemastery validation. Invalid values fail plugin load rather than degrade. */
@@ -105,6 +117,7 @@ export const Config: z<Config> = z.object({
   precallCooldownMinutes: z.number(),
   failureTracking: z.boolean(),
   failureShapeLimit: z.number(),
+  disabledPresets: z.array(z.string()),
 })
 
 /** Fully resolved configuration, with defaults applied and bounds enforced. */
@@ -128,6 +141,7 @@ export interface ResolvedConfig {
   precallCooldownMinutes: number
   failureTracking: boolean
   failureShapeLimit: number
+  disabledPresets: string[]
 }
 
 /**
@@ -169,5 +183,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     precallCooldownMinutes: positive(config.precallCooldownMinutes, 30, 'precallCooldownMinutes'),
     failureTracking: config.failureTracking ?? true,
     failureShapeLimit: positive(config.failureShapeLimit, 200, 'failureShapeLimit'),
+    // Ids are compared literally, so they are trimmed once here rather than at every turn.
+    disabledPresets: (config.disabledPresets ?? []).map(id => id.trim()).filter(id => id !== ''),
   }
 }

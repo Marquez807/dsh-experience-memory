@@ -137,6 +137,11 @@ export interface SessionEventLike {
     role?: string
     /** `goal/change` carries the new objective here. */
     goal?: { objective?: string }
+    /**
+     * `agent-preset/selected` carries the preset the session moved to. Read so `presetOf` can
+     * see a mode change the creation header alone does not show.
+     */
+    agentPreset?: string
     /** `approval/decided` carries e.g. `allowed-once`; anything else is a refusal. */
     outcome?: string
   }
@@ -144,7 +149,14 @@ export interface SessionEventLike {
 
 /** The slice of a Session this plugin reads. */
 export interface SessionLike {
-  header?: { cwd?: string }
+  header?: {
+    cwd?: string
+    /**
+     * The agent preset the session started with, as the session log records it. Read so a mode
+     * can be left without memory; see `presetOf` in `session.ts`.
+     */
+    agentPreset?: string
+  }
   /**
    * A hand-built session may carry a plain array. A real one does not: it exposes
    * this log through `snapshotEvents()`.
