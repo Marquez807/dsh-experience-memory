@@ -177,9 +177,27 @@ export async function run(): Promise<void> {
     ).run()
     const covered = gapReport(db, { workspaceId: 'ws1', domain: '', now: 5000, limit: 10, minCount: 2 })
     assert(covered[0]?.closest !== undefined,
-      `a record that names the failure scores above zero: ${covered[0]?.bestScore}/${covered[0]?.keywords.length}`)
-    assert((covered[0]?.bestScore ?? 0) >= 2, 'and the score says how much it shares')
+      `a record that claims something about the failure scores above zero: ${covered[0]?.bestScore}/${covered[0]?.keywords.length}`)
     eq(covered[0]?.closest?.id, 'r1', 'the nearest record is named, so a reader can judge it')
+
+    // ── Quoting an error is not covering it ─────────────────────────────────
+    // Found by running the report for real rather than by imagining it: a 128-occurrence edit
+    // failure "matched" a record about something else, because that record quotes the error text
+    // in its body. What a record claims lives in its title, its "when this applies" line, its
+    // failure mode and its lesson; the body is where error text gets quoted, so it is out.
+    db.prepare(
+      "INSERT INTO record (id, workspace_id, domain, scope, kind, status, evidence, title, body,"
+      + " trigger, failure_mode, lesson, source_ref, reuse_count, success_count, failure_count,"
+      + " fail_streak, distinct_workspaces, created_at, occurred_at, updated_at, content_fingerprint)"
+      + " VALUES ('r2', 'ws1', '', 'workspace', 'experience', 'confirmed', 'verified-file',"
+      + " '这条讲的完全是别的事', '举例：Error: cannot modify \"x\": file has not been read，retry 也没用',"
+      + " '', '', '', 'y.md', 0, 0, 0, 0, 1, 1, 1, 1, 'fp2')",
+    ).run()
+    db.prepare("DELETE FROM record WHERE id = 'r1'").run()
+    const quoteOnly = gapReport(db, { workspaceId: 'ws1', domain: '', now: 5000, limit: 10, minCount: 2 })
+    eq(quoteOnly[0]?.closest, undefined,
+      'a record that only quotes the error in its body is not counted as related')
+    eq(quoteOnly[0]?.bestScore, 0, 'and its score stays zero')
   } finally {
     db.close()
     rmSync(dir, { recursive: true, force: true })
