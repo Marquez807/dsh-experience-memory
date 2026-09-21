@@ -2,6 +2,67 @@
 
 ## 0.1.0 — unreleased
 
+### The framework can now see what it keeps failing to learn
+
+A question from the person using it: *"this kind of mistake keeps happening and never settles
+into experience — doesn't that mean the memory framework has a hole?"* It did, and the hole was
+measurable rather than philosophical. Seven days of this harness:
+
+| | |
+|---|---|
+| tool failures | **358**, across 63 sessions |
+| `edit` refused: file not read | **143** (5 sessions, 2 workspaces) |
+| `edit` refused: file changed since read | 35 |
+| `edit`: `old_string was not found` | 33 |
+| `web_fetch` failed / non-public IP | 25 + 16 |
+| of the 16 commonest shapes, how many the store covered | **1** |
+
+Every one of those failures had been *read* by the framework and thrown away on purpose:
+`harvest.ts` skips the agent's own tooling, because "the agent used its own editor wrong" is not
+a lesson about the project. That rule is right for *should this become a lesson* and wrong for
+*is this happening at all* — and no layer was asking the second question. Finding the hole took
+a person going digging, which is the actual defect.
+
+What changed is only the observation layer, deliberately:
+
+- **Schema 4** adds `failure_shape` (workspace, tool, normalized shape) with a count, the
+  sessions it was seen in, and one truncated real sample. Counted at turn end, on the newest
+  turn the plugin already reads for the harvester, so it costs no extra log scan.
+- **`/memory-gaps`** reports the shapes that repeated, how often, in how many sessions, and how
+  close the store comes to them. The overlap is reported as a **score with the nearest record,
+  never as "covered"**: the error text is English, the records are mostly Chinese, so a record
+  that genuinely covers a failure can score zero. A boolean would have turned that into "nothing
+  covers this, write one", which is the class of check this whole audit was about.
+- **Nothing counted is injected, and no record is written from it.** Counting is automatic;
+  judging is not.
+- The agent's own tools are **not** filtered out of the count, which is the one place this
+  module deliberately parts company with `harvest.ts`; a test pins that, because inheriting the
+  filter would hide the 64% of failures that matter most.
+
+**The obvious design was rejected on these numbers.** A harvester that wrote a lesson from
+repeated failures would have produced records saying "read the file before editing" — which the
+error message already says (100% of the top shape's occurrences carry their own remedy), for a
+class of failure where the harness's edit tool is already the guard. The one detector aimed here
+had been calibrated once before and rejected (71 hits, 5 real); this data **supports** that
+rejection rather than overturning it. So the numbers are written down instead, in the README's
+deferred-work section, together with what a future attempt would have to beat.
+
+**Deferred with a pre-registered bar**: hinting before a call based on a record's `trigger`
+("when this applies") field, which is fully populated and looks ready to use. Measured: matching
+"the tool about to run appears in some record's trigger" fires on 949 of 13,198 calls (7.2%) and
+covers 62 of 358 failures (17%) — but its largest source is a misfire (`grep`, 623 firings, 3
+failures) while the useful one is `web_fetch` (193 firings, 49 failures). Telling "this is about
+using the tool" from "this merely mentions the tool" needs semantics this plugin does not buy.
+To be built at all it must, on the same window, fire on ≤2% of calls, cover ≥15% of failures,
+and no single record may contribute ≥300 misfires.
+
+Two smaller things, both from the same list of 358: our own `experience-memory: a
+domain-scoped record needs a resolved domain` was the tenth most frequent failure (10 times, 3
+sessions) and stated the problem without the remedy — it now names the remedy. And the docs test
+turned out to compare the code against a **hand-written list of command names**, the same defect
+its config-key check had already been fixed for: adding a command failed only if you also forgot
+the mirror. Both lists now come out of the README's own tables.
+
 ### The lesson now arrives at the call it is about, not at the turn before
 
 The case that started this: a record saying *confirm Steam is logged in before launching

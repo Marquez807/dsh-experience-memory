@@ -88,6 +88,16 @@ export function run(): void {
       assert(kept !== undefined && kept.title === '标题', 'existing rows survive the upgrade')
       eq(kept?.retrieveCount, 0, 'and start out as never searched for')
       eq(kept?.lastRetrievedAt, null, 'with no retrieval time')
+      // Schema 4 added a table rather than a column, and a table is the case
+      // `CREATE TABLE IF NOT EXISTS` alone would *not* have covered if the version check
+      // short-circuited: the whole file is IF NOT EXISTS, so it only ever runs when the
+      // stamped version differs. Asserting the table here is what keeps that true.
+      const tables = (upgraded.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[])
+        .map(row => row.name)
+      assert(tables.includes('failure_shape'),
+        'and gains the failure-shape table the new schema declares')
+      const rows = (upgraded.prepare('SELECT count(*) AS n FROM failure_shape').get() as { n: number }).n
+      eq(rows, 0, 'which starts empty rather than guessing at history it never saw')
     } finally {
       upgraded.close()
     }

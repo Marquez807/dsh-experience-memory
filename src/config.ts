@@ -73,6 +73,15 @@ export interface Config {
   precallMaxPerSession?: number
   /** Minutes before the same lesson may be shown again in one session. */
   precallCooldownMinutes?: number
+  /**
+   * Count the tool failures this workspace repeats, so the gap between what keeps going wrong
+   * and what the store knows can be asked about (`/memory-gaps`).
+   *
+   * Counting only: nothing counted here is injected, and no record is written from it.
+   */
+  failureTracking?: boolean
+  /** Shapes kept per workspace before the least frequent and stalest are dropped. */
+  failureShapeLimit?: number
 }
 
 /** Schemastery validation. Invalid values fail plugin load rather than degrade. */
@@ -94,6 +103,8 @@ export const Config: z<Config> = z.object({
   precallEnabled: z.boolean(),
   precallMaxPerSession: z.number(),
   precallCooldownMinutes: z.number(),
+  failureTracking: z.boolean(),
+  failureShapeLimit: z.number(),
 })
 
 /** Fully resolved configuration, with defaults applied and bounds enforced. */
@@ -115,6 +126,8 @@ export interface ResolvedConfig {
   precallEnabled: boolean
   precallMaxPerSession: number
   precallCooldownMinutes: number
+  failureTracking: boolean
+  failureShapeLimit: number
 }
 
 /**
@@ -154,5 +167,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     precallEnabled: config.precallEnabled ?? true,
     precallMaxPerSession: positive(config.precallMaxPerSession, 20, 'precallMaxPerSession'),
     precallCooldownMinutes: positive(config.precallCooldownMinutes, 30, 'precallCooldownMinutes'),
+    failureTracking: config.failureTracking ?? true,
+    failureShapeLimit: positive(config.failureShapeLimit, 200, 'failureShapeLimit'),
   }
 }

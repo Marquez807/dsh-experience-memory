@@ -47,10 +47,28 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** A fixed clock, so nothing here depends on when it runs. */
 const NOW = 1_800_000_000_000
 
-/** Exactly the five the README's tool table lists. */
-const TOOL_NAMES = ['memory_recall', 'memory_remember', 'memory_feedback', 'memory_forget', 'memory_stats']
-/** Exactly the five the README's command table lists. */
-const COMMAND_LIST = ['memory-status', 'memory-preview', 'memory-maintain', 'memory-harvest', 'memory-audit', 'memory-import']
+/**
+ * The surfaces, read off the README's own tables.
+ *
+ * These were hand-written mirrors, and the assertion below then compared the code against the
+ * mirror — so adding a command failed only if whoever added it also forgot the mirror, while a
+ * command that was never documented anywhere passed as soon as both sides were edited. That is
+ * the same defect the config keys had (see `configKeys` below), in the same file, caught the
+ * same way: by the check having to be edited to stay green rather than by it catching anything.
+ */
+function tableNames(readme: string, row: RegExp): string[] {
+  const names: string[] = []
+  for (const line of readme.split('\n')) {
+    const match = row.exec(line.trim())
+    if (match?.[1] !== undefined) names.push(match[1])
+  }
+  return names
+}
+
+/** Tool rows read `| \`memory_recall\` | … |`; command rows `| \`/memory-status\` | … |`. */
+const toolNames = (readme: string): string[] => tableNames(readme, /^\|\s*`(memory_[a-z_]+)`\s*\|/)
+const commandList = (readme: string): string[] => tableNames(readme, /^\|\s*`\/(memory-[a-z-]+)`\s*\|/)
+
 
 /**
  * Every key `Config` accepts, read from the code rather than listed here.
@@ -288,17 +306,19 @@ export async function run(): Promise<void> {
     await ctx.plugin(experienceMemory, { enabled: true, dbPath: join(dir, 'mount.db') })
 
     const registered = ctx.tools.schemas().map(schema => schema.name).sort()
-    eq(registered, [...TOOL_NAMES].sort(),
-      'the registered tools are exactly the five the README tool table lists — no more, no fewer')
+    eq(registered, toolNames(readme).sort(),
+      'the registered tools are exactly the ones the README tool table lists — no more, no fewer')
 
     const agent = { id: 'docs-session', session: { header: { cwd: dir }, snapshotEvents: () => [], append: () => {} } }
     const listed = ctx.commands.list(agent).map(entry => entry.name).filter(name => name.startsWith('memory-')).sort()
-    eq(listed, [...COMMAND_LIST].sort(),
-      'the registered commands are exactly the five the README command table lists')
-    eq([...COMMAND_NAMES].sort(), [...COMMAND_LIST].sort(), 'COMMAND_NAMES says the same five')
+    const inTable = commandList(readme).sort()
+    assert(inTable.length >= 6, `the README command table was actually parsed: ${inTable.join(', ')}`)
+    eq(listed, inTable,
+      'the registered commands are exactly the ones the README command table lists')
+    eq([...COMMAND_NAMES].sort(), inTable, 'COMMAND_NAMES says the same ones')
 
     // Presence, not placement: enough to catch a rename landing on one side only.
-    for (const name of [...TOOL_NAMES, ...COMMAND_LIST]) {
+    for (const name of [...toolNames(readme), ...inTable]) {
       assert(readme.includes(name), `${name} is named in the README, so the identifier and the docs agree`)
     }
 

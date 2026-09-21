@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Operator-command regressions.
  *
  * These drive the commands through the **real** command service — the same one
@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
+import { agentEvents } from '@deepseek-ai/dsh-agent'
 import Commands from '@deepseek-ai/dsh-commands'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
@@ -207,6 +208,35 @@ export async function run(): Promise<void> {
     const missing = await execute(`/memory-import "${legacy}" --selection "${join(dir, 'nope.json')}"`)
     eq(missing.kind, 'error', 'an unreadable selection file is an error')
     assert(text(missing).includes('无法读取清单'), 'and says which file it could not read')
+
+    // ── Gaps: the failures this workspace repeats ────────────────────────
+    // Empty is a real answer and must say so, because "no rows" from a table that only starts
+    // filling now looks identical to "nothing is going wrong" — which is the confusion this
+    // whole feature exists to remove.
+    const emptyGaps = await execute('/memory-gaps')
+    eq(emptyGaps.kind, 'success', 'the gap report runs on an empty store')
+    assert(text(emptyGaps).includes('还没有重复到'), `and says the table is still empty: ${text(emptyGaps)}`)
+    assert(text(emptyGaps).includes('不注入'), 'and says what it is: counting, not injecting')
+
+    // A session with repeated failures produces a report naming the shape and the count.
+    const failing = agent([
+      { type: 'turn/start', data: { turn: 1 } },
+      { type: 'tool/call', data: { name: 'edit', callId: 'g1', arguments: '{}' } },
+      { type: 'tool/result', data: { message: { source: { callId: 'g1' }, content: [
+        { type: 'tool-result', toolCallId: 'g1', isError: true,
+          content: [{ type: 'text', text: 'Error: cannot modify "F:\\x\\a.ts": file has not been read' }] }] } } },
+      { type: 'tool/call', data: { name: 'edit', callId: 'g2', arguments: '{}' } },
+      { type: 'tool/result', data: { message: { source: { callId: 'g2' }, content: [
+        { type: 'tool-result', toolCallId: 'g2', isError: true,
+          content: [{ type: 'text', text: 'Error: cannot modify "F:\\x\\b.ts": file has not been read' }] }] } } },
+    ])
+    // The count happens at turn end, which is where the plugin hooks it.
+    await agentEvents(ctx, failing).serial('agent/turn-stopping', { turn: 1, signal })
+    const gaps = await execute('/memory-gaps')
+    eq(gaps.kind, 'success', 'the gap report runs with failures counted')
+    assert(text(gaps).includes('2 次'), `and shows how often it happened: ${text(gaps)}`)
+    assert(text(gaps).includes('file has not been read'), 'and the real error text, so a reader can judge it')
+    assert(text(gaps).includes('关键词'), 'and states that the overlap is a keyword check, not a verdict')
 
     // ── The model surface did not grow with the commands ─────────────────
     // Exactly the five registered tools and nothing else: the operator commands

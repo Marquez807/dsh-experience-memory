@@ -1,4 +1,4 @@
-﻿// Consumer-level probe: import the INSTALLED package by bare specifier, with
+// Consumer-level probe: import the INSTALLED package by bare specifier, with
 // plain node and no experimental flags.
 //
 // This is the scenario that fails with ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING
@@ -81,7 +81,7 @@ try {
   // The operator commands must be registered from the installed package too,
   // which is the half of the surface a tarball could silently lose.
   const commandAgent = { id: 'probe', session: { header: { cwd: dir }, events: [], append: () => {} } }
-  for (const name of ['memory-status', 'memory-preview', 'memory-maintain', 'memory-audit', 'memory-import']) {
+  for (const name of ['memory-status', 'memory-preview', 'memory-maintain', 'memory-audit', 'memory-import', 'memory-gaps']) {
     const settled = await ctx.commands.execute(commandAgent, `/${name}`, [], new AbortController().signal)
     check(settled !== undefined, `installed plugin registers /${name}`)
   }
@@ -104,7 +104,7 @@ try {
   const descriptors = ctx.commands.list(commandAgent).map(entry => entry.name)
   const mine = descriptors.filter(name => name.startsWith('memory-'))
   check(new Set(mine).size === mine.length, `no command name is registered twice: ${mine.join(', ')}`)
-  check(mine.length === 6, `the command surface is exactly six, not six per mount: ${mine.length}`)
+  check(mine.length === 7, `the command surface is exactly seven, not seven per mount: ${mine.length}`)
   const contexts = (await ctx.systemPrompt.assemble({ agent: commandAgent })).contexts
     .map(entry => entry.name)
     .filter(name => name.startsWith('experience-memory:'))

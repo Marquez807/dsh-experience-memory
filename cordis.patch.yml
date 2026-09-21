@@ -60,3 +60,10 @@
         precallEnabled: true
         precallMaxPerSession: 20
         precallCooldownMinutes: 30
+        # Counts the tool failures this workspace repeats, so `/memory-gaps` can answer "what
+        # keeps going wrong, and does anything in the store cover it". Counting only: nothing
+        # counted here is ever injected, and no record is written from it. `failureShapeLimit`
+        # bounds the table, because a long-lived workspace mints a new shape whenever an error
+        # message changes by a word.
+        failureTracking: true
+        failureShapeLimit: 200
