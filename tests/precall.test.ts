@@ -79,6 +79,15 @@ export async function run(): Promise<void> {
   assert(asJson.some(id => id.includes('drain-state.ps1')),
     `and the same holds when the arguments arrive as the JSON string the log stores: ${asJson.join(', ')}`)
   assert(!asJson.some(id => id === 'file_path'), 'the key is dropped in that form too')
+  // Observed in the field rather than imagined: a lesson about SQLite WAL checkpoints was
+  // attached to an edit whose only link to it was the word `checkpoint` in a code comment — a
+  // different sense of the same word. A bare English word names nothing.
+  eq(identifiersOf({ command: 'echo checkpoint' }), [],
+    'ordinary prose is not a name, however rare it happens to be in the store')
+  // And the line that must not be crossed while stopping that: a bare lowercase word that *is*
+  // a name in this project stays.
+  assert(identifiersOf({ command: 'taskkill /F /IM Bannerlord.exe' }).some(id => id === 'taskkill'),
+    'a real command name of the same shape is still an identifier')
   eq(identifiersOf(undefined), [], 'a call with no arguments has nothing to match on')
 
   const dir = mkdtempSync(join(tmpdir(), 'expmem-precall-'))
