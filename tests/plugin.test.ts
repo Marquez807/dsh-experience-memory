@@ -89,6 +89,33 @@ export async function run(): Promise<void> {
   eq(recentQueryText({ session: { snapshotEvents: () => { throw new Error('no log') } } }), '',
     'a session whose log cannot be materialized contributes no query rather than throwing')
 
+  // ── What the agent is doing is part of the query, not only what was asked ──
+  // This is the Steam case, and it is the reason the query no longer reads only the user's
+  // words. On the turn where work started the user said "开始吧" — three characters sharing
+  // no term with the recorded lesson "confirm Steam is logged in before launching
+  // Bannerlord" — so the always-on layer went empty at the only moment it mattered, while
+  // the agent was visibly about to run the launcher. The turn's own activity is the signal
+  // that was being thrown away.
+  const active = sessionWith([
+    m('开始吧'),
+    { type: 'tool/call', data: { name: 'pwsh', arguments: '{"command":".\\launch-a-runtime-clean.ps1"}' } },
+    {
+      type: 'assistant/message',
+      data: { message: { content: [{ type: 'reasoning', text: '私有推理不该进查询' }, { type: 'text', text: '现在启动游戏做无人值守验证' }] } },
+    },
+    { type: 'todo/write', data: { todos: [{ content: '启动 Bannerlord 跑一轮' }, { content: '收集日志' }] } },
+  ])
+  const withActivity = recentQueryText({ session: active })
+  assert(withActivity.includes('launch-a-runtime-clean.ps1'),
+    `the command the agent is running is searchable: ${withActivity}`)
+  assert(withActivity.includes('现在启动游戏做无人值守验证'),
+    'and so is what it just said it is doing')
+  assert(withActivity.includes('启动 Bannerlord 跑一轮'), 'and the task list it is working through')
+  assert(!withActivity.includes('私有推理'),
+    'but its private reasoning is not: feeding its own speculation back into the query is the loop this plugin already refuses on the injection side')
+  eq(recentQueryText({ session: sessionWith([m('只有一句话')]) }), '只有一句话',
+    'a session with no activity produces exactly the old query, so nothing changed for the quiet case')
+
   const dir = mkdtempSync(join(tmpdir(), 'expmem-plugin-'))
   const dbPath = join(dir, 'memory.db')
   const ctx = new Context()

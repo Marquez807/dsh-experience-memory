@@ -75,14 +75,44 @@ export const RECORD_HINT =
  */
 export const RECORD_HINT_MAX_BYTES = 256
 
-/** Bounds on the derived retrieval query, so one huge message cannot dominate. */
+/**
+ * Bounds on the derived retrieval query, so one huge message cannot dominate.
+ *
+ * What the query is built *from* matters more than its size, and the first version got
+ * that wrong: it read only the user's messages. On a turn where the user says "开始吧" the
+ * query therefore carried nothing, and the always-on layer went empty exactly when the
+ * agent was about to act. It happened for real — a recorded lesson saying "confirm Steam is
+ * logged in before launching Bannerlord" was in the store, was injected on nine of the
+ * session's fifteen turns, and was absent on the one turn where the work started, because
+ * those three characters share no term with it. The agent then launched without Steam and
+ * the run was wasted.
+ *
+ * Who is doing the work decides what is relevant — not how the request happened to be
+ * phrased. So the query now also carries what the agent is *doing*: its own last statement,
+ * its todo list, and the arguments of its recent tool calls, which for a shell tool is the
+ * command itself. That is the difference between "the user said 开始吧" and "the agent is
+ * about to run `launch-a-runtime-clean.ps1`".
+ */
 export const QUERY_USER_MESSAGES = 2
 export const QUERY_MESSAGE_BYTES = 600
+/** Recent actions to read, and how much of each argument blob (a shell command is long). */
+export const QUERY_ACTIONS = 3
+export const QUERY_ACTION_BYTES = 240
+/** The agent's own last statement, and how many todo lines. */
+export const QUERY_STATEMENT_BYTES = 400
+export const QUERY_TODOS = 6
 
 /** The slice of the session this plugin reads. Structural: no import. */
 export interface SessionEventLike {
   type?: string
-  data?: { source?: { kind?: string }; content?: unknown }
+  data?: {
+    source?: { kind?: string }
+    content?: unknown
+    message?: { source?: { kind?: string }; content?: unknown }
+    name?: string
+    arguments?: unknown
+    todos?: unknown
+  }
 }
 
 export interface Workspace {
@@ -102,7 +132,57 @@ function textOfContent(content: unknown): string {
   return parts.join('\n')
 }
 
-/** Derive this turn's retrieval query from the conversation. */
+/**
+ * What the agent is doing, as terms a search can use.
+ *
+ * Three sources, in the order a reader would weigh them: the arguments of what it just
+ * ran (for a shell tool, the command itself), the last thing it said, and the task list it
+ * is working through. Only `text` blocks of an assistant message are read — `reasoning` is
+ * the model's private working, and feeding its own speculation back into the query is the
+ * loop this plugin already refuses to open on the injection side.
+ */
+function whatTheAgentIsDoing(events: readonly SessionEventLike[]): string[] {
+  const actions: string[] = []
+  let statement = ''
+  let todos = ''
+  for (const event of [...events].reverse()) {
+    if (event.data?.source?.kind === 'plugin') continue
+    if (event.type === 'assistant/message') {
+      if (statement !== '') continue
+      const blocks = event.data?.message?.content ?? event.data?.content
+      if (!Array.isArray(blocks)) continue
+      const spoken = blocks
+        .filter(block => typeof block === 'object' && block !== null
+          && (block as { type?: unknown }).type === 'text')
+        .map(block => String((block as { text?: unknown }).text ?? ''))
+        .join('\n')
+        .trim()
+      if (spoken !== '') statement = spoken.slice(0, QUERY_STATEMENT_BYTES)
+      continue
+    }
+    if (event.type === 'todo/write') {
+      if (todos !== '') continue
+      const list = event.data?.todos
+      if (!Array.isArray(list)) continue
+      todos = list
+        .slice(0, QUERY_TODOS)
+        .map(item => String((item as { content?: unknown })?.content ?? '').trim())
+        .filter(line => line !== '')
+        .join('；')
+      continue
+    }
+    if (event.type === 'tool/call' && actions.length < QUERY_ACTIONS) {
+      const name = event.data?.name
+      if (typeof name !== 'string' || name === '') continue
+      const args = event.data?.arguments
+      const tail = typeof args === 'string' ? args.slice(0, QUERY_ACTION_BYTES) : ''
+      actions.push(`${name} ${tail}`.trim())
+    }
+  }
+  return [...actions, statement, todos].filter(part => part !== '')
+}
+
+/** Derive this turn's retrieval query: what was asked, and what the agent is doing. */
 export function recentQueryText(agent: AgentLike | undefined): string {
   const events = eventsOf(agent)
   const parts: string[] = []
@@ -116,7 +196,9 @@ export function recentQueryText(agent: AgentLike | undefined): string {
     seen += 1
     if (seen >= QUERY_USER_MESSAGES) break
   }
-  return parts.join('\n')
+  // The request first, then the work: a reader skimming a preview sees the task before the
+  // machinery, and the existing expectations for a session with no activity are unchanged.
+  return [...parts, ...whatTheAgentIsDoing(events)].join('\n')
 }
 
 /** The workspace a turn runs in, defaulting to the process directory. */
