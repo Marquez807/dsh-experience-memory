@@ -2,6 +2,22 @@
 
 ## 0.1.0 — unreleased
 
+### MIT, so the plugin can be listed where it is meant to be installed from
+
+The licence was `UNLICENSED`, with a `LICENSE` file stating that no permission was granted to
+use, copy, modify or distribute it and that it was published for the author's own use. That
+was accurate while the repository was private. It stopped being accurate the moment the
+plugin was submitted to the public plugin market, where the entire point is that other people
+install and run it: a catalogue entry pointing at a repository that forbids use is a
+contradiction a reviewer would be right to question.
+
+MIT is also what this ecosystem overwhelmingly uses. A sample of 291 of the market's 4,062
+entries — read from the repositories themselves, because the catalogue carries no licence
+field — found 80% MIT, 9% with no licence at all, 5% Apache-2.0 and 0.7% AGPL-3.0. Among the
+thirty most-starred entries, MIT and Apache-2.0 split it evenly.
+
+Files: `LICENSE`, `package.json#license`, and the packaging check that pins the field.
+
 ### A turn harvester, calibrated on real logs before it was trusted
 
 Recording depends on the model choosing to record, and that was already measured here:

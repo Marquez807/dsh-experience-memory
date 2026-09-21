@@ -50,7 +50,7 @@ for (const entry of manifest.files) {
 check(existsSync(join(root, manifest.main)), 'the entry point is inside the package')
 check(manifest.dsh?.bundle?.patch !== undefined, 'the manifest declares a bundle patch')
 check(existsSync(join(root, manifest.dsh.bundle.patch)), 'and that patch exists')
-eq(manifest.license, 'UNLICENSED', 'the licence is stated rather than left absent')
+eq(manifest.license, 'MIT', 'the licence is stated rather than left absent')
 check(existsSync(join(root, 'LICENSE')), 'and a LICENSE file ships with it')
 check(manifest.peerDependencies['@deepseek-ai/dsh-commands'] !== undefined,
   'the command service is declared as a host-provided peer')
