@@ -2,6 +2,37 @@
 
 ## 0.1.0 — unreleased
 
+### Ask whether a lesson worked, not just whether it was stored
+
+Counting records and recalls shows storage and use. It does not show effect, and "is experience
+preventing mistakes?" is an effect question. The failure table now remembers *when* the recent
+occurrences happened (schema 5, a bounded list of the last 20), which makes the question
+answerable in one comparison per shape: the record that claims to cover it has a creation time,
+and the repeats after that time are the ones it failed to prevent.
+
+Measured on this machine's own logs: the record saying "this box cannot fetch web pages, the
+domain resolves to a proxy IP" was written at 21:05. The three `web_fetch` failure shapes ran at
+0.54, 0.34 and 0.14 per hour before it, and at **0.00, 0.12 and 0.00** after. That is the first
+hard evidence here that a record prevented anything, and the mechanism is the intended one: the
+agent stops spending calls on something that cannot work.
+
+Getting a flag out of it required resisting the obvious version. "The shape happened after a
+record matched it" would fire constantly and be wrong, so three conditions must all hold:
+
+- the keyword match is **complete**, and at least two words long — one shared word is a
+  coincidence, not a claim;
+- the record **predates** the repeats by more than an hour, so a record written a minute ago is
+  not blamed for the next slip;
+- there are **at least three** repeats after it — the data is a rate, and one repeat is noise.
+
+All three are asserted in both directions, and each was broken on purpose to watch its assertion
+fail. One of those break-tests found a test that was passing for the wrong reason: the
+partial-match fixture shared *zero* keywords rather than one, so relaxing the completeness
+condition changed nothing.
+
+The command's own wording keeps it a question rather than a verdict: the record may be right but
+arriving too late, or right about something adjacent, and the reader decides.
+
 ### The framework can now see what it keeps failing to learn
 
 A question from the person using it: *"this kind of mistake keeps happening and never settles

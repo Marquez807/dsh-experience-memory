@@ -177,7 +177,38 @@ export interface GapRow {
   keywords: string[]
   /** How many workspaces have hit the same shape. */
   workspaces: number
+  /**
+   * Occurrences recorded *after* the matched record was written; `0` when there is no match.
+   *
+   * Counted over the bounded list of recent occurrences the table keeps, so it is "N of the last
+   * M" rather than a lifetime total — the honest unit, and enough to see a lesson not working.
+   */
+  sinceRecord: number
+  /**
+   * The matched record is not stopping the failure: it claims to cover this shape, it predates
+   * the occurrences, and the shape kept happening anyway.
+   *
+   * Three conditions must all hold, because a false alarm here is expensive — it would teach the
+   * reader to distrust records that are fine. The match must be *complete* (every keyword, and at
+   * least two of them: a one-word overlap is a coincidence), the record must predate the
+   * occurrences by more than a token margin, and there must be at least
+   * {@link LESSON_IGNORED_MIN} of them. Even then it is a question, not a verdict: the record may
+   * be right but arriving too late, or right about something adjacent. The command says so.
+   */
+  lessonNotWorking: boolean
 }
+
+/**
+ * How many occurrences after a record count as "it kept happening".
+ *
+ * Three rather than one or two because the underlying data is a rate, not a promise: a single
+ * repeat is noise, and calling that "the lesson failed" is the kind of claim this report exists
+ * to avoid making.
+ */
+export const LESSON_IGNORED_MIN = 3
+
+/** A record has to be this old before "it did not stop the failure" is a fair thing to say. */
+export const LESSON_GRACE_MS = 60 * 60_000
 
 /**
  * Words worth searching the store for.
@@ -205,6 +236,30 @@ const STOPWORDS: ReadonlySet<string> = new Set([
   'error', 'failed', 'failure', 'cannot', 'could', 'invalid', 'expected', 'unexpected',
   'found', 'missing', 'requires', 'required', 'because', 'while', 'after', 'before', 'which',
 ])
+
+/**
+ * Did the record that claims to cover this shape actually stop it?
+ *
+ * The question is answerable only because the table remembers *when* the recent occurrences
+ * happened. Three conditions, all required — see {@link GapRow.lessonNotWorking} for why each is
+ * there; the short version is that a false "your lesson is not working" costs more than a missed
+ * one, because it makes the reader distrust records that are fine.
+ */
+export function lessonNotWorking(
+  shape: FailureShape,
+  best: { record: MemoryRecord; score: number } | undefined,
+  keywords: readonly string[],
+  now: number,
+): { sinceRecord: number; notWorking: boolean } {
+  if (best === undefined) return { sinceRecord: 0, notWorking: false }
+  // A complete match, and more than one word: "edit" alone appears in dozens of records, and a
+  // single shared word is not a claim about this failure.
+  if (best.score < keywords.length || keywords.length < 2) return { sinceRecord: 0, notWorking: false }
+  const createdAt = best.record.createdAt
+  if (now - createdAt < LESSON_GRACE_MS) return { sinceRecord: 0, notWorking: false }
+  const sinceRecord = shape.recentAt.filter(at => at > createdAt).length
+  return { sinceRecord, notWorking: sinceRecord >= LESSON_IGNORED_MIN }
+}
 
 /**
  * The learning gap: shapes this workspace repeats, and how close the store comes to them.
@@ -243,12 +298,15 @@ export function gapReport(
       if (score === 0) continue
       if (best === undefined || score > best.score) best = { record, score }
     }
+    const lesson = lessonNotWorking(shape, best, keywords, input.now)
     rows.push({
       shape,
       closest: best?.record,
       bestScore: best?.score ?? 0,
       keywords,
       workspaces: failureShapeWorkspaces(db, shape.tool, shape.shape),
+      sinceRecord: lesson.sinceRecord,
+      lessonNotWorking: lesson.notWorking,
     })
   }
   return rows

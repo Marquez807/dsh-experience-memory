@@ -13,8 +13,8 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, failureShapes, countFailureShapes } from '../src/db.ts'
-import { failureShape, failuresIn, gapKeywords, gapReport, noteFailures } from '../src/failure.ts'
+import { openDb, failureShapes, countFailureShapes, noteFailureShape } from '../src/db.ts'
+import { LESSON_IGNORED_MIN, failureShape, failuresIn, gapKeywords, gapReport, noteFailures } from '../src/failure.ts'
 import { assert, eq } from './assert.ts'
 import type { SessionEventLike } from '../src/types.ts'
 
@@ -198,6 +198,74 @@ export async function run(): Promise<void> {
     eq(quoteOnly[0]?.closest, undefined,
       'a record that only quotes the error in its body is not counted as related')
     eq(quoteOnly[0]?.bestScore, 0, 'and its score stays zero')
+
+    // ── Did the record that claims to cover it actually stop it? ─────────────
+    // The question the observation layer exists to make answerable. Three conditions, all
+    // required, and each is checked in both directions here — a false "your lesson is not
+    // working" teaches the reader to distrust records that are fine, which costs more than
+    // missing one that is not.
+    db.prepare("DELETE FROM record WHERE id = 'r2'").run()
+    // Real-scale clocks: the grace period is an hour, so a test that counts in milliseconds can
+    // never satisfy it — which is how the first version of this passed nothing and proved nothing.
+    const BASE = 1_800_000_000_000
+    const MINUTE = 60_000
+    const claim = 'edit cannot modify file has not been read retry'
+    const writeRecord = (id: string, trigger: string, createdAt: number): void => {
+      db.prepare(
+        "INSERT INTO record (id, workspace_id, domain, scope, kind, status, evidence, title, body,"
+        + " trigger, failure_mode, lesson, source_ref, reuse_count, success_count, failure_count,"
+        + " fail_streak, distinct_workspaces, created_at, occurred_at, updated_at, content_fingerprint)"
+        + ` VALUES ('${id}', 'ws1', '', 'workspace', 'experience', 'confirmed', 'verified-file',`
+        + " '改文件前必须先读', '', ?, '', '', 'z.md', 0, 0, 0, 0, 1, ?, ?, ?, ?)",
+      ).run(trigger, createdAt, createdAt, createdAt, `fp-${id}`)
+    }
+    const shapeOf = (rows: ReturnType<typeof gapReport>) => rows.find(row => row.shape.shape === 'cannot modify')
+    const twoHoursLater = BASE + 2 * 60 * MINUTE
+
+    // (a) A complete match that predates the repeats: the lesson is not working.
+    writeRecord('r3', claim, BASE)
+    for (const at of [BASE + 10 * MINUTE, BASE + 20 * MINUTE, BASE + 30 * MINUTE]) {
+      noteFailureShape(db, { workspaceId: 'ws1', tool: 'edit', shape: 'cannot modify', sample: 'x', sessionId: 's9', at })
+    }
+    const flagged = shapeOf(gapReport(db, { workspaceId: 'ws1', domain: '', now: twoHoursLater, limit: 10, minCount: 1 }))
+    eq(flagged?.lessonNotWorking, true,
+      `a record that predates the repeats is flagged as not working (since ${flagged?.sinceRecord})`)
+    eq(flagged?.sinceRecord, 3, 'and the count says how many repeats came after it')
+
+    // (b) The same repeats, but the record was written *after* them: no flag. Timing is the whole
+    // point — a lesson cannot be blamed for what already happened before it existed.
+    db.prepare('UPDATE record SET created_at = ? WHERE id = ?').run(BASE + 90 * MINUTE, 'r3')
+    const beforeOnly = shapeOf(gapReport(db, { workspaceId: 'ws1', domain: '', now: twoHoursLater, limit: 10, minCount: 1 }))
+    eq(beforeOnly?.lessonNotWorking, false, 'repeats that all happened before the record are not its failure')
+
+    // (c) A partial match never raises the flag, however much the shape repeats: one shared word
+    // is a coincidence, not a claim about this failure. The fixture has to match *exactly one* of
+    // the two keywords — the first version of this used a word that matched none, so it passed
+    // for the wrong reason and the relaxed condition went undetected.
+    db.prepare('UPDATE record SET created_at = ?, trigger = ? WHERE id = ?').run(BASE, 'edit', 'r3')
+    const partial = shapeOf(gapReport(db, { workspaceId: 'ws1', domain: '', now: twoHoursLater, limit: 10, minCount: 1 }))
+    eq(partial?.bestScore, 1, `the match shares exactly one keyword (${partial?.bestScore}/${partial?.keywords.length})`)
+    assert((partial?.keywords.length ?? 0) > 1, 'and there is more than one keyword to share')
+    eq(partial?.lessonNotWorking, false, 'and a partial match never claims the lesson failed')
+
+    // (d) A complete match, but too few repeats after it: still not a verdict.
+    db.prepare('UPDATE record SET created_at = ?, trigger = ? WHERE id = ?').run(BASE, claim, 'r3')
+    db.prepare("DELETE FROM failure_shape WHERE shape = 'cannot modify'").run()
+    for (const at of [BASE + 10 * MINUTE, BASE + 20 * MINUTE]) {
+      noteFailureShape(db, { workspaceId: 'ws1', tool: 'edit', shape: 'cannot modify', sample: 'x', sessionId: 's9', at })
+    }
+    const tooFew = shapeOf(gapReport(db, { workspaceId: 'ws1', domain: '', now: twoHoursLater, limit: 10, minCount: 1 }))
+    eq(tooFew?.lessonNotWorking, false, `two repeats are noise, not a verdict (needs ${LESSON_IGNORED_MIN})`)
+
+    // (e) The record is complete and predates the repeats, but it was written a moment ago: no
+    // flag yet. Without this, every new record would be accused of failing on the next mistake.
+    db.prepare("DELETE FROM failure_shape WHERE shape = 'cannot modify'").run()
+    db.prepare('UPDATE record SET created_at = ? WHERE id = ?').run(twoHoursLater - 5 * MINUTE, 'r3')
+    for (const at of [twoHoursLater - 4 * MINUTE, twoHoursLater - 3 * MINUTE, twoHoursLater - 2 * MINUTE]) {
+      noteFailureShape(db, { workspaceId: 'ws1', tool: 'edit', shape: 'cannot modify', sample: 'x', sessionId: 's9', at })
+    }
+    const fresh = shapeOf(gapReport(db, { workspaceId: 'ws1', domain: '', now: twoHoursLater, limit: 10, minCount: 1 }))
+    eq(fresh?.lessonNotWorking, false, 'a record written minutes ago has not had a fair chance yet')
   } finally {
     db.close()
     rmSync(dir, { recursive: true, force: true })

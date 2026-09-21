@@ -98,8 +98,24 @@ export function run(): void {
         'and gains the failure-shape table the new schema declares')
       const rows = (upgraded.prepare('SELECT count(*) AS n FROM failure_shape').get() as { n: number }).n
       eq(rows, 0, 'which starts empty rather than guessing at history it never saw')
+      // And the *column* path, which is the one every existing store takes: a store that already
+      // has the table from schema 4 must gain the column schema 5 added. `CREATE TABLE IF NOT
+      // EXISTS` does not do this, so exercise it instead of assuming it.
+      upgraded.exec('ALTER TABLE failure_shape DROP COLUMN recent_at')
+      upgraded.exec('PRAGMA user_version = 4')
     } finally {
       upgraded.close()
+    }
+    const recolumned = openDb(legacyPath)
+    try {
+      const columns = (recolumned.prepare('PRAGMA table_info(failure_shape)').all() as { name: string }[])
+        .map(column => column.name)
+      assert(columns.includes('recent_at'),
+        'reopening a schema-4 store adds the occurrence timestamps schema 5 needs')
+      eq((recolumned.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
+        SCHEMA_VERSION, 'and stamps the version again')
+    } finally {
+      recolumned.close()
     }
 
     // ── Round trip ───────────────────────────────────────────────────────────

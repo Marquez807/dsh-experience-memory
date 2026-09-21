@@ -16,7 +16,7 @@ import { tokenize } from './tokenize.ts'
 import type { Evidence, Kind, MemoryRecord, Scope, Status } from './types.ts'
 
 /** Bumped whenever a migration below changes the schema. */
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 /** `$DSH_HOME/experience-memory/memory.db`, with `~/.dsh` as the documented fallback. */
 export function defaultDbPath(): string {
@@ -119,6 +119,13 @@ CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 -- The shape is normalized (paths, quoted spans, ids and numbers collapsed), so two
 -- occurrences in different files are one row. The sample keeps one truncated real
 -- line so the reader can judge; it is never injected.
+--
+-- recent_at keeps the timestamps of the last few occurrences. That is what makes it
+-- possible to ask a question three counters cannot answer: *this shape is still happening
+-- after a record claimed to cover it* — i.e. whether a lesson worked. It is a bounded list
+-- rather than a full history, so the answer is "N of the last M", which is stated as such.
+-- (No backticks anywhere in this string: the whole schema is one template literal, and a
+-- backtick in a comment ends it. That has now cost two round trips, so it is written down.)
 CREATE TABLE IF NOT EXISTS failure_shape (
   workspace_id TEXT NOT NULL,
   tool         TEXT NOT NULL,
@@ -128,6 +135,7 @@ CREATE TABLE IF NOT EXISTS failure_shape (
   last_seen    INTEGER NOT NULL,
   session_ids  TEXT NOT NULL DEFAULT '[]',
   sample       TEXT NOT NULL,
+  recent_at    TEXT NOT NULL DEFAULT '[]',
   PRIMARY KEY (workspace_id, tool, shape)
 );
 CREATE INDEX IF NOT EXISTS failure_shape_recent ON failure_shape(last_seen);
@@ -168,6 +176,11 @@ export function migrate(db: DatabaseSync): void {
     origin: "TEXT NOT NULL DEFAULT 'model'",
     harvest_signal: 'TEXT',
   })
+  // Schema 5 added a column to a table that may already exist, for the same reason as above:
+  // `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it was. Rows that predate
+  // the column keep an empty list, so their "how many since that record" question is
+  // unanswerable rather than guessed at.
+  addMissingColumns(db, 'failure_shape', { recent_at: "TEXT NOT NULL DEFAULT '[]'" })
   db.prepare('INSERT OR REPLACE INTO meta VALUES (?, ?)').run('schema_version', String(SCHEMA_VERSION))
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
 }
@@ -635,18 +648,40 @@ export interface FailureShape {
   lastSeen: number
   sessionIds: string[]
   sample: string
+  /** Timestamps of the most recent occurrences, oldest first. Bounded; see `FAILURE_RECENT_AT`. */
+  recentAt: number[]
 }
 
 /** How many session ids one shape remembers; enough to show "it keeps happening", bounded. */
 export const FAILURE_SESSION_IDS = 12
 
-function toFailureShape(row: Record<string, unknown>): FailureShape {
-  let sessionIds: string[] = []
+/**
+ * How many occurrence timestamps one shape remembers.
+ *
+ * Twenty is enough to answer "is this still happening *after* a record claimed to cover it",
+ * which is the only question these timestamps exist for, and small enough that a shape row stays
+ * a row rather than a log.
+ */
+export const FAILURE_RECENT_AT = 20
+
+function stringList(raw: unknown, keep: (value: string) => boolean): string[] {
   try {
-    const parsed = JSON.parse(String(row['session_ids'] ?? '[]')) as unknown
-    if (Array.isArray(parsed)) sessionIds = parsed.filter(id => typeof id === 'string')
+    const parsed = JSON.parse(String(raw ?? '[]')) as unknown
+    if (Array.isArray(parsed)) return parsed.filter(value => typeof value === 'string' && keep(value))
   } catch {
     // A row whose list cannot be read still has a count, which is the part that matters.
+  }
+  return []
+}
+
+function toFailureShape(row: Record<string, unknown>): FailureShape {
+  const sessionIds = stringList(row['session_ids'], () => true)
+  let recentAt: number[] = []
+  try {
+    const parsed = JSON.parse(String(row['recent_at'] ?? '[]')) as unknown
+    if (Array.isArray(parsed)) recentAt = parsed.filter(value => typeof value === 'number')
+  } catch {
+    // Same rule: a missing time series costs the "since that record" answer, not the row.
   }
   return {
     workspaceId: String(row['workspace_id']),
@@ -657,6 +692,7 @@ function toFailureShape(row: Record<string, unknown>): FailureShape {
     lastSeen: Number(row['last_seen']),
     sessionIds,
     sample: String(row['sample']),
+    recentAt,
   }
 }
 
@@ -665,39 +701,47 @@ function toFailureShape(row: Record<string, unknown>): FailureShape {
  *
  * Counted, not judged: this writes no record and returns nothing anyone injects. The session
  * list is what makes "the same thing happened in six different sessions" visible, which is the
- * question a single count cannot answer.
+ * question a single count cannot answer; the timestamp list is what makes "and it is *still*
+ * happening after a record claimed to cover it" answerable at all.
  */
 export function noteFailureShape(
   db: DatabaseSync,
   input: { workspaceId: string; tool: string; shape: string; sample: string; sessionId: string; at: number },
 ): void {
   const existing = db.prepare(
-    'SELECT count, session_ids FROM failure_shape WHERE workspace_id = ? AND tool = ? AND shape = ?',
-  ).get(input.workspaceId, input.tool, input.shape) as { count: number; session_ids: string } | undefined
+    'SELECT count, session_ids, recent_at FROM failure_shape WHERE workspace_id = ? AND tool = ? AND shape = ?',
+  ).get(input.workspaceId, input.tool, input.shape) as
+    | { count: number; session_ids: string; recent_at: string }
+    | undefined
 
   if (existing === undefined) {
     db.prepare(
-      'INSERT INTO failure_shape (workspace_id, tool, shape, count, first_seen, last_seen, session_ids, sample)'
-      + ' VALUES (?, ?, ?, 1, ?, ?, ?, ?)',
+      'INSERT INTO failure_shape (workspace_id, tool, shape, count, first_seen, last_seen, session_ids, sample, recent_at)'
+      + ' VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
     ).run(
       input.workspaceId, input.tool, input.shape, input.at, input.at,
       JSON.stringify(input.sessionId === '' ? [] : [input.sessionId]), input.sample,
+      JSON.stringify([input.at]),
     )
     return
   }
 
-  let sessionIds: string[] = []
+  let sessionIds = stringList(existing.session_ids, () => true)
+  let recentAt: number[] = []
   try {
-    const parsed = JSON.parse(existing.session_ids) as unknown
-    if (Array.isArray(parsed)) sessionIds = parsed.filter(id => typeof id === 'string')
+    const parsed = JSON.parse(String(existing.recent_at ?? '[]')) as unknown
+    if (Array.isArray(parsed)) recentAt = parsed.filter(value => typeof value === 'number')
   } catch {
     // Fall through: a broken list is replaced rather than allowed to block the count.
   }
   if (input.sessionId !== '' && !sessionIds.includes(input.sessionId)) {
     sessionIds = [...sessionIds, input.sessionId].slice(-FAILURE_SESSION_IDS)
   }
-  db.prepare('UPDATE failure_shape SET count = count + 1, last_seen = ?, session_ids = ? WHERE workspace_id = ? AND tool = ? AND shape = ?')
-    .run(input.at, JSON.stringify(sessionIds), input.workspaceId, input.tool, input.shape)
+  recentAt = [...recentAt, input.at].slice(-FAILURE_RECENT_AT)
+  db.prepare(
+    'UPDATE failure_shape SET count = count + 1, last_seen = ?, session_ids = ?, recent_at = ?'
+    + ' WHERE workspace_id = ? AND tool = ? AND shape = ?',
+  ).run(input.at, JSON.stringify(sessionIds), JSON.stringify(recentAt), input.workspaceId, input.tool, input.shape)
 }
 
 /** This workspace's shapes, most frequent first. */
