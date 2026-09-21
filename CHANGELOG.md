@@ -2,6 +2,59 @@
 
 ## 0.1.0 — unreleased
 
+### A turn harvester, calibrated on real logs before it was trusted
+
+Recording depends on the model choosing to record, and that was already measured here:
+across five sessions and ~5,900 tool calls `memory_remember` was never called once until it
+was named explicitly. The standing hint narrowed that gap; nothing caught the lesson the
+model simply never thought about. This does, as a safety net that leaves alone whatever the
+model already recorded.
+
+It is a harvester, not a judge. A detector recognises a *moment* — a tool that failed and
+then worked, the user correcting the previous answer, the user stating something, a changed
+goal, a refused action — and what gets stored is the verbatim sentence with a mechanical
+title. Distilling that into a claim is judgement, and the harvester has none, so it does not
+try. Every row is a candidate written straight to the store rather than through `remember`,
+so no grade is invented for it and the always-on layer never sees it; `origin` and
+`harvest_signal` record where it came from. The test that matters asserts exactly that, with
+a harvested row whose text is a verbatim user sentence the ordinary grader would call
+`verified-user`.
+
+The detectors were pinned against a real session log rather than the event registry, which
+lists types this harness never emits: `feedback/record` is a known type and appears zero
+times in the 11,735 events of the busiest session in this workspace.
+
+**Then they were calibrated on that traffic, and three of the five failed.** Replayed over
+six real logs — 235 turns — the five detectors produced 150 candidates, 63.8 per 100 turns,
+more than half of all turns:
+
+| detector | hits | what the sample actually was |
+|---|---|---|
+| `user-statement` | 105 | skill catalogue, `Objective: "..."`, `Round: 5/256`, plain questions, task requests |
+| `failure-recovered` | 71 → 5 | the agent's own edit tools reporting "file has not been read" / "old_string was not found"; the survivors are mostly `rg` failing on `System Volume Information` |
+| `goal-changed` | 23 | the same objective text re-emitted every round, already stored by the goal system |
+| `user-correction` | **4** | three of four are exactly the target: "it was not an implementation bug, my expectation was wrong", "quant is quant and bigfat is value investing", "add a counter-example test: root=None must be rejected" |
+
+Corrections are not imperatives, and that detector is the only one whose precision survived
+contact with real traffic. It is now the default — `user-correction`, plus the costless
+`action-refused` — giving **1.7 candidates per 100 turns** against a gate this repository set
+for itself (a confirmation rate under one in five means the criterion is too coarse). The
+other three stay behind `harvestBroad`, off, with these numbers written down.
+
+The finding underneath outlives the feature: a rule-based detector cannot tell "the user
+stated something durable" from "the harness delivered a block of text as a user message".
+That distinction is semantic, and buying it costs an LLM call this plugin does not make. The
+broad rule was written, measured, and left switched off rather than believed.
+
+Bounds are invariants, not rations: no daily quota (the busiest days are the days with the
+most to learn, and a quota runs out exactly when it matters, silently), one candidate per
+turn, a 200-candidate ceiling with the oldest retired beyond it, and a 14-day window after
+which an untouched candidate is retired. That last rule also closes a pre-existing hole —
+maintenance scanned only confirmed records, so a candidate was immortal.
+
+Schema 3 adds `origin` and `harvest_signal`; the upgrade was verified by reopening a real
+store (77 records in, 77 out, every pre-existing row defaulting to `model`).
+
 ### The resident bar now leaves the commonest grade room, on purpose
 
 A user asked why a memory should decay the moment it is written. It was not a design: three
