@@ -2,6 +2,41 @@
 
 ## 0.1.0 — unreleased
 
+### The A/B that worked: 0/12 without the lesson, 9/12 with it
+
+Six rounds of trying to build a scenario where a lesson could be shown to prevent a mistake
+produced four non-informative ones. The reason they failed is now understood and written down: if
+the repository states a convention the model reads it and memory is not needed, and if the
+repository states nothing there is no honest passage for a record to quote. The cell that remains
+is knowledge that lives in a conversation — what the user said — which is the `verified-user`
+grade.
+
+That scenario, run 12 times per arm with the outcome judged from the file:
+
+| arm | fully correct | 95% Wilson |
+|---|---|---|
+| no memory | **0 / 12** | 0.0% – 24.3% |
+| with the lesson | **9 / 12** | 46.8% – 91.1% |
+
+Fisher's exact test, two-sided: **p = 0.0003**. The control arm wrote a deployable-looking file
+every time (695–1751 bytes) and got the convention wrong every time; the treated arm got it right
+nine times and, in three, never wrote the file at all because the edit guard stopped it — the same
+class of friction as 49% of the failures measured in `docs/DELIVERY-GAPS.md` §15. Looking only at
+the runs that did write the file: 12/12 wrong without the lesson, 9/9 right with it.
+
+The task required the vault path, the namespace, **and their order** — the order was added as an
+adversarial condition, since a memorised generic template writes it the other way. Session logs
+show the model calling `memory_recall` on its own, before its first write, in every correct run,
+with the anchored hint arriving as well. So this is not evidence that the just-in-time gate carried
+the result; it is evidence that the framework's whole chain works on the class of knowledge it can
+honestly hold, and it is the first time the anchored hint was seen landing in a real model turn.
+
+What it does not do is change the coverage account: §15's finding stands — the ≥15% coverage bar is
+mutually exclusive with the ≤2% trigger budget on this corpus and needs re-basing on attributable
+failures.
+
+## 0.1.0 — unreleased
+
 ### Anchors, measured: path not name, and an A/B that did not reach significance
 
 Three follow-ups to the delivery rewrite, all measured rather than argued. Details and the

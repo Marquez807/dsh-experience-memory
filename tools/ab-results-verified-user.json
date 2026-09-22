@@ -1,0 +1,110 @@
+[
+    {
+        "mode":  "without",
+        "trial":  10,
+        "verdict":  "missing",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  926
+    },
+    {
+        "mode":  "without",
+        "trial":  11,
+        "verdict":  "missing",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  215
+    },
+    {
+        "mode":  "without",
+        "trial":  12,
+        "verdict":  "missing",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  817
+    },
+    {
+        "mode":  "without",
+        "trial":  13,
+        "verdict":  "no-file",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  0
+    },
+    {
+        "mode":  "without",
+        "trial":  14,
+        "verdict":  "missing",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  1751
+    },
+    {
+        "mode":  "without",
+        "trial":  15,
+        "verdict":  "missing",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  1138
+    },
+    {
+        "mode":  "with",
+        "trial":  10,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  537
+    },
+    {
+        "mode":  "with",
+        "trial":  11,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  683
+    },
+    {
+        "mode":  "with",
+        "trial":  12,
+        "verdict":  "no-file",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  0
+    },
+    {
+        "mode":  "with",
+        "trial":  13,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  211
+    },
+    {
+        "mode":  "with",
+        "trial":  14,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  495
+    },
+    {
+        "mode":  "with",
+        "trial":  15,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  433
+    }
+]
