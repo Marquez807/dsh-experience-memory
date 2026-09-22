@@ -12,6 +12,7 @@
  * runs from an installed package as well as from the repository.
  */
 import { Context } from '@deepseek-ai/cordis'
+import Commands from '@deepseek-ai/dsh-commands'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { DatabaseSync } from 'node:sqlite'
@@ -44,15 +45,23 @@ const ctx = new Context()
 try {
   await ctx.plugin(SystemPrompt, {})
   await ctx.plugin(ToolRuntime, {})
+  // The plugin declares `inject: ['tools', 'systemPrompt', 'commands']`; a missing service
+  // leaves the plugin mounted but inert, which is why the tools were absent when this script
+  // mounted only the first two. Same three as `tools/verify-install.mjs`.
+  await ctx.plugin(Commands, {})
   await ctx.plugin(memory, { enabled: true, dbPath })
 
   const agent = text => ({
     id: 'preview',
     session: {
-      header: { cwd },
-      events: text === undefined ? [] : [
+      // `header` carries what the workspace is resolved from and which preset the session is
+      // in; `snapshotEvents` is the accessor the plugin reads (the real Session has no `events`
+      // property — see src/session.ts). Both are needed for the output to mean anything.
+      header: { cwd, agentPreset: 'standard' },
+      snapshotEvents: () => (text === undefined ? [] : [
         { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text }] } },
-      ],
+      ]),
+      append: () => {},
     },
   })
 
@@ -66,7 +75,13 @@ try {
     console.log(`  resident digest: ${digest === '' ? '(empty — nothing injected this turn)' : ''}`)
     if (digest !== '') console.log(digest.split('\n').map(line => `    ${line}`).join('\n'))
 
+    // `.get()` returns `undefined` for an unknown name, and this call used to be unchecked —
+    // which is why the tool half of this script crashed instead of reporting a missing tool.
     const definition = ctx.tools.get('memory_recall')
+    if (definition === undefined) {
+      console.log('  memory_recall  : not registered — cannot preview on-demand retrieval')
+      continue
+    }
     const pack = await definition.execute({ query }, {
       signal: new AbortController().signal,
       agent: agent(query),

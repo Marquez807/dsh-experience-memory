@@ -169,6 +169,38 @@ export function run(): void {
     assert(retrieve(db, query({ query: '部署', tier: 'resident' })).ranked
       .some(entry => entry.record.id === 'noisy'),
     'a single shared topic word is enough for the always-on layer')
+
+    // ── The database and the acceptance check must use the same tokenization ──
+    // This started as a suspected false injection found by sweeping the live store: the
+    // query 「继续」 came back with a record about Guangdong work-injury insurance. That
+    // was **my misreading, not a defect** — the store's copy of that record contains
+    // 「继续」 in its title, so the match was real. Two follow-up attempts to reproduce a
+    // false injection failed, and the measurement below explains why:
+    //
+    //     tokenize('继续')   -> ['继续']        (a two-character word is one bigram)
+    //     matchExpression    -> "\"继续\""
+    //     tokenize('后续期') -> ['后续','续期','期']   (no '继续' anywhere)
+    //
+    // Because single characters stay themselves and two-character runs stay whole, a query
+    // term cannot match across a boundary it does not contain, and the substring check in
+    // `sharesTopicalTerm` agrees. What is worth pinning is that agreement, since it is what
+    // makes the negative case below safe to rely on.
+    upsert(db, make({
+      id: 'pi',
+      evidence: 'verified-user',
+      title: '广东允许超龄人员单项参加工伤保险',
+      body: '该办法自2021年4月试行，后续期与缴费口径见文号粤人社规〔2024〕6号。',
+      contentFingerprint: 'fp-pi',
+    }))
+    assert(!retrieve(db, query({ query: '继续', tier: 'resident' })).ranked
+      .some(entry => entry.record.id === 'pi'),
+    'a query the record only contains across a bigram boundary does not inject it')
+    assert(retrieve(db, query({ query: '续期', tier: 'resident' })).ranked
+      .some(entry => entry.record.id === 'pi'),
+    'while the word that really is in the record still does — the control that makes the line above mean something')
+    assert(!retrieve(db, query({ query: '继续', tier: 'recall' })).ranked
+      .some(entry => entry.record.id === 'pi'),
+    'and the on-demand layer does not invent it either, because the database never matched it')
     upsert(db, make({
       id: 'ident',
       title: '排序',
