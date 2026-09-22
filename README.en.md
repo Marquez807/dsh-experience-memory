@@ -4,7 +4,9 @@
 
 Domain-scoped long-term experience memory for DeepSeek Harness: it tells weight from noise, accumulates lessons, lets perishable ones expire, accepts corrections, and brings the relevant lesson back the next time the same kind of work happens.
 
-Reimplemented after taking the best of — and discarding most of — 13 archived installations, 5 mutually inconsistent versions and 415 historical records. The plugin has **zero third-party runtime dependencies**; it uses only what Node ships.
+- **204 bytes per turn, unconditionally** — one line of guidance; beyond that, content is injected only when there is relevant experience.
+- **Zero third-party runtime dependencies**; storage is a single SQLite file.
+- Five model tools and seven slash commands, **usable with no configuration**.
 
 ## Contents
 

@@ -4,17 +4,17 @@
 
 ### The README says what a reader needs, and the process moves out of its way
 
-Asked for directly: the README had grown into a process record, and the Chinese and English parts
-were mixed together rather than being one document in two languages.
+Asked for directly: the README had become a process record, and the Chinese and English parts were
+mixed rather than being one document in two languages. The user chose the shape: Chinese stays the
+primary language, and the first step was one real bilingual pair instead of one mixed file.
 
-The document had reached 829 lines and 49 headings, and its order was backwards for anyone
-arriving at it: installation, then "installation (development details)" — build rationale,
-peer-dependency warnings, tarball-versus-`link:` contracts — while the section explaining what the
-plugin *does* began at line 200. There was no table of contents. Numbering ran `1.`, `2.`, then an
-unnumbered section, then `2.1`, then `3.`. And the two languages were interleaved inside single
-sections: Chinese prose, English headings, English subsections, Chinese bodies.
+The opening also carried a line of development history — how many archived installations and
+historical records the plugin was distilled from. That is about the author's process, not about the
+plugin a reader is deciding whether to install, so it is gone; what replaced it is the three facts
+a reader actually acts on: 204 bytes per turn, zero third-party runtime dependencies, five tools and
+seven commands with no configuration.
 
-What changed, and why in this shape rather than as a rewrite:
+What changed:
 
 - **Two audiences, two files.** `README.md` now carries what a reader needs in order — what it is,
   how to install it, the four surfaces, what it does, how to operate it, migration, the model's
@@ -26,11 +26,18 @@ What changed, and why in this shape rather than as a rewrite:
   `3.1` beneath them, and a separate `## 操作` for scope, the mode switch, tools, commands and
   configuration.
 - **A real bilingual pair**: `README.md` in Chinese and `README.en.md` in English, each linking to
-  the other, instead of one mixed file. The English file is a full mirror, not a summary.
+  the other. The English file is a full mirror, not a summary.
 - **A stale claim fixed**: the surfaces table still said five slash commands. There are seven, as
   the command table forty lines below it, `COMMAND_NAMES`, and `tools/verify-install.mjs`
   (`mine.length === 7`) all said — the prose was the only place that had not been updated when
   harvest review and the repeat-failure report were added.
+- **A broken table fixed**: a blank line had split the config table in two just above
+  `failureTracking`, which the old parse happened to tolerate.
+
+The opening had also drifted into a reader-hostile shape: 829 lines, 49 headings, installation
+followed immediately by "installation (development details)", and the section explaining what the
+plugin *does* starting at line 200. It is 628 lines in Chinese and 513 in English now, with nothing
+deleted — only moved, reordered and de-duplicated.
 
 Because the docs suite reads its claims by exact heading text, five anchors moved with the
 sections and are now written once in `SECTION_ANCHORS`: `## 配置`, `## 模型的体验（Model
