@@ -510,5 +510,5 @@ It loads the built `lib/`, so it doubles as a check that the shipped artefact be
 
 - **The numbers in the READMEs are checked by machine, not copied by hand.** `tests/docs.test.ts` compares the config table value by value, the registered tool and command names, the digest line ceiling (2+5=7), the suite count, the audit output list and the byte size of that guidance line; any disagreement fails the suite. Changing the docs and changing the code are the same act here.
 - **The tests locate sections by exact heading text.** The pinned headings are `## Known Limitations and Deferred Work`, `## 配置`, `## 模型的体验（Model Experience）`, `### 它挂了四个表面` and `#### Token effect` — renaming one means changing the test in the same commit, otherwise those assertions fail on a missing anchor (fail, not silently skip). Details in the "documents and code" section of `docs/DEVELOPING.md`.
-- **16 个套件** (16 suites) in total, run with one command: `pnpm verify`. What each one covers is in the "tests" section of [`docs/DEVELOPING.md`](docs/DEVELOPING.md).
+- **17 个套件** (17 suites) in total, run with one command: `pnpm verify`. What each one covers is in the "tests" section of [`docs/DEVELOPING.md`](docs/DEVELOPING.md).
 - **Building, packaging, boot acceptance, the test inventory and the development environment** live in [`docs/DEVELOPING.md`](docs/DEVELOPING.md).

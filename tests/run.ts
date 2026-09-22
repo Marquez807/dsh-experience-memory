@@ -15,6 +15,7 @@ import { run as evidence } from './evidence.test.ts'
 import { run as lifecycle } from './lifecycle.test.ts'
 import { run as harvest } from './harvest.test.ts'
 import { run as precall } from './precall.test.ts'
+import { run as delivery } from './delivery.test.ts'
 import { run as failure } from './failure.test.ts'
 import { run as importLegacy } from './import.test.ts'
 import { run as audit } from './audit.test.ts'
@@ -34,6 +35,7 @@ const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
   ['lifecycle', lifecycle],
   ['harvest', harvest],
   ['precall', precall],
+  ['delivery', delivery],
   ['failure', failure],
   ['import', importLegacy],
   ['audit', audit],
