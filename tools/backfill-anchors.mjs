@@ -54,7 +54,13 @@ if (!existsSync(dbPath)) {
 /** Every file the workspace contains, keyed by lower-cased name, valued by relative path. */
 function indexFiles(root, limit = 60_000) {
   const byName = new Map()
-  const skip = new Set(['node_modules', '.git', '.bigfat', 'dist', 'out', '.cache', '.venv', '__pycache__'])
+  const skip = new Set([
+    'node_modules', '.git', '.bigfat', 'dist', 'out', '.cache', '.venv', '__pycache__',
+    // Backups and recovery copies of this workspace's own data. Anchoring a lesson on a file
+    // inside one of these would fire on nothing, or on a stale duplicate of a real file.
+    'snapshots', '.recover-20260923-0610', '.cleanup-backup-dsh-mimo-20260922-192117',
+    '.expg', '.expf', '.expe', '.expd', '.expc', '.expa', '.audit-tmp', 'scratch',
+  ])
   const walk = dir => {
     if (byName.size > limit) return
     let entries
@@ -93,6 +99,18 @@ const rows = db.prepare(
 /** File-name-shaped runs inside the declared fields. */
 const FILE_RUN = /[\w\u4e00-\u9fff.-]+\.[A-Za-z0-9]{1,6}\b/g
 
+/**
+ * Paths a lesson is probably *not* about, even when its text names them.
+ *
+ * Found by reading the first proposal run: a lesson whose trigger says `lib/tools.js, 动作枚举,
+ * 接线` was about to be anchored on `audit/dev-t2-result/recon/cli.py`, because the record's
+ * narrative happened to mention that file too and it had the longer name. A one-off artefact —
+ * an audit snapshot, a scratch result, a work directory — is where a finding was *observed*, not
+ * where the rule applies, and anchoring there means the hint fires on somebody reading an old
+ * report instead of on the edit it is about.
+ */
+const INCIDENTAL = /(^|\/)(audit|work|tmp|temp|test|tests|fixtures|result|results|out|output|logs?|scratch|\.bigfat)(\/|$)/i
+
 const proposals = []
 for (const row of rows) {
   const record = {
@@ -110,14 +128,34 @@ for (const row of rows) {
     if (rel !== undefined) named.add(rel)
   }
   if (named.size === 0) continue
-  // Prefer the longest name: `NOTICE-signals.md` over `signals.md`. The anchor carries the
-  // relative path, so a name three projects share does not become a magnet for all of them.
-  const best = [...named].sort((a, b) => b.length - a.length)[0]
-  proposals.push({ id: row.id, title: String(row.title).slice(0, 70), anchor: `path:${best}`, named: [...named] })
+
+  // Selection order, each rule a way of asking "is this the file the lesson is about?":
+  //   1. a file the record's own `trigger` names — the trigger is the record stating when it
+  //      applies, so a file named there is the strongest signal available;
+  //   2. not an incidental artefact path;
+  //   3. the longest name, so `NOTICE-signals.md` beats a bare `signals.md`.
+  const trigger = String(row.trigger ?? '').toLowerCase()
+  const score = rel => {
+    const base = rel.split('/').pop() ?? rel
+    return (trigger.includes(base) ? 4 : 0) + (INCIDENTAL.test(rel) ? 0 : 2) + (base.length >= 8 ? 1 : 0)
+  }
+  const ranked = [...named].sort((a, b) => score(b) - score(a) || b.length - a.length)
+  const best = ranked[0]
+  proposals.push({
+    id: row.id,
+    title: String(row.title).slice(0, 70),
+    anchor: `path:${best}`,
+    inTrigger: trigger.includes(best.split('/').pop() ?? best),
+    incidental: INCIDENTAL.test(best),
+    named: [...named],
+  })
 }
 
 console.log(`\n候选记录（没有锚点、但声明字段里提到了工作区真实存在的文件）：${proposals.length}`)
-for (const p of proposals.slice(0, 40)) console.log(`  ${p.id}  ${p.anchor.padEnd(34)} ${p.title}`)
+for (const p of proposals.slice(0, 40)) {
+  const flags = `${p.inTrigger ? '触发词' : '      '} ${p.incidental ? '一次产物!' : '        '}`
+  console.log(`  ${p.id}  ${p.anchor.padEnd(38)} ${flags}  ${p.title}`)
+}
 if (proposals.length > 40) console.log(`  …另有 ${proposals.length - 40} 条`)
 
 writeFileSync(outPath, `${JSON.stringify(proposals, null, 2)}\n`, 'utf8')
