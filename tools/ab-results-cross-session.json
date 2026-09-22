@@ -1,0 +1,158 @@
+[
+    {
+        "mode":  "without",
+        "trial":  20,
+        "verdict":  "missing",
+        "session1":  "skipped",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  1242,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "without",
+        "trial":  21,
+        "verdict":  "no-file",
+        "session1":  "skipped",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  0,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "without",
+        "trial":  22,
+        "verdict":  "missing",
+        "session1":  "skipped",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  887,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "without",
+        "trial":  23,
+        "verdict":  "missing",
+        "session1":  "skipped",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  885,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "without",
+        "trial":  24,
+        "verdict":  "missing",
+        "session1":  "skipped",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  1340,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "without",
+        "trial":  25,
+        "verdict":  "missing",
+        "session1":  "skipped",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  754,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "with",
+        "trial":  20,
+        "verdict":  "correct",
+        "session1":  "ran",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  923,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "with",
+        "trial":  21,
+        "verdict":  "no-file",
+        "session1":  "ran",
+        "vault":  false,
+        "namespace":  false,
+        "order":  false,
+        "bytes":  0,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "with",
+        "trial":  22,
+        "verdict":  "correct",
+        "session1":  "ran",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  1581,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "with",
+        "trial":  23,
+        "verdict":  "correct",
+        "session1":  "ran",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  1565,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "with",
+        "trial":  24,
+        "verdict":  "correct",
+        "session1":  "ran",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  674,
+        "store":  {
+
+                  }
+    },
+    {
+        "mode":  "with",
+        "trial":  25,
+        "verdict":  "correct",
+        "session1":  "ran",
+        "vault":  true,
+        "namespace":  true,
+        "order":  true,
+        "bytes":  571,
+        "store":  {
+
+                  }
+    }
+]
