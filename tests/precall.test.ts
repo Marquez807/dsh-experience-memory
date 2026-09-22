@@ -23,7 +23,8 @@ import ToolRuntime, { TOOL_RUNTIME_SCHEDULER, defineTool } from '@deepseek-ai/ds
 import * as experienceMemory from '../src/index.ts'
 import { deliveriesAtOrBefore, openDb } from '../src/db.ts'
 import { resolveWorkspace } from '../src/domain.ts'
-import { identifiersOf, recallForCall } from '../src/precall.ts'
+import { recallForCall } from '../src/precall.ts'
+import { callFacts } from '../src/anchors.ts'
 import { assert, eq } from './assert.ts'
 import type { DatabaseSync } from 'node:sqlite'
 
@@ -58,37 +59,16 @@ interface Dispatched {
 }
 
 export async function run(): Promise<void> {
-  // ── What counts as an identifier ──────────────────────────────────────────
-  eq(identifiersOf({ query: '部署' }), [], 'prose with no identifier yields nothing to match on')
-  // A tool call names itself: the script it runs, the file it edits, the switch it passes.
-  const named = identifiersOf({ command: 'pwsh -File .\\launch-a-runtime-clean.ps1 -ResetSafeExit' })
-  assert(named.some(id => id.includes('launch-a-runtime-clean.ps1')),
-    `the script it runs is an identifier: ${named.join(', ')}`)
-  assert(named.some(id => id.toLowerCase().replace(/^-+/, '') === 'resetsafeexit'),
-    `and so is a named switch: ${named.join(', ')}`)
-  // The stoplist is the difference between "specific" and "matches half the store".
-  const generic = identifiersOf({ command: 'node tests/run.ts --force' })
-  assert(!generic.some(id => /^(node|tests?|force)$/i.test(id)),
-    `words that identify nothing are excluded: ${generic.join(', ')}`)
-  // Only the values. Every edit carries `file_path` and `old_string`, so counting keys would
-  // make every edit match every record that ever mentioned editing — which is what the first
-  // version of this module did, and it attached something to two calls in three.
-  const keys = identifiersOf({ file_path: 'x', old_string: 'y', new_string: 'z' })
-  eq(keys, [], `argument names are the tool's schema, not what the call is about: ${keys.join(', ')}`)
-  const asJson = identifiersOf('{"file_path":"x","command":"pwsh -File .\\\\drain-state.ps1"}')
-  assert(asJson.some(id => id.includes('drain-state.ps1')),
-    `and the same holds when the arguments arrive as the JSON string the log stores: ${asJson.join(', ')}`)
-  assert(!asJson.some(id => id === 'file_path'), 'the key is dropped in that form too')
-  // Observed in the field rather than imagined: a lesson about SQLite WAL checkpoints was
-  // attached to an edit whose only link to it was the word `checkpoint` in a code comment — a
-  // different sense of the same word. A bare English word names nothing.
-  eq(identifiersOf({ command: 'echo checkpoint' }), [],
-    'ordinary prose is not a name, however rare it happens to be in the store')
-  // And the line that must not be crossed while stopping that: a bare lowercase word that *is*
-  // a name in this project stays.
-  assert(identifiersOf({ command: 'taskkill /F /IM Bannerlord.exe' }).some(id => id === 'taskkill'),
-    'a real command name of the same shape is still an identifier')
-  eq(identifiersOf(undefined), [], 'a call with no arguments has nothing to match on')
+  // ── What a call is *about*, as the anchor matcher reads it ────────────────
+  // The retired identifier extractor has its own suite (`anchors.test.ts`); what matters here
+  // is the end of the chain — a call the record declared, and a call it did not.
+  const facts = callFacts('probe_run', { command: 'pwsh -File .\\launch-a-runtime-clean.ps1 -ResetSafeExit' })
+  assert(facts.paths.some(path => path.includes('launch-a-runtime-clean.ps1')),
+    `the script the call runs is a path fact: ${facts.paths.join(', ')}`)
+  eq(callFacts('probe_run', { query: '部署' }).paths, [],
+    'a call whose arguments are prose offers no path facts')
+  eq(callFacts('probe_run', { file_path: 'x', old_string: 'y', new_string: 'z' }).paths, [],
+    'and short single letters are not file names either')
 
   const dir = mkdtempSync(join(tmpdir(), 'expmem-precall-'))
   const dbPath = join(dir, 'memory.db')
@@ -119,23 +99,27 @@ export async function run(): Promise<void> {
     const call = async (name: string, args: unknown) =>
       await ctx.tools.get(name)!.execute(args, { signal: new AbortController().signal, agent })
 
-    // One confirmed record that names the script, written the ordinary way.
+    // One confirmed record that names the script, written the ordinary way. It declares where
+    // it applies — `recall_for` — because that declaration, not a shared word, is what decides
+    // whether a hint goes out; see `criteria.ts` for the measurement that retired the old rule.
     const remembered = await call('memory_remember', {
       kind: 'experience',
       title: '启动游戏前必须确认 Steam 已登录',
       body: '无人值守启动前要确认 Steam 已登录，否则游戏约 10 秒后静默退出（launch-a-runtime-clean.ps1 里有这道检查）。',
       quote,
+      recall_for: ['command:launch-a-runtime-clean.ps1'],
     }) as { id: string; status: string }
     eq(remembered.status, 'confirmed', 'the lesson is a real record, not a candidate')
     // A second, unrelated lesson, so the per-turn ceiling can be told apart from "nothing else
-    // matched": two records, two identifiers, one turn.
+    // matched": two records, two anchors, one turn.
     const other = await call('memory_remember', {
       kind: 'experience',
       title: '还原存档要认准备份文件',
       body: '还原存档前先确认备份文件是 restore-save-backup.ps1 生成的那一份，否则会覆盖掉好档。',
       quote,
+      recall_for: ['command:restore-save-backup.ps1'],
     }) as { id: string; status: string }
-    eq(other.status, 'confirmed', 'and a second record, with an identifier of its own')
+    eq(other.status, 'confirmed', 'and a second record, with an anchor of its own')
 
     // ── The call that is about to launch the game ──────────────────────────
     // Driven exactly the way `dsh-agent-loop` drives it — prepare, dispatch, finalize —
@@ -266,12 +250,14 @@ export async function run(): Promise<void> {
         title: '启动游戏前必须确认 Steam 已登录',
         body: '无人值守启动前要确认 Steam 已登录（launch-a-runtime-clean.ps1 里有这道检查）。',
         quote,
+        recall_for: ['command:launch-a-runtime-clean.ps1'],
       })
       await cappedCall('memory_remember', {
         kind: 'experience',
         title: '还原存档要认准备份文件',
         body: '还原存档前先确认备份文件是 restore-save-backup.ps1 生成的那一份。',
         quote,
+        recall_for: ['command:restore-save-backup.ps1'],
       })
       const cappedScheduler = (cappedCtx.tools as unknown as Record<symbol, Stage>)[TOOL_RUNTIME_SCHEDULER]
       const cappedRun = async (command: string, callId: string): Promise<Dispatched> => {
@@ -339,12 +325,14 @@ export async function run(): Promise<void> {
       rmSync(broken, { recursive: true, force: true })
     }
 
-    // ── An identifier the whole window shares identifies nothing ───────────
-    // This is the gate the real replay forced: `Bannerlord` is in 13 of the 17 records that
-    // workspace could see, so a `Bannerlord` hit picks out no record at all — yet on the
-    // first version of this module it was exactly what filled the hint slot, two calls in
-    // three. Three records about one script and nothing is attached; raise the ceiling to
-    // three and one of them is, which is what shows the ceiling did the deciding.
+    // ── A script the whole window mentions still picks out nothing ─────────
+    // The old gate tried to solve this with a document-frequency ceiling: `Bannerlord` was in
+    // 13 of the 17 records a workspace could see, so a `Bannerlord` hit picked out no record,
+    // and the ceiling was tuned until that stopped mattering. The ceiling is gone, because
+    // tuning it was never going to work — the replay in `docs/DELIVERY-GAPS.md` shows why.
+    // What decides now is whether the record said so. Three records that merely *mention* the
+    // script attach nothing; the one that declares the anchor is the one that arrives, and no
+    // threshold is involved.
     const sharedScript = 'drain-campaign-state.ps1'
     for (const variant of ['甲', '乙', '丙']) {
       const written = await call('memory_remember', {
@@ -353,19 +341,25 @@ export async function run(): Promise<void> {
         body: `第 ${variant} 种写法：无论怎么排空，最后都要跑 ${sharedScript} 收尾。`,
         quote,
       }) as { status: string }
-      eq(written.status, 'confirmed', `a record about the shared script is a real record: ${variant}`)
+      eq(written.status, 'confirmed', `a record that only mentions the script is a real record: ${variant}`)
     }
     const gateDb = openDb(dbPath)
     try {
       const workspace = resolveWorkspace(dir, '')
       const shared = { command: `pwsh -File .\\${sharedScript}` }
       eq(recallForCall(gateDb, workspace.id, workspace.domain, shared, Date.now()), undefined,
-        'a script that three visible records mention picks out none of them')
-      const raised = recallForCall(
-        gateDb, workspace.id, workspace.domain, shared, Date.now(), { maxDocFrequency: 3 },
-      )
-      assert(raised !== undefined && raised.title.includes('排空战役状态'),
-        `and the ceiling is what decided that, not the matching: ${raised?.title ?? '(nothing)'}`)
+        'three records that merely mention the script are all silent — mentioning is not declaring')
+
+      const declared = await call('memory_remember', {
+        kind: 'experience',
+        title: '排空战役状态前先停掉正在跑的 worker',
+        body: '排空战役状态之前要先确认 worker 已停，否则收尾脚本会写到一半被顶掉。',
+        quote,
+        recall_for: [`command:${sharedScript}`],
+      }) as { id: string; status: string }
+      eq(declared.status, 'confirmed', 'and the one that declares the anchor is a real record too')
+      const arrived = recallForCall(gateDb, workspace.id, workspace.domain, shared, Date.now())
+      eq(arrived?.id, declared.id, 'the declared anchor is what decides, and no threshold is involved')
     } finally {
       gateDb.close()
     }

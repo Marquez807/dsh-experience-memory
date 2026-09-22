@@ -2,6 +2,79 @@
 
 ## 0.1.0 — unreleased
 
+### Just-in-time delivery stops guessing: the record declares which call it applies to
+
+The previous version decided whether a lesson applied to a tool call by inference: pull
+identifier-shaped tokens out of the call's arguments, look for a record that mentions one, prefer
+the record that mentions most. It was replayed over **15,383 real tool calls** extracted from this
+workspace's own session logs and audited by hand, and it does not work:
+
+- it delivered a hint on **57%** of calls;
+- a stratified sample of **47** real deliveries, read one by one, found **5** that were about the
+  call (10.6%). The rest fired on coincidence — the PowerShell column header `AutoSize` linked a
+  call to a lesson about output truncation, `Encoding` in a URL fetch linked to one about chunked
+  decoding, `lifecycle` in a grep linked to one about compatibility shims;
+- **68.7%** of those deliveries matched a token that appears only in the record's `body` prose,
+  never in its own `trigger`/`failure_mode`/`lesson`;
+- and it is not a tuning problem. Loosening the rule to catch more of the right records made the
+  noise worse; tightening it far enough to remove the noise left scenario recall in single digits.
+  In the loosest configuration only **14 of 25** hand-written "what should fire here" cases had the
+  right record among the candidates *at all*, so no ranking change could have saved them.
+
+What replaced it keeps the question and stops inferring the answer. A record now **declares** the
+calls it applies to, as anchors:
+
+- `path:<file name>` — the call names that file (extension included: `NOTICE-signals.md` does not
+  satisfy `NOTICE-masterdata.json`);
+- `tool:<name>` — the call is that tool, exactly;
+- `command:<token>` — the command line contains that token.
+
+They are supplied as `memory_remember`'s new **`recall_for`** parameter and stored inside the
+`trigger` column under a `--- anchors ---` marker, so the schema needs no new column and the
+resident digest still renders only the prose half (`splitTrigger`).
+
+**A record that declares nothing is never delivered just before a call.** It still reaches the
+per-turn digest, still answers `memory_recall`, is still scored for reuse and still retires
+normally; what it loses is the right to interrupt a tool call on a hunch. That is the trade stated
+plainly: silence costs a hint that might not have been read anyway, while the old behaviour cost the
+credibility of every hint. Measured on the live store the day this landed: **0 of 159 deliverable
+records declared an anchor**, so the honest immediate effect is *fewer hints, not more* — and
+`node tools/anchors.mjs` prints that split for any store.
+
+Also in this change:
+
+- **`src/criteria.ts`** — the decision, as a pure function of (store, call), so `tools/replay.mjs`
+  can re-run it offline on real calls. `src/precall.ts` keeps the rendering and the entry points.
+- **`src/anchors.ts`** — parsing, matching, and the prose/anchor split.
+- **Derived anchors, measured and off by default.** A record's `source_ref` often names a code file,
+  and "the lesson is about this file" can stand in for an anchor — but only when the call is about
+  to *change* that file (`edit`/`write`). 54 of 159 live records qualify, and enabling it delivers
+  on 11.41% of calls with a worst-case **247** collisions on a single record: *"the record mentions
+  this file"* is not *"the record is about this change"*. It stays behind
+  `decideForCall(..., { derivedAnchors: true })` and `tools/replay.mjs --judge derived` until
+  somebody brings labelled data showing it does not make precision worse.
+- **Tooling, checked in so the numbers can be re-derived**: `tools/session-calls.py` (session log →
+  compact call log), `tools/replay.mjs` (a judge over that corpus, with the four acceptance
+  measures), `tools/anchors.mjs` (anchor coverage of a store), `tools/scenarios.json` (25 labelled
+  "what should fire here" cases), `tools/labeled-sample.jsonl` (the 47 audited deliveries).
+- **A new test suite** (`tests/anchors.test.ts`, 18 in total) pinning the anchor contract, including
+  the assertion that a record which declared nothing stays silent. `tests/delivery.test.ts` now
+  asserts the same through the real tool waterfall, and `tests/precall.test.ts` swaps its
+  document-frequency-ceiling case for one showing that three records merely *mentioning* a script
+  attach nothing while the one that declares it arrives.
+- **Literature that shaped this**, with the caveat that only the first two are peer-reviewed:
+  LongMemEval (ICLR 2025) — generate retrieval keys from the memory itself, not from the query;
+  MemoryAgentBench (ICLR 2026) — every current method is weak at conflict resolution and commercial
+  memory stores lose information at write time; TRACE — Mem0-style memory still leaves 57.5% of
+  applicable preferences violated, which is "accessible ≠ obeyed" (dated after this machine's clock,
+  recorded as a direction, not as evidence). Sources and what was and was not borrowed are in
+  `docs/DELIVERY-GAPS.md` §12.7.
+
+**Not verified by this change**: whether a model writes useful anchors (there are none in the store
+yet), and whether any hint prevents a mistake. §12.8 lists both.
+
+## 0.1.0 — unreleased
+
 ### The README says what a reader needs, and the process moves out of its way
 
 Asked for directly: the README had become a process record, and the Chinese and English parts were

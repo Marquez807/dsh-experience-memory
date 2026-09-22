@@ -6,15 +6,17 @@
  * whether the plugin is attached to the execution path the runtime actually runs — a matcher
  * called directly would answer a different, easier question.
  *
- *   A. the call names the file the lesson is about          → the lesson is attached
- *   B. the same lesson, same call, but written in Chinese   → **nothing is attached**, because
- *      the matcher reads identifiers out of the arguments and Chinese prose yields none
- *   C. a lesson about something else entirely               → nothing is attached
+ *   A. the record declared `recall_for: path:AGENTS.md`, and the call edits AGENTS.md
+ *      → the lesson is attached
+ *   B. the same lesson, same call, but with no `recall_for`  → **nothing is attached**
+ *   C. a lesson anchored on a different file                    → nothing is attached
  *
- * B is the point. A real store measured on 2026-09-23 held 156 confirmed records and 44 of them
- * carried no identifier at all, so no tool call could ever deliver them; and the arguments of a
- * Chinese-language call carry none either, which is most of what this workspace does. The suite
- * asserts that gap rather than describing it, so a future change that fixes it fails here first.
+ * B is the point, and it is the contract that replaced the old one. Until 2026-09-23 the gate
+ * inferred applicability by matching tokens between the call and the record; measured over
+ * 15,383 real calls that fired on 57% of them, and a sampled audit found 4 of 48 deliveries
+ * were about the call. A record that does not say where it applies is now silent rather than
+ * guessed at, so this suite asserts the silence — a future change that starts guessing again
+ * fails here first.
  */
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -82,30 +84,43 @@ export async function run(): Promise<void> {
         }],
       },
     }
-    const remember = async (title: string, body: string, lesson: string) =>
-      await ctx.tools.get('memory_remember')!.execute(
-        { kind: 'experience', title, body, lesson, quote: spoken },
+    const remember = async (
+      title: string,
+      body: string,
+      lesson: string,
+      recallFor?: string[],
+    ) => {
+      // `recall_for` is added only when given: the runtime requires tool arguments to be a
+      // lossless JSON object, and an explicit `undefined` is not one.
+      const args: Record<string, unknown> = { kind: 'experience', title, body, lesson, quote: spoken }
+      if (recallFor !== undefined) args['recall_for'] = recallFor
+      return await ctx.tools.get('memory_remember')!.execute(
+        args,
         { signal: new AbortController().signal, agent: said },
       ) as { id: string; status: string }
+    }
 
     const named = await remember(
       '改 AGENTS.md 之前先读',
       '这个工作区的 AGENTS.md 是长文件，没读就改会被工具拒绝（file has not been read）。',
       '改 AGENTS.md 之前先 read 一次。',
+      ['path:AGENTS.md'],
     )
-    eq(named.status, 'confirmed', 'the named lesson is a confirmed record')
+    eq(named.status, 'confirmed', 'the anchored lesson is a confirmed record')
 
     const chineseOnly = await remember(
       '动长文件之前先整份读一遍',
       '凡是长文件，动之前都要先读一遍；直接改会被工具拒绝，白跑一轮。',
       '改长文件之前先读一遍。',
+      // No `recall_for`: this is the record that now stays silent at the moment of action.
     )
-    eq(chineseOnly.status, 'confirmed', 'and so is the one written without any identifier')
+    eq(chineseOnly.status, 'confirmed', 'and so is the one that declared no anchor')
 
     const unrelated = await remember(
       'zzz-unrelated.txt 这个文件在别处有坑',
       '处理 zz-unrelated.txt 时要先备份，否则会覆盖。',
       '处理 zzz-unrelated.txt 前先备份。',
+      ['path:zzz-unrelated.txt'],
     )
     eq(unrelated.status, 'confirmed', 'and the unrelated one')
 
@@ -139,32 +154,37 @@ export async function run(): Promise<void> {
 
     const db = openDb(dbPath)
     try {
-      // ── A: the call names the file the lesson is about ────────────────────
+      // ── A: the record declared this file, and the call edits it ───────────
       const attached = await runTool({ file_path: join(dir, 'AGENTS.md'), content: 'x' })
       assert(attached.includes(named.id),
-        `A: a lesson naming the file the call is about is attached at the call: ${attached || '(nothing)'}`)
+        `A: a lesson anchored on the file the call edits is attached at the call: ${attached || '(nothing)'}`)
       assert(attached.includes('AGENTS.md'),
         'A: and the hint is the lesson itself, not just an id')
       const afterA = deliveriesAtOrBefore(db, Date.now() + 1000)
       eq(afterA.length, 1, 'A: the delivery is written down — one hint, one row')
       eq(afterA[0]?.recordId, named.id, 'A: against the record that was delivered')
       assert((afterA[0]?.matched ?? '').toLowerCase().includes('agents'),
-        `A: with the identifier that carried it: ${afterA[0]?.matched ?? '(none)'}`)
+        `A: with the anchor that carried it: ${afterA[0]?.matched ?? '(none)'}`)
       eq(afterA[0]?.sessionId, sessionId, 'A: and the session, which is what links it to a failure later')
       console.log(`  delivery   A: 送到了 —— 「${attached.slice(0, 60)}…」`)
 
-      // ── B: the same lesson in Chinese prose, the same call ────────────────
+      // ── B: a record that declared no anchor, at the same call ─────────────
       const nothingForChinese = await runTool({ file_path: join(dir, 'AGENTS.md'), content: 'y' })
       eq(nothingForChinese, '',
-        'B: a lesson with no identifier is not delivered, however exactly it describes the mistake')
+        'B: a record with no anchor is never delivered, however exactly it describes the mistake')
       eq(deliveriesAtOrBefore(db, Date.now() + 1000).length, 1,
         'B: and no row is written for a call that was shown nothing')
-      console.log('  delivery   B: 没送到 —— 中文写的同一条经验，同样的调用，一条提示都没有')
+      console.log('  delivery   B: 没送到 —— 没声明锚点的记录，同样的调用，一条提示都没有')
 
-      // ── C: a lesson about something else entirely ─────────────────────────
+      // ── C: a record anchored on a different file ──────────────────────────
       const nothingForUnrelated = await runTool({ file_path: join(dir, 'other.txt'), content: 'z' })
-      eq(nothingForUnrelated, '', 'C: an unrelated lesson is not attached')
-      console.log('  delivery   C: 没送到 —— 无关的经验不会被贴上来')
+      eq(nothingForUnrelated, '', 'C: a record anchored elsewhere is not attached')
+      console.log('  delivery   C: 没送到 —— 锚在别的文件上的记录不会被贴上来')
+
+      // ── D: the anchor survives the store ──────────────────────────────────
+      const stored = db.prepare('SELECT trigger FROM record WHERE id = ?').get(named.id) as { trigger: string }
+      assert(stored.trigger.includes('--- anchors ---') && stored.trigger.includes('path:AGENTS.md'),
+        `D: the anchor is stored in the trigger, under the marker: ${stored.trigger}`)
 
       // ── The store's own numbers, for the report ───────────────────────────
       const totals = db.prepare("SELECT COUNT(*) AS n FROM record WHERE status = 'confirmed' AND id LIKE 'r%'").get() as { n: number }

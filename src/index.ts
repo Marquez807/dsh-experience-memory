@@ -142,7 +142,10 @@ function attachPrecall(
     if (memoryDisabled(exec.agent, config.disabledPresets)) return
     const workspace = workspaceOf(exec.agent, config.defaultDomain)
     const now = Date.now()
-    const recall = recallForCallWithIdentifiers(db, workspace.id, workspace.domain, exec.arguments, now)
+    const recall = recallForCallWithIdentifiers(db, workspace.id, workspace.domain, exec.arguments, now, {
+      // The tool name is part of what the call is, and `tool:` anchors are matched against it.
+      tool: exec.name ?? exec.tool,
+    })
     if (recall === undefined) return
     const record = recall.record
 
@@ -538,6 +541,16 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
           + 'the file that records the finding instead.',
       },
       trigger: { type: 'string', description: 'When this should come to mind — the words a future task would use.' },
+      recall_for: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'The calls this lesson must interrupt, as facts a tool call either has or does not have: '
+          + '`path:<file name>` (the call names that file), `tool:<name>` (the call is that tool), '
+          + '`command:<token>` (the command line contains it). A bare file name counts as `path:`. '
+          + 'This is what the just-before-acting hint fires on — **without it the lesson is never shown at '
+          + 'the moment of action**, only in the every-turn digest and when something searches for it. '
+          + 'Give one or two, and prefer the exact file or command the mistake happened in.',
+      },
       failure_mode: { type: 'string', description: 'For an experience: what goes wrong without this lesson.' },
       lesson: { type: 'string', description: 'For an experience: the actionable instruction.' },
       scope: {
@@ -584,6 +597,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       quote?: string
       source_ref?: string
       trigger?: string
+      recall_for?: string[]
       failure_mode?: string
       lesson?: string
       scope?: Scope
@@ -615,6 +629,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         lesson: args.lesson,
         sourceRef: args.source_ref,
         quote: args.quote,
+        recallFor: args.recall_for,
         expiresAt: window(args.expires_in_days, 'expires_in_days'),
         reviewAfter: window(args.review_after_days, 'review_after_days'),
         agent: exec.agent,

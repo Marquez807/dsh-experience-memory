@@ -14,3 +14,8 @@ node_modules/
 *.db
 *.db-journal
 *.db-wal
+
+# The extracted call corpus. `tools/session-calls.py` regenerates it from session logs in
+# seconds and it is tens of megabytes, so the *tool* is committed and the data is not — the
+# numbers it produces are pinned in docs/DELIVERY-GAPS.md together with the command.
+tools/calls.jsonl

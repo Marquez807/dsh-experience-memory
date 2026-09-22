@@ -8,210 +8,48 @@
  * started, where the user had typed "开始吧". The agent launched without Steam and the run
  * was wasted.
  *
- * What the agent is *doing* is the signal that was being thrown away. A tool call names
- * itself: the script it runs, the file it edits, the symbol it searches for. So this module
- * reads the call, pulls the identifiers out of it, and looks for a record that mentions
- * them. No semantics, no model call — an identifier that literally appears in both places.
+ * What the agent is *doing* is the signal that was being thrown away. So this module attaches
+ * a lesson to the tool call it is about.
  *
- * Three properties keep it from becoming another source of noise:
+ * ## What changed on 2026-09-23, and why
  *
- * 1. **Identifier-only, and only from the values.** Nothing matches on prose, and the
- *    argument *keys* are dropped before anything is read — a call carries `file_path` and
- *    `old_string` on every edit, so counting those as identifiers would make every edit
- *    match every record that ever mentioned editing. What is left is what the call is about:
- *    a path, a file name, a symbol, a switch.
- * 2. **Only an identifier that discriminates.** An identifier is worth acting on when it
- *    picks out a record, and that is measured rather than assumed: the replay of a real
- *    session found `Bannerlord` in 13 of the 17 records that workspace could see, so a
- *    `Bannerlord` hit identifies nothing — while `launch-a-runtime-clean.ps1` appeared in 2
- *    and `ERC403` in 1, which is what the Steam lesson is actually *about*. See
- *    {@link PRECALL_MAX_DOC_FREQ}.
- * 3. **At most one, and free when nothing matches.** One call, one lesson; the common case
- *    is that no discriminating identifier matches and no tokens are spent.
+ * The first version decided applicability by inference: pull identifier-shaped tokens out of
+ * the call's arguments, look for a record that mentions one of them, prefer the record that
+ * mentions the most. It was replayed over 15,383 real tool calls from this workspace's own
+ * session logs and audited by hand, and it does not work:
+ *
+ *   - it delivered a hint on **57%** of calls;
+ *   - a blind sample of 48 real deliveries found **4** that were about the call (8.3%). The
+ *     rest fired on a coincidence — the PowerShell column header `AutoSize` linked a call to
+ *     a lesson about output truncation; the word `encoding` in a URL fetch linked to a lesson
+ *     about chunked decoding;
+ *   - loosening the rule to catch more of the right records made the noise worse, and
+ *     tightening it far enough to remove the noise left recall in single digits. In the
+ *     loosest configuration only 14 of 25 hand-written "what should fire here" cases had the
+ *     right record among the candidates *at all*, so no ranking change could have saved them.
+ *
+ * The measurements, the labeled sample and the failed alternatives are in
+ * `docs/DELIVERY-GAPS.md`; `tools/replay.mjs` re-runs all of it.
+ *
+ * The replacement stops inferring. A record now **declares** which calls it applies to, as
+ * anchors — `path:<file>`, `tool:<name>`, `command:<token>` — and the judgement is a fact
+ * about the call rather than a resemblance between two vocabularies. See `anchors.ts` for
+ * what counts as an anchor and `criteria.ts` for the decision. A record that declares nothing
+ * is silent here on purpose: silence costs a hint that might not have been read, while a
+ * wrong hint costs the credibility of every hint.
  */
-import { windowRecords } from './db.ts'
 import type { DatabaseSync } from 'node:sqlite'
-import { CANDIDATE_LIMIT, identifierMatches, retrieve, visible } from './retrieve.ts'
-import { identifierKey, tokenize } from './tokenize.ts'
+import { decideForCall } from './criteria.ts'
 import type { MemoryRecord } from './types.ts'
 
 /** Bytes one attached lesson may cost. It rides along with a tool result, unasked for. */
 export const PRECALL_MAX_BYTES = 300
 
 /**
- * How many visible records may mention an identifier before it stops identifying anything.
- *
- * Measured, not guessed. Replaying the real session this module was written for: `Bannerlord`
- * matched 13 of the 17 records that workspace could see and `BannerlordPlayerLikeAI` matched
- * more still, so on the old rule two calls in three attached something and the lesson that
- * mattered was never the one chosen. At a ceiling of 2 the Steam lesson is attached to the
- * call that runs its script, and the identifier that does it — `launch-a-runtime-clean.ps1` —
- * is genuinely rare.
- *
- * The cost is honest and worth stating: in a store where every record is about the same thing,
- * nothing is attached, because nothing distinguishes them. That is the resident digest's job,
- * not this module's.
- */
-export const PRECALL_MAX_DOC_FREQ = 2
-
-/** Identifiers probed per call. Bounds the work a single large tool call can cause. */
-const PRECALL_MAX_PROBED = 12
-
-/**
- * Identifier-shaped runs inside a tool call's arguments.
- *
- * Ordered by how specific they are, which is also the order a reader would trust them:
- * a path, then a file name, then a long symbol, then a command-line switch.
- */
-const PATTERNS: readonly RegExp[] = [
-  /[A-Za-z]:\\[^\s"'`,;)\]}|]+/g,          // an absolute Windows path
-  /(?:^|[\s"'(=])((?:[\w.-]+[\\/])+[\w.-]+)/g, // a relative path
-  /\b[\w-]+\.(?:ps1|exe|dll|py|js|mjs|cjs|ts|json|ya?ml|md|xml|acf|cs|csproj|sln|sh)\b/gi,
-  /\b[A-Za-z_][A-Za-z0-9_]{5,}\b/g,       // a long symbol or a camel/snake identifier
-  /--[a-z][\w-]{2,}/gi,                    // a long switch
-]
-
-/**
- * Words that identify nothing.
- *
- * A record mentioning "test" is not about this call. Tool names, common flags, and the
- * directory names every repository has are all excluded for the same reason: they would match
- * half the store and attach an irrelevant lesson to every command.
- */
-const GENERIC = new Set([
-  'node', 'pwsh', 'powershell', 'bash', 'echo', 'test', 'tests', 'true', 'false', 'null',
-  'utf8', 'utf-8', 'json', 'yaml', 'args', 'argv', 'code', 'path', 'file', 'files', 'data',
-  'name', 'type', 'value', 'values', 'list', 'item', 'items', 'text', 'main', 'index',
-  'src', 'lib', 'dist', 'build', 'out', 'docs', 'doc', 'temp', 'tmp', 'home', 'user',
-  'string', 'number', 'boolean', 'object', 'array', 'query', 'limit', 'offset', 'null',
-  'command', 'description', 'pattern', 'content', 'message', 'options', 'config',
-  'force', 'verbose', 'silent', 'help', 'version', 'output', 'input', 'error',
-])
-
-/**
- * Ordinary English that the long-symbol pattern would otherwise read as a name.
- *
- * Observed, not guessed. The first hours of this feature running for real produced one good
- * hint (`buildIdentity` on a call that grepped for it) and one bad one: an edit whose only link
- * to a lesson about SQLite WAL checkpoints was the word `checkpoint` appearing in a code
- * comment, which is a *different* sense of the same word. A bare English word carries no naming
- * power in a call, and the words common enough to matter are already suppressed by document
- * frequency — this list is only for the ones rare enough to slip through.
- *
- * It is extended the way the CJK stop list in `retrieve.ts` is: when a false injection is
- * observed, not in advance. That policy has a stated asymmetry, and it is the right one here
- * too — a word wrongly left out costs one stray line, a word wrongly included costs a record
- * the model never sees. Deliberately absent: `taskkill`, `chkdsk`, `robocopy` and every other
- * bare lowercase word that is a real command name; a shape rule cannot tell those from prose,
- * which is why this is a list rather than a pattern.
- */
-const ENGLISH_PROSE = new Set([
-  'already', 'another', 'because', 'before', 'between', 'certain', 'checkpoint', 'common',
-  'condensed', 'continue', 'default', 'different', 'during', 'either', 'enough', 'example',
-  'except', 'first', 'following', 'however', 'includes', 'instead', 'itself', 'likely',
-  'neither', 'nothing', 'otherwise', 'perhaps', 'previous', 'rather', 'really', 'should',
-  'simple', 'something', 'there', 'these', 'thing', 'things', 'those', 'though', 'through',
-  'unless', 'where', 'which', 'while', 'without', 'would',
-])
-
-/** Below this, a token is too short to identify anything on its own. */
-const MIN_IDENTIFIER = 5
-
-/**
- * The text of a tool call that may name something.
- *
- * Values only. The keys of a tool call's arguments are the tool's schema — `file_path`,
- * `old_string`, `job_id` — and every call of that tool carries them, so treating them as
- * identifiers is how this module first produced a hint on two calls out of three.
- */
-function argumentText(value: unknown): string {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        return argumentText(JSON.parse(trimmed))
-      } catch {
-        // Not JSON after all; read it as the plain text it is.
-      }
-    }
-    return value
-  }
-  if (Array.isArray(value)) return value.map(argumentText).join('\n')
-  if (value !== null && typeof value === 'object') {
-    return Object.values(value as Record<string, unknown>).map(argumentText).join('\n')
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  return ''
-}
-
-/**
- * The identifiers this call is *about*.
- *
- * Exported because it is the judgement this whole module rests on, and a test that pins it
- * is worth more than one that pins the query it produces.
- */
-export function identifiersOf(argumentsValue: unknown): string[] {
-  const text = argumentText(argumentsValue)
-  if (text === '') return []
-
-  const found = new Set<string>()
-  for (const pattern of PATTERNS) {
-    for (const match of text.matchAll(pattern)) {
-      // Group 1 when the pattern captures, otherwise the whole match.
-      const raw = (match[1] ?? match[0]).trim()
-      if (raw.length < MIN_IDENTIFIER) continue
-      const key = raw.toLowerCase()
-      if (GENERIC.has(key) || ENGLISH_PROSE.has(key)) continue
-      // A bare directory name carries no more than a generic word does.
-      if (/^[a-z]+$/.test(key) && key.length < 8) continue
-      found.add(raw)
-    }
-  }
-  return [...found]
-}
-
-/**
- * Identifiers that pick out a record in this window, most specific first.
- *
- * Document frequency is computed over exactly the records the caller could be shown, using
- * the same tokenizer that {@link retrieve.identifierMatches} uses to count a hit — so
- * "discriminating" here means the same thing it means one line later, rather than being an
- * approximation of it.
- */
-function discriminating(
-  db: DatabaseSync,
-  workspaceId: string,
-  domain: string,
-  keys: readonly string[],
-  now: number,
-  maxDocFrequency: number,
-): string[] {
-  const pool = windowRecords(db, workspaceId, domain, CANDIDATE_LIMIT).filter(record =>
-    record.status === 'confirmed'
-    && record.supersededBy === null
-    && (record.expiresAt === null || record.expiresAt > now)
-    && visible(record, workspaceId, domain))
-  if (pool.length === 0) return []
-
-  const haystacks = pool.map(record => new Set(tokenize(
-    [record.title, record.trigger, record.failureMode, record.lesson, record.body].join('\n'),
-  )))
-  const kept: string[] = []
-  for (const key of keys) {
-    let frequency = 0
-    for (const haystack of haystacks) if (haystack.has(key)) frequency += 1
-    if (frequency > 0 && frequency <= maxDocFrequency) kept.push(key)
-  }
-  return kept
-}
-
-/**
  * The one record worth putting in front of the agent for this call, or nothing.
  *
- * The gate is a shared *discriminating* identifier: the ranker already counts how many of a
- * query's identifiers appear in a record, but a count is only evidence when the identifiers
- * it counts mean something, so the identifiers that half the window shares are dropped
- * before the query is built. Among what is left, the most hits wins, then importance.
+ * The judgement lives in `criteria.ts`; this stays as the name the rest of the plugin and its
+ * tests call, and because the reasoning above belongs next to the feature it explains.
  */
 export function recallForCall(
   db: DatabaseSync,
@@ -219,18 +57,18 @@ export function recallForCall(
   domain: string,
   argumentsValue: unknown,
   now: number,
-  options: { maxDocFrequency?: number } = {},
+  options: { tool?: string } = {},
 ): MemoryRecord | undefined {
   return recallForCallWithIdentifiers(db, workspaceId, domain, argumentsValue, now, options)?.record
 }
 
 /**
- * {@link recallForCall}, plus the identifiers that actually carried it.
+ * {@link recallForCall}, plus the anchors that actually carried it.
  *
- * The identifiers are returned because they are the only honest answer to "why was this
- * lesson shown here", and a delivery is recorded with them so a later reader can check the
- * reason instead of inferring it. Nothing else in the store records a delivery at all, which
- * is why "did this lesson ever reach the agent" used to be unanswerable.
+ * The anchors are returned because they are the only honest answer to "why was this lesson
+ * shown here", and a delivery is recorded with them so a later reader can check the reason
+ * instead of inferring it. Nothing else in the store records a delivery at all, which is why
+ * "did this lesson ever reach the agent" used to be unanswerable.
  */
 export function recallForCallWithIdentifiers(
   db: DatabaseSync,
@@ -238,50 +76,11 @@ export function recallForCallWithIdentifiers(
   domain: string,
   argumentsValue: unknown,
   now: number,
-  options: { maxDocFrequency?: number } = {},
+  options: { tool?: string } = {},
 ): { record: MemoryRecord; matched: string[] } | undefined {
-  const identifiers = identifiersOf(argumentsValue)
-  if (identifiers.length === 0) return undefined
-
-  // The raw spelling is what the query keeps — `retrieve` reads the query with the same
-  // tokenizer it reads records with, so handing it the folded key would search for a word
-  // that only exists because this module made it up.
-  const pairs: { raw: string; key: string }[] = []
-  const seen = new Set<string>()
-  for (const raw of identifiers) {
-    const key = identifierKey(raw)
-    if (key === '' || seen.has(key)) continue
-    seen.add(key)
-    pairs.push({ raw, key })
-    if (pairs.length >= PRECALL_MAX_PROBED) break
-  }
-  if (pairs.length === 0) return undefined
-
-  const maxDocFrequency = options.maxDocFrequency ?? PRECALL_MAX_DOC_FREQ
-  const rare = new Set(discriminating(db, workspaceId, domain, pairs.map(p => p.key), now, maxDocFrequency))
-  if (rare.size === 0) return undefined
-
-  // The surviving raw spellings are handed over as identifiers rather than left to be
-  // re-derived from the joined query: the tokenizer would read two adjacent Latin identifiers
-  // as one multi-word phrase, and every hit would count as zero.
-  const kept = pairs.filter(pair => rare.has(pair.key))
-  const { ranked } = retrieve(db, {
-    workspaceId,
-    domain,
-    query: kept.map(pair => pair.raw).join(' '),
-    identifiers: kept.map(pair => pair.raw),
-    now,
-    limit: 16,
-    tier: 'recall',
-  })
-  const hit = ranked
-    .filter(entry => entry.identifierMatches > 0 && entry.record.status === 'confirmed')
-    .sort((a, b) => (b.identifierMatches - a.identifierMatches) || (b.importance - a.importance))[0]
-  if (hit === undefined) return undefined
-  // Only the identifiers the hit record actually contains: one that survived the
-  // document-frequency filter but appears in no candidate is not why this lesson was chosen.
-  const carried = kept.map(pair => pair.raw).filter(raw => identifierMatches(hit.record, [raw]) > 0)
-  return { record: hit.record, matched: carried.length > 0 ? carried : kept.map(pair => pair.raw) }
+  const decision = decideForCall(db, workspaceId, domain, argumentsValue, now, options)
+  if (decision === undefined) return undefined
+  return { record: decision.record, matched: decision.matched }
 }
 
 /** The line the agent sees. Deliberately short: it rides along with a tool result, unasked. */

@@ -26,6 +26,7 @@ import {
 } from './db.ts'
 import type { HarvestCandidate } from './harvest.ts'
 import { gradeEvidence, type EvidenceRoute } from './evidence.ts'
+import { joinTrigger } from './anchors.ts'
 import { importance, RESIDENT_EVIDENCE, RETIRE_FLOOR } from './rank.ts'
 import type { AgentLike, Evidence, Kind, MemoryRecord, Scope } from './types.ts'
 
@@ -100,6 +101,15 @@ export interface RememberInput {
   failureMode?: string
   lesson?: string
   sourceRef?: string
+  /**
+   * Where the lesson applies, as facts a tool call either has or does not have.
+   *
+   * `path:<file>`, `tool:<name>`, `command:<token>` — see `anchors.ts`. A record with none is
+   * never delivered just before a tool call; the framework would rather stay silent than
+   * interrupt on a guess. These are joined into the stored `trigger` under a marker so the
+   * schema needs no new column, and `splitTrigger` gives the prose half back to the digest.
+   */
+  recallFor?: readonly string[]
   /** The verbatim passage the claim rests on; enables a verified grade. */
   quote?: string
   /**
@@ -214,7 +224,7 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
     evidence: verdict.grade,
     title,
     body,
-    trigger: input.trigger?.trim() ?? '',
+    trigger: joinTrigger(input.trigger?.trim() ?? '', input.recallFor ?? []),
     failureMode: input.failureMode?.trim() ?? '',
     lesson: input.lesson?.trim() ?? '',
     sourceRef: input.sourceRef?.trim() ?? '',

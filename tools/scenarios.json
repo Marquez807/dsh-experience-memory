@@ -1,0 +1,180 @@
+{
+  "note": "人工标注的投递场景集：每条给一次真实形状的工具调用，写明这一次**应该**被端出来的是哪条记录（按 id）。用于衡量判据的召回（该送的送没送到）；误报用同一批工具跑 tools/calls.jsonl 里 15383 次真实调用来量。判据只输出一条记录，所以召回判据是「送出的那条 == expect」。",
+  "cases": [
+    {
+      "id": "git-no-exe",
+      "why": "要看提交与推送状态，按经验别起 git.exe，直接读 .git 文件",
+      "tool": "pwsh",
+      "arguments": { "command": "git log --oneline -5; git status --porcelain", "description": "查看本地提交与远端状态" },
+      "expect": "a2daa5dc426961c4e412"
+    },
+    {
+      "id": "git-no-exe-2",
+      "why": "同一个坑的另一种写法：直接问远端分支",
+      "tool": "pwsh",
+      "arguments": { "command": "git fetch origin && git rev-parse origin/main" },
+      "expect": "a2daa5dc426961c4e412"
+    },
+    {
+      "id": "bom-write",
+      "why": "用 PowerShell 写 JSON，正是 BOM 硬规矩管的动作",
+      "tool": "pwsh",
+      "arguments": { "command": "Set-Content -Path .bigfat\\facts.jsonl -Value $json" },
+      "expect": "512e622341cb5fd4c3f3"
+    },
+    {
+      "id": "bom-guard",
+      "why": "写文件的后半步：跑 BOM 守卫脚本",
+      "tool": "pwsh",
+      "arguments": { "command": "powershell -ExecutionPolicy Bypass -File dsh-bom-guard.ps1" },
+      "expect": "512e622341cb5fd4c3f3"
+    },
+    {
+      "id": "desktop-storage",
+      "why": "正在改 desktop-storage.json，页面还开着",
+      "tool": "write",
+      "arguments": { "file_path": "C:\\Users\\Admin\\AppData\\Roaming\\dsh-desktop\\desktop-storage.json", "content": "{\"layout\":\"compact\"}" },
+      "expect": "89ccf46fc9fffaad66ce"
+    },
+    {
+      "id": "mimo-provider",
+      "why": "调 mimo 端点做模型测试前，先看工具链通没通",
+      "tool": "pwsh",
+      "arguments": { "command": "node bin.js --profile mimo-profile \"读一下 README 第一行\"" },
+      "expect": "d6efbff47feafc444168"
+    },
+    {
+      "id": "facts-jsonl",
+      "why": "从 facts.jsonl 取现价，必须先按时间戳取最新快照",
+      "tool": "pwsh",
+      "arguments": { "command": "python -c \"import json;print([l for l in open('.bigfat/facts.jsonl')][-1])\"", "description": "取出 facts.jsonl 里的 price 快照" },
+      "expect": "7073746c7e7d423ce70d"
+    },
+    {
+      "id": "verify-source-ids",
+      "why": "提交 verify，source_ids 只能填数据源 id",
+      "tool": "bigfat_research",
+      "arguments": { "action": "verify", "code": "600519", "payload": { "source_ids": ["eastmoney-normalization", "ths"] } },
+      "expect": "e3543c6f66b711616d65"
+    },
+    {
+      "id": "rebalance-quantity",
+      "why": "走 rebalance 前先核对 quantity/price 有没有入库",
+      "tool": "bigfat_research",
+      "arguments": { "action": "rebalance", "portfolio_path": ".bigfat/portfolio_snapshot.json" },
+      "expect": "cdf951a2114e3814ac16"
+    },
+    {
+      "id": "third-party-holdings",
+      "why": "朋友的持仓绝不能进持仓快照",
+      "tool": "bigfat_research",
+      "arguments": { "action": "portfolio", "holdings": [{ "symbol": "600036", "name": "招商银行", "quantity": 1000, "cost_basis": 35.2 }], "source_reference": "朋友发来的持仓截图" },
+      "expect": "de74d1d594f952010ba4"
+    },
+    {
+      "id": "uninstall-backup",
+      "why": "卸载小米桌面版之前先备份用户数据",
+      "tool": "pwsh",
+      "arguments": { "command": "& \"$env:LOCALAPPDATA\\Programs\\xiaomi-mimo\\Uninstall.exe\" /S" },
+      "expect": "417b7eb95e18faa9c5bb"
+    },
+    {
+      "id": "readme-restructure",
+      "why": "动被测试钉住的 README 之前先集中锚点",
+      "tool": "edit",
+      "arguments": { "file_path": "F:\\dsh主工作区\\dsh-experience-memory\\README.md", "old_string": "## 配置", "new_string": "## 配置项" },
+      "expect": "2858be98737ab2065fe7"
+    },
+    {
+      "id": "skill-filesystem",
+      "why": "自建 preset 要自带技能，得给 skill-filesystem 加目录",
+      "tool": "edit",
+      "arguments": { "file_path": "C:\\Users\\Admin\\AppData\\Roaming\\dsh-desktop\\harness\\plugins\\cordis.patch.yml", "old_string": "customSkillDirs: []", "new_string": "customSkillDirs: [\".dsh/skills\"]" },
+      "expect": "d8d198f23898d34e2408"
+    },
+    {
+      "id": "tools-js-param",
+      "why": "给 bigfat 工具加参数必须同时改 lib/tools.js",
+      "tool": "edit",
+      "arguments": { "file_path": "F:\\dsh主工作区\\repos\\dsh-bigfat\\lib\\tools.js", "old_string": "name: 'bigfat_research',", "new_string": "name: 'bigfat_research', // schema" },
+      "expect": "f314426502d552bd8524"
+    },
+    {
+      "id": "miaomiao-skill",
+      "why": "跨会话交接要投到对方工作区根",
+      "tool": "write",
+      "arguments": { "file_path": "F:\\dsh主工作区\\交接-开发给研究员-记忆框架投递.md", "content": "输出方：开发会话\n接收方：bigfat 研究员会话" },
+      "expect": "d8d198f23898d34e2408"
+    },
+    {
+      "id": "memory-recall-keyword",
+      "why": "查经验记忆该用短关键词，不是长句",
+      "tool": "memory_recall",
+      "arguments": { "query": "为什么我上次用一整句话去查经验记忆的时候什么都没有查到？是不是记忆库根本没有记住这件事" },
+      "expect": "98896b0b8ee23fc9507e"
+    },
+    {
+      "id": "preset-allow-empty",
+      "why": "给 preset 屏蔽宿主工具，别用 allow: []",
+      "tool": "edit",
+      "arguments": { "file_path": "F:\\dsh主工作区\\.dsh\\preset.yml", "old_string": "tools.restrict: {}", "new_string": "tools.restrict:\n  allow: []" },
+      "expect": "6bfa8bee01a59fef1435"
+    },
+    {
+      "id": "journal-decode",
+      "why": "抓 gov.cn 页面必须先解码 chunked",
+      "tool": "pwsh",
+      "arguments": { "command": "curl.exe -s https://www.mohrss.gov.cn/xxgk2020/fdzdgknr/zcfg/ -o page.html; Get-Content page.html -TotalCount 5" },
+      "expect": "22f979df609e14378cd4"
+    },
+    {
+      "id": "run-all-truncation",
+      "why": "跑一键验收时别截断输出流，否则假红",
+      "tool": "pwsh",
+      "arguments": { "command": ".\\tests\\run_all.ps1 | Select-Object -First 20; echo $LASTEXITCODE" },
+      "expect": "6f18ec4e57c0b5872182"
+    },
+    {
+      "id": "workflow-json",
+      "why": "改 .bigfat 产物路径前先看审计从哪读",
+      "tool": "write",
+      "arguments": { "file_path": "F:\\dsh主工作区\\.bigfat\\industry_benchmark.json", "content": "{\"industry\":\"银行\"}" },
+      "expect": "ea15578432a82f8f6a9e"
+    },
+    {
+      "id": "facts-single-source",
+      "why": "单源字段在 facts.jsonl 里有值但不会进证据表",
+      "tool": "read",
+      "arguments": { "file_path": "F:\\dsh主工作区\\.bigfat\\facts.jsonl", "offset": 1, "limit": 5 },
+      "expect": "426d924ce5e42a803c95"
+    },
+    {
+      "id": "delisting-switch",
+      "why": "退市股开关是三态且默认开",
+      "tool": "bigfat_research",
+      "arguments": { "action": "signals", "op": "preflight", "codes": ["000001.SZ"] },
+      "expect": "93cd82f12646b9754170"
+    },
+    {
+      "id": "plugin-market",
+      "why": "核查看 PR/详情页，别 grep 目录快照",
+      "tool": "pwsh",
+      "arguments": { "command": "curl.exe -s https://awesome-dsh-plugin.com/plugins.json | Select-String experience-memory" },
+      "expect": "f225aaabffe296eb2331"
+    },
+    {
+      "id": "roles-transplant",
+      "why": "dsh-bigfat 的 roles/ 是搬运件",
+      "tool": "write",
+      "arguments": { "file_path": "F:\\dsh主工作区\\repos\\dsh-bigfat\\docs\\AI_USAGE_GUIDE.md", "content": "# 用法说明" },
+      "expect": "1f911d3835d27637964f"
+    },
+    {
+      "id": "encoding-write",
+      "why": "写文件必须带无 BOM 的编码",
+      "tool": "pwsh",
+      "arguments": { "command": "[IO.File]::WriteAllText($p, $t, [Text.UTF8Encoding]::new($false))", "description": "写文件并指定编码" },
+      "expect": "512e622341cb5fd4c3f3"
+    }
+  ]
+}

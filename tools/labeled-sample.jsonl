@@ -1,0 +1,47 @@
+{"record":"336ed1cb9fd90ea5f27a","title":"截断 run_all.ps1 的输出流会造成假红（退出码 1、其实全过）","tool":"pwsh","matched":["AutoSize"],"verdict":"no","why":"调用的只是列环境变量；与 run_all 验收假红无关"}
+{"record":"503bd3b1a580ba24af73","title":"\"生成\"的文档节里数字仍是手写的：改文档会被生成器覆盖，要改生成器","tool":"edit","matched":["DELIVERY.md","DELIVERY"],"verdict":"yes","why":"正在改 DELIVERY.md，记录讲的就是生成节里的数字是手写的"}
+{"record":"bf0c2fd7dbcf750a05d5","title":"pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度","tool":"pwsh","matched":["python.exe","LASTEXITCODE"],"verdict":"yes","why":"调用正是 pwsh 跑 python.exe 并带 2>&1 —— 记录的原形"}
+{"record":"b15f8166cf2568639a05","title":"DSH 离线校验合成配置的正确命令：经 harness-node-entry.mjs + web --patch","tool":"pwsh","matched":["resources"],"verdict":"no","why":"只是在列 DSH 安装目录；与 --patch 合成配置命令无关"}
+{"record":"22f979df609e14378cd4","title":"抓 .gov.cn 网页必须解码 HTTP chunked，否则正文被塞进十六进制长度标记","tool":"pwsh","matched":["Encoding"],"verdict":"no","why":"在跑 bigfat 取数脚本；记录讲的是抓 .gov.cn 网页要解 chunked"}
+{"record":"4a0a10714d66efb9217e","title":"自建 agent preset 要自带技能，必须给 skill-filesystem 加 customSkillDirs","tool":"write","matched":["cli.py","fileURLToPath"],"verdict":"no","why":"在写桥接验收脚本；记录讲 preset 技能目录"}
+{"record":"f314426502d552bd8524","title":"bigfat 插件缺陷：expected_artifacts 工具 schema 与实现不一致，op=init 填不上","tool":"edit","matched":["required"],"verdict":"yes","why":"正在改 lib/tools.js 的输出契约；记录正是这个缺陷"}
+{"record":"ea15578432a82f8f6a9e","title":"产物路径差一层 .bigfat/：审计按工作区根读、产物按库目录给，链卡在 §D","tool":"pwsh","matched":["workspace","directory"],"verdict":"no","why":"在列 .dsh 目录树；记录讲产物路径差一层导致审计读不到"}
+{"record":"93cd82f12646b9754170","title":"退市股开关是三态且默认开启；C3 只在退市股真进面板时才声明","tool":"pwsh","matched":["preflight"],"verdict":"no","why":"在跑 e2e_loops；记录讲退市股开关三态"}
+{"record":"003de386d67c663a20f3","title":"profile 级插件的工具对所有 agent preset 可见（与 preset 的 composition 无关）","tool":"pwsh","matched":["package.json"],"verdict":"no","why":"在查另一个项目 astra；记录讲 profile 插件可见性"}
+{"record":"9bf1684eeb8d36846444","title":"给工具加参数必须同时改 lib/tools.js，否则会话调不到（Python 单测全绿也发现不了）","tool":"edit","matched":["_tool_research"],"verdict":"yes","why":"正在改 cli.py 的 _tool_research；记录正是加参数要同时改 lib/tools.js"}
+{"record":"3b84814f4f76dd0a078e","title":"advice propose 三处契约：入参=研究报告 payload、返回无 ok、三情景必填","tool":"pwsh","matched":["analysis"],"verdict":"no","why":"在跑导入图闭合检查；记录讲 advice propose 三处契约"}
+{"record":"1f911d3835d27637964f","title":"dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件","tool":"pwsh","matched":["UPSTREAM"],"verdict":"no","why":"在查 astra 项目结构；记录讲 roles/ 是搬运件"}
+{"record":"546692bfe06e769b8988","title":"bigfat 是价值投资取向，量化是量化——两个项目不合并","tool":"pwsh","matched":["investment"],"verdict":"no","why":"在列 profiles 结构；记录讲两个项目不合并"}
+{"record":"41f3d9638118d1953239","title":"DSH 工作区的数据分散在 5 处，清一个工作区不能只删目录","tool":"pwsh","matched":["workspace"],"verdict":"no","why":"在列工作区根目录；记录讲数据分散在 5 处"}
+{"record":"e01e4fd6edc3b513818d","title":"跨会话协作靠工作区根目录的交接文件（会话之间不能直接发消息）","tool":"pwsh","matched":["marketdata"],"verdict":"no","why":"在查 dsh-marketdata 是否存在；记录讲跨会话交接文件"}
+{"record":"7bcef6a9dd3782edb360","title":"在编译产物里查 TypeScript 类型名必然假阴：类型被擦除，要查字面量","tool":"edit","matched":["evidence"],"verdict":"no","why":"在改 research.py 的返回体；记录讲在编译产物里查类型名会假阴"}
+{"record":"2a6d2f568737b83bf811","title":"P10 到期闸挂在 claim_holdout，但账本缺窗口字段","tool":"write","matched":["splits.py","oos.py"],"verdict":"no","why":"在写 EV 角色契约文档；记录讲 P10 到期闸的账本字段"}
+{"record":"f723c6539a87d160c680","title":"审计前先用实测行数核对任务书：行数不符会让所有引用行号错位","tool":"pwsh","matched":["LiteralPath","AutoSize"],"verdict":"no","why":"在列 tools 目录文件；记录讲审计前先核对行数"}
+{"record":"283147181b70fc2eb268","title":"取数两个入口别混用：latest_facts 会把多来源压成一条","tool":"write","matched":["raw_sha256"],"verdict":"no","why":"在写 latest_facts 相关代码；记录讲两个取数入口别混用"}
+{"record":"a43cabb2e0402c689982","title":"筛选产物：结论字段是 screen_status（无 picks/candidates）","tool":"write","matched":["CANDIDATES"],"verdict":"no","why":"在写数据源探测脚本；记录讲筛选产物的结论字段"}
+{"record":"a1e5fe8d999cdac53cd7","title":"兼容别名模块的前提是目标 API 齐全","tool":"grep","matched":["lifecycle"],"verdict":"no","why":"在 grep lifecycle；记录讲兼容别名模块的前提"}
+{"record":"388155257741f987ddae","title":"数据源独立性纪律：分组必须登记，同组不得互相印证","tool":"write","matched":["normalization"],"verdict":"no","why":"在写数据源注册表；记录讲分组登记（相近，但这次做的不是那个动作）"}
+{"record":"6f18ec4e57c0b5872182","title":"dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收","tool":"pwsh","matched":["progress"],"verdict":"no","why":"在数 facts.jsonl 行数；记录讲台账落后于实物"}
+{"record":"3609a98d553542bb51cf","title":"记忆出处的判据：工作区相对路径 + 逐字引文 + 写入后核对 confirmed","tool":"edit","matched":["markdown"],"verdict":"no","why":"在改 research.py；记录讲记忆出处的判据"}
+{"record":"caf94975e1bb832884be","title":"改了对外契约面后，只跑新增测试类会漏掉同文件里的形状测试","tool":"send_message","matched":["test_signals"],"verdict":"no","why":"在给另一个 agent 发消息；记录讲改契约面后要跑完整验收"}
+{"record":"2efc444667cccdcd1917","title":"dsh-bigfat 验收的盲区：检查从\"已登记项\"出发","tool":"pwsh","matched":["artifact"],"verdict":"no","why":"在跑验收脚本；记录讲验收检查的盲区"}
+{"record":"a2daa5dc426961c4e412","title":"别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗","tool":"pwsh","matched":["application"],"verdict":"no","why":"在发 HTTP 请求；记录讲别起 git.exe"}
+{"record":"90e846adc3de13050adc","title":"本工作区只有 AGENTS.md 每轮自动进上下文；.dsh/skills 下 SKILL.md 只自动给一行描述","tool":"pwsh","matched":["SKILL.md"],"verdict":"no","why":"在找 SKILL.md 的位置；记录讲它每轮只给一行描述"}
+{"record":"5c411a00a50e7466e89f","title":"闸门里\"检查不出来\"必须与\"没问题\"分开报，且先做阳性对照","tool":"edit","matched":["KeyError","UNAVAILABLE"],"verdict":"no","why":"在写 sources.py 的一致性检查；记录讲没发现结论要先做阳性对照"}
+{"record":"88a90381db8de84722a1","title":"kinds 混着给时 intel 分支会把其它类别短路掉","tool":"edit","matched":["sources_ok"],"verdict":"no","why":"在改 loop_data.py；记录讲 kinds 混采短路（同文件同主题，改的不是那处）"}
+{"record":"9625f2800c77f0e5199e","title":"数组参数的 enum 必须挂在 items 里：写错会让整个工具注册失败","tool":"pwsh","matched":["tool_surface_test"],"verdict":"no","why":"在跑 tool_surface_test.py；记录讲数组参数 enum 挂错"}
+{"record":"765a30c77927af9663ff","title":"PE 参考带的瓶颈是月线长度，不是 EPS 双源口径","tool":"write","matched":["derived.py"],"verdict":"no","why":"在写 derived.py；记录讲 PE 参考带的瓶颈"}
+{"record":"512e622341cb5fd4c3f3","title":"写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩）","tool":"edit","matched":["Unexpected"],"verdict":"no","why":"在改 cli.py；记录讲写文件的 BOM 规矩"}
+{"record":"d8d198f23898d34e2408","title":"跨会话交接要投到对方工作区根","tool":"pwsh","matched":["sessions"],"verdict":"no","why":"在算会话目录大小；记录讲交接文件放哪"}
+{"record":"97170653654cd71b42d8","title":"P10 三条判据已有现成反例测试，剩下的是接流程而非造机制","tool":"pwsh","matched":["test_research_layer"],"verdict":"no","why":"在跑 test_research_layer.py；记录讲 P10 三条判据已有反例"}
+{"record":"0d2b6398987c2e687088","title":"harness.log 里没有 Cordis 插件的 logger 输出","tool":"pwsh","matched":["node.cmd","tmpdb"],"verdict":"no","why":"在跑 dry-run 导入；记录讲 harness.log 里没有插件日志"}
+{"record":"84feae93f4dba1b9a91d","title":"junction 安装的插件，lib/*.js 改动不会被 HMR 热重载","tool":"pwsh","matched":["AutoSize","LinkType"],"verdict":"no","why":"在列 GPT 工作区；记录讲 junction 安装的插件不热重载"}
+{"record":"cd00af77c16a2074bb79","title":"工具自述是模型唯一读到的能力说明：漏写动作=能力不存在","tool":"pwsh","matched":["defineTool"],"verdict":"no","why":"在建目录联接；记录讲工具自述是唯一的能力说明"}
+{"record":"80a96bc9809080ed96ce","title":"引用工具输出作记忆出处必须填 call id（verified-tool 9.0）","tool":"memory_remember","matched":["source_ref","inferred"],"verdict":"no","why":"在写一条记忆；记录讲引用工具输出要填 call id"}
+{"record":"55d4b201c68ddfd76f11","title":"模板字符串里的注释不能用反引号：会把字符串截断","tool":"web_search","matched":["expected"],"verdict":"no","why":"在搜文献；记录讲模板字符串里的注释不能用反引号"}
+{"record":"4f4139c1e827ace4a292","title":"会话间无法直接对话；要投递需走 session/prompt over /api/remote.mux","tool":"pwsh","matched":["application","Accepted"],"verdict":"no","why":"在读凭据文件；记录讲会话间不能直接对话"}
+{"record":"045c937751f8b53389b0","title":"dsh-quant 插件包名已改为 dsh-bigfat-quant；插件 id/工具名/仓库路径刻意未改","tool":"write","matched":["cordis.patch.yml"],"verdict":"no","why":"在改 preset 的技能目录配置；记录讲包名改了哪些地方刻意没改"}
+{"record":"32f15948c099fa681eac","title":"抓人社部官网 www.mohrss.gov.cn 需带反爬 cookie，否则只拿到空正文","tool":"pwsh","matched":["mohrss"],"verdict":"yes","why":"调用正是抓人社部官网；记录讲这次抓取需要什么"}
+{"record":"6780b63e3971eab784e5","title":"本机取境外网页：web_fetch 与 .NET 都不行，curl.exe 直连可用","tool":"pwsh","matched":["curl.exe"],"verdict":"no","why":"在抓国内站点；记录讲的是取境外网页的通道"}
+{"record":"829162717af988f2038d","title":"lib/tools.js 里\"改这个文件不需要重启\"的说明在本机（junction 安装）不成立","tool":"edit","matched":["tools.js"],"verdict":"no","why":"在给工具加参数；记录讲的是改了要不要重启，不是这次改动的内容"}
+{"record":"336ed1cb9fd90ea5f27a","title":"截断 run_all.ps1 的输出流会造成假红（退出码 1、其实全过）","tool":"edit","matched":["run_all.ps1"],"verdict":"no","why":"在改 run_all.ps1 本身；记录讲的是跑它时别截断输出"}
