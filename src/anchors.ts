@@ -41,7 +41,10 @@
  *      claim rests on. When that file is a code or config path (not a report, not a
  *      transcript), it is the best available evidence of where the lesson applies —
  *      `dsh-experience-memory/src/domain.ts:27` came from a lesson about that module, and
- *      `repos/dsh-bigfat/lib/tools.js` from one about that file. `deriveAnchor` does this.
+ *      `repos/dsh-bigfat/lib/tools.js` from one about that file. `deriveAnchorFromSourceRef` does
+ *      this, and it is **off by default**: the measurement in `docs/DELIVERY-GAPS.md` §12.5 found
+ *      it fires 247 times on one record, because "the record mentions this file" is not "the
+ *      record is about this change".
  *   2. **The record's own `anchors` field**, written by `memory_remember`'s `recall_for`
  *      parameter. This is the durable answer, and the only one that reaches the lessons that
  *      have no code file behind them (a provider quirk, a policy rule, a wrong API shape).
