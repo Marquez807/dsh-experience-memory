@@ -1,0 +1,82 @@
+[
+    {
+        "mode":  "without",
+        "trial":  1,
+        "verdict":  "no-file",
+        "recalled":  "yes",
+        "hint":  "no",
+        "vault":  false,
+        "namespace":  false,
+        "bytes":  0
+    },
+    {
+        "mode":  "without",
+        "trial":  2,
+        "verdict":  "no-file",
+        "recalled":  "yes",
+        "hint":  "no",
+        "vault":  false,
+        "namespace":  false,
+        "bytes":  0
+    },
+    {
+        "mode":  "without",
+        "trial":  3,
+        "verdict":  "no-file",
+        "recalled":  "yes",
+        "hint":  "no",
+        "vault":  false,
+        "namespace":  false,
+        "bytes":  0
+    },
+    {
+        "mode":  "without",
+        "trial":  4,
+        "verdict":  "no-file",
+        "recalled":  "yes",
+        "hint":  "no",
+        "vault":  false,
+        "namespace":  false,
+        "bytes":  0
+    },
+    {
+        "mode":  "with",
+        "trial":  1,
+        "verdict":  "no-file",
+        "recalled":  "yes",
+        "hint":  "no",
+        "vault":  false,
+        "namespace":  false,
+        "bytes":  0
+    },
+    {
+        "mode":  "with",
+        "trial":  2,
+        "verdict":  "wrong",
+        "recalled":  "yes",
+        "hint":  "no",
+        "vault":  false,
+        "namespace":  false,
+        "bytes":  671
+    },
+    {
+        "mode":  "with",
+        "trial":  3,
+        "verdict":  "correct",
+        "recalled":  "yes",
+        "hint":  "no",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  467
+    },
+    {
+        "mode":  "with",
+        "trial":  4,
+        "verdict":  "correct",
+        "recalled":  "yes",
+        "hint":  "no",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  118
+    }
+]

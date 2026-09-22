@@ -134,7 +134,7 @@ function attachPrecall(
   exec: ToolExecutionLike,
   config: ResolvedConfig,
   sent: Map<string, number>,
-  budget: { session: number },
+  budget: { session: number; nudged: boolean },
   report: (what: string, error: unknown) => void,
 ): void {
   try {
