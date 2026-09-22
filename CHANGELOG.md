@@ -2,6 +2,39 @@
 
 ## 0.1.0 — unreleased
 
+### Anchors, measured: path not name, and an A/B that did not reach significance
+
+Three follow-ups to the delivery rewrite, all measured rather than argued. Details and the
+re-runnable commands are in `docs/DELIVERY-GAPS.md` §13–§14.
+
+- **A `path:` anchor now means the whole tail of the path.** Anchoring a lesson about one
+  project's `lib/tools.js` by *name* made it fire **508 times** in 15,896 calls, because three
+  unrelated files in this workspace are called `tools.js`. With the relative path kept
+  (`repos/dsh-quant/lib/tools.js`) the worst record dropped to **83**, and the delivery rate fell
+  from 6.34% to **1.18%** — both inside the pre-registered bar. `deriveAnchorFromSourceRef` and
+  `tools/backfill-anchors.mjs` now carry paths, and a bare name still matches by name because
+  that is what a hand-written `recall_for: ['path:service.yaml']` means.
+- **`tools/backfill-anchors.mjs`** proposes anchors for records that never declared one, from the
+  files their declared fields name, resolving each against the real workspace. It writes a
+  proposal file and measures itself; `--apply` is separate. On this store it can reach **11 of
+  191** records — enough for 1.18% delivery, 83 collisions, and **2.71% failure coverage**, which
+  misses the ≥15% coverage bar. Most records here are about situations, not files, and no
+  automation invents a `command:` anchor for them. **Not applied to the live store.**
+- **A real-model A/B was run and did not reach significance.** Isolated home, a fresh workspace
+  per trial, a fresh copy of the live store, correctness judged from the file rather than from
+  the model's account. First round: both arms 4/4 — because the workspace README stated which
+  config section takes effect, so the trap did not exist. Second round, that line removed:
+  **1/5 without the lesson vs 3/5 with it** (Fisher p≈0.52). Directionally as expected,
+  statistically nothing. Recorded as a negative result, not as evidence that lessons prevent
+  mistakes.
+- **What the A/B did show**: with no answer readable in the workspace, 4 of 5 control runs did
+  not even write the file, and in the treated runs the anchored record was delivered (visible in
+  the isolated session log) while the model also called `memory_recall` on its own. The ranking of
+  what to fix next is unchanged and now documented: the model rarely asks memory before acting —
+  9 `memory_recall` calls in 15,383, and only 1.8% of failures preceded by one.
+
+## 0.1.0 — unreleased
+
 ### Just-in-time delivery stops guessing: the record declares which call it applies to
 
 The previous version decided whether a lesson applied to a tool call by inference: pull

@@ -1,0 +1,94 @@
+[
+  {
+    "id": "1f911d3835d27637964f",
+    "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件",
+    "anchor": "path:ai_usage_guide.md",
+    "named": [
+      "ai_usage_guide.md"
+    ]
+  },
+  {
+    "id": "6f18ec4e57c0b5872182",
+    "title": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+    "anchor": "path:progress.json",
+    "named": [
+      "progress.json",
+      "run_all.ps1"
+    ]
+  },
+  {
+    "id": "512e622341cb5fd4c3f3",
+    "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+    "anchor": "path:dsh-bom-guard.ps1",
+    "named": [
+      "agents.md",
+      "dsh-bom-guard.ps1"
+    ]
+  },
+  {
+    "id": "4711aa46e17ae78766e3",
+    "title": "preset 挂载失败会被加载器缓存：改对内容也没用，要换文件路径",
+    "anchor": "path:cordis.yml",
+    "named": [
+      "cordis.yml"
+    ]
+  },
+  {
+    "id": "c9b8e7d6a1ea4b6c9256",
+    "title": "改 DSH 的 settings.yaml 不用重启，实测改动即时可用",
+    "anchor": "path:cordis.patch.yml",
+    "named": [
+      "settings.yaml",
+      "cordis.patch.yml"
+    ]
+  },
+  {
+    "id": "463413082a3fee7fff3c",
+    "title": "小米 MiMo 端点只认 reasoning_effort 的 none/low/medium/high，写 max 就 400",
+    "anchor": "path:settings.yaml",
+    "named": [
+      "settings.yaml"
+    ]
+  },
+  {
+    "id": "9bf1684eeb8d36846444",
+    "title": "给工具加参数必须同时改 lib/tools.js，否则会话调不到（Python 单测全绿也发现不了）",
+    "anchor": "path:tools.js",
+    "named": [
+      "tools.js",
+      "cli.py"
+    ]
+  },
+  {
+    "id": "149ae77e54ecd1ec8f8d",
+    "title": "素材管道：供应商无关 + 假接口自检 + manifest.js 绕开 file:// CORS",
+    "anchor": "path:manifest.js",
+    "named": [
+      "manifest.js"
+    ]
+  },
+  {
+    "id": "ea05071e9a9b173e2dd2",
+    "title": "用户硬要求：一切决定要有依据，没有调研就没有发言权（已写进 AGENTS.md 第五节）",
+    "anchor": "path:agents.md",
+    "named": [
+      "agents.md"
+    ]
+  },
+  {
+    "id": "4a0a10714d66efb9217e",
+    "title": "自建 agent preset 要自带技能，必须给 skill-filesystem 加 customSkillDirs 指向 baseUr",
+    "anchor": "path:skill.md",
+    "named": [
+      "skill.md"
+    ]
+  },
+  {
+    "id": "84feae93f4dba1b9a91d",
+    "title": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+    "anchor": "path:tools.js",
+    "named": [
+      "tools.js"
+    ]
+  }
+]

@@ -48,8 +48,7 @@ const number = (name, fallback) => {
 const root = 'F:\\dsh主工作区\\dsh-experience-memory'
 const lib = name => pathToFileURL(join(root, 'lib', name)).href
 const callsPath = flag('calls') ?? join(root, 'tools', 'calls.jsonl')
-const storePath = flag('store') ?? join(process.env['APPDATA'] ?? '', 'dsh-desktop', 'harness', 'experience-memory', 'memory.db')
-const cwd = flag('cwd') ?? 'F:\\dsh主工作区'
+const storePath = flag('store') ?? join(process.env['APPDATA'] ?? '', 'dsh-desktop', 'harness', 'experience-memory', 'memory.db')const cwd = flag('cwd') ?? 'F:\\dsh主工作区'
 const judge = flag('judge') ?? 'both'
 const maxDocFrequency = number('max-doc-freq', 2)
 const jsonPath = flag('json')
@@ -100,10 +99,20 @@ const JUDGES = {
     },
   },
   derived: {
-    label: '新判据 + 出处推断的锚点（未定档，见下）',
+    label: '新判据 + 出处推断的锚点（且记录必须真的讲到这个文件）',
     run: (call) => {
       const decision = decideForCall(db, workspace.id, workspace.domain, call.arguments, now,
-        { tool: call.name, derivedAnchors: true })
+        { tool: call.name, derivedAnchors: true, derivedNeedsMention: true })
+      return decision === undefined
+        ? undefined
+        : { record: decision.record, matched: decision.matched, signature: decision.via }
+    },
+  },
+  derivedLoose: {
+    label: '出处推断的锚点，不要求记录提到该文件（上一版，留作对照）',
+    run: (call) => {
+      const decision = decideForCall(db, workspace.id, workspace.domain, call.arguments, now,
+        { tool: call.name, derivedAnchors: true, derivedNeedsMention: false })
       return decision === undefined
         ? undefined
         : { record: decision.record, matched: decision.matched, signature: decision.via }

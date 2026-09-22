@@ -58,8 +58,10 @@ export async function run(): Promise<void> {
   eq(splitTrigger('只有散文，没有锚点').anchors, [], 'a record written before the change parses cleanly')
 
   // ── Derivation from `source_ref`, and its two refusals ────────────────────
-  eq(deriveAnchorFromSourceRef('dsh-experience-memory/src/domain.ts:27'), { kind: 'path', token: 'domain.ts' },
-    'a file-verified record about a module anchors on that module')
+  eq(deriveAnchorFromSourceRef('dsh-experience-memory/src/domain.ts:27'),
+    { kind: 'path', token: 'dsh-experience-memory/src/domain.ts' },
+    'a file-verified record anchors on the whole path — three files here are called tools.js, '
+    + 'and anchoring on the name alone fired 508 times')
   eq(deriveAnchorFromSourceRef('call_00_aBcDeF1234567890'), undefined,
     'a tool-call id proves the record, it does not locate it')
   eq(deriveAnchorFromSourceRef('audit/量化项目-现状体检报告.md:285'), undefined,
