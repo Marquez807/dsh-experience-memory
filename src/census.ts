@@ -11,7 +11,7 @@
  * entirely?" had no answer short of opening SQLite by hand.
  */
 import type { DatabaseSync } from 'node:sqlite'
-import { confirmedAfter } from './db.ts'
+import { confirmedAfter, deliveryTotals } from './db.ts'
 import { eligibleForResident, importance, RESIDENT_MIN_IMPORTANCE } from './rank.ts'
 
 /** Confirmed records examined when counting resident-eligible ones. */
@@ -74,6 +74,25 @@ export interface Census {
   }
   corrections: number
   /**
+   * How often a lesson was actually put in front of the agent, and how recently.
+   *
+   * This is the layer that had no trace at all until now, and its absence made the
+   * framework's central claim unfalsifiable: a record could be well written, correctly
+   * graded and never shown to anyone, with nothing anywhere to say so. `delivered` counts
+   * hints that went out; `deliveredRecords` counts the distinct lessons they were about, so
+   * a single chatty lesson cannot read as broad coverage.
+   */
+  delivery: {
+    /** Hints ever delivered, over all sessions. */
+    delivered: number
+    /** Distinct records those hints were about. */
+    deliveredRecords: number
+    /** Hints delivered in the last seven days. */
+    recent: number
+    /** Confirmed records that have ever been delivered. */
+    coveredConfirmed: number
+  }
+  /**
    * What the harvester did, and whether anyone is acting on it.
    *
    * Harvesting only earns its place if the material gets confirmed. If nothing ever
@@ -99,6 +118,38 @@ function group(db: DatabaseSync, column: string): Record<string, number> {
     `SELECT coalesce(${column}, '') AS value, count(*) AS n FROM record GROUP BY value ORDER BY n DESC`,
   ).all() as { value: string; n: number }[]
   return Object.fromEntries(rows.map(row => [row.value === '' ? '(empty)' : row.value, row.n]))
+}
+
+/**
+ * The delivery numbers, tolerating a store that predates the delivery table.
+ *
+ * A reader must not fail on an older store: the *writer* is the plugin's next activation, and
+ * every other entry point — this census, the ledger, an offline preview — opens the store and
+ * never migrates it. Reporting zero is the honest answer there, and the line it renders says
+ * nothing has been recorded rather than pretending delivery was measured and came out empty.
+ */
+function deliverySnapshot(
+  db: DatabaseSync,
+  now: number,
+  confirmed: readonly { id: string }[],
+): Census['delivery'] {
+  const totals = deliveryTotals(db)
+  let recent = 0
+  let covered = 0
+  try {
+    recent = (db.prepare('SELECT count(*) AS n FROM delivery WHERE at >= ?').get(now - 7 * 86_400_000) as { n: number }).n
+    covered = confirmed.filter(record =>
+      db.prepare('SELECT 1 FROM delivery WHERE record_id = ? LIMIT 1').get(record.id) !== undefined).length
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!/no such table/i.test(message)) throw error
+  }
+  return {
+    delivered: totals.deliveries,
+    deliveredRecords: totals.records,
+    recent,
+    coveredConfirmed: covered,
+  }
 }
 
 /** Read the census from an open database. */
@@ -157,6 +208,7 @@ export function census(
       scanned: confirmed.length,
     },
     corrections: trail.corrections,
+    delivery: deliverySnapshot(db, options.now, confirmed),
     harvest: {
       total: trail.harvestTotal,
       confirmed: trail.harvestConfirmed,
@@ -198,6 +250,12 @@ export function renderCensus(result: Census, options: { dbPath?: string } = {}):
   // retrieval was recorded at all.
   lines.push(`  被查过 ${result.reach.searched}/${result.reach.scanned} 条（已确认范围内）`
     + ` · 从没被查过也没被确认有用的 ${result.reach.untouched} 条`)
+  // The delivery line. "Written" and "reached the agent" are different facts, and only the
+  // second one can stop a mistake — before this number existed the store could not tell them
+  // apart, so a lesson that was never shown looked exactly like one that was shown and ignored.
+  lines.push(`  动手前投递过 ${result.delivery.delivered} 次`
+    + `（涉及 ${result.delivery.deliveredRecords} 条记录 · 近七天 ${result.delivery.recent} 次`
+    + ` · 已确认记录里被投递过 ${result.delivery.coveredConfirmed}/${result.reach.scanned} 条）`)
   // Only worth a line once the harvester has done something; before that it is noise.
   if (result.harvest.total > 0) {
     lines.push(`  自动采集 ${result.harvest.total} 条`

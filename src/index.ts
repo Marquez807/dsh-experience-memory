@@ -33,10 +33,10 @@ import type { DatabaseSync } from 'node:sqlite'
 import { Config, resolveConfig, type Config as ExperienceConfig } from './config.ts'
 import { buildIdentity } from './build-id.ts'
 import { commandDefinitions } from './commands.ts'
-import { openDb, noteRetrieval, countCandidates } from './db.ts'
+import { openDb, noteRetrieval, countCandidates, noteDelivery } from './db.ts'
 import { noteFailures } from './failure.ts'
 import { harvestFrom, lastTurn } from './harvest.ts'
-import { recallForCall, renderPrecall } from './precall.ts'
+import { recallForCallWithIdentifiers, renderPrecall } from './precall.ts'
 import { eventsOf, memoryDisabled } from './session.ts'
 import { buildDigest, recentQueryText, workspaceOf, RECORD_HINT, type AgentLike } from './digest.ts'
 import { census, renderCensus } from './census.ts'
@@ -104,6 +104,9 @@ function callIdLine(exec: ToolExec): string {
 interface ToolExecutionLike {
   agent?: AgentLike
   arguments?: unknown
+  /** The tool being run. Optional, and never invented: a delivery without it says so. */
+  name?: string
+  tool?: string
   /** Present on a real execution; absent on a hand-built one. */
   deferContext?: (message: unknown) => void
 }
@@ -139,8 +142,9 @@ function attachPrecall(
     if (memoryDisabled(exec.agent, config.disabledPresets)) return
     const workspace = workspaceOf(exec.agent, config.defaultDomain)
     const now = Date.now()
-    const record = recallForCall(db, workspace.id, workspace.domain, exec.arguments, now)
-    if (record === undefined) return
+    const recall = recallForCallWithIdentifiers(db, workspace.id, workspace.domain, exec.arguments, now)
+    if (recall === undefined) return
+    const record = recall.record
 
     // A cooldown per record, and a hard session ceiling counted in hints actually delivered.
     // A hint on every matching call would be noise the agent learns to skip, which is worse
@@ -153,6 +157,21 @@ function attachPrecall(
     if (budget.session >= config.precallMaxPerSession) return
     sent.set(record.id, now)
     budget.session += 1
+
+    // Written only now that the hint is really going out. This is the one place in the whole
+    // framework that answers "did this lesson ever reach the agent" — before it existed, a
+    // ledger could see that a lesson was written and could not see whether anyone was shown it.
+    noteDelivery(db, {
+      recordId: record.id,
+      // Both spellings, because a real execution and a hand-built one do not carry the same
+      // one: the session id belongs to the session, and `AgentLike.id` is what the waterfall
+      // actually hands over. Neither is invented — a delivery with no session keeps the gap.
+      sessionId: exec.agent?.session?.header?.id ?? exec.agent?.id,
+      tool: exec.name ?? exec.tool,
+      matched: recall.matched,
+      reason: 'identifier',
+      at: now,
+    })
 
     exec.deferContext(createUserMessage({
       content: [{ type: 'text', text: renderPrecall(record) }],

@@ -13,7 +13,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, failureShapes, countFailureShapes, noteFailureShape } from '../src/db.ts'
+import { openDb, failureShapes, countFailureShapes, noteDelivery, noteFailureShape } from '../src/db.ts'
 import { LESSON_IGNORED_MIN, failureShape, failuresIn, gapKeywords, gapReport, noteFailures } from '../src/failure.ts'
 import { assert, eq } from './assert.ts'
 import type { SessionEventLike } from '../src/types.ts'
@@ -266,6 +266,66 @@ export async function run(): Promise<void> {
     }
     const fresh = shapeOf(gapReport(db, { workspaceId: 'ws1', domain: '', now: twoHoursLater, limit: 10, minCount: 1 }))
     eq(fresh?.lessonNotWorking, false, 'a record written minutes ago has not had a fair chance yet')
+
+    // ── Was the lesson even delivered? ──────────────────────────────────────
+    // The verdict this adds is the one the framework could not reach before: a record nobody
+    // was shown and a record that was shown and ignored produced the same row. Every case
+    // below differs from its neighbour in exactly one fact — the delivery — so a verdict that
+    // ignored deliveries would pass (a) and (c) and still be wrong.
+    db.prepare('UPDATE record SET created_at = ?, trigger = ? WHERE id = ?').run(BASE, claim, 'r3')
+    const verdictOf = () => shapeOf(gapReport(db, { workspaceId: 'ws1', domain: '', now: twoHoursLater, limit: 10, minCount: 1 }))
+    const resetShape = (sessionId: string): void => {
+      db.prepare("DELETE FROM failure_shape WHERE shape = 'cannot modify'").run()
+      for (const at of [BASE + 10 * MINUTE, BASE + 20 * MINUTE, BASE + 30 * MINUTE]) {
+        noteFailureShape(db, { workspaceId: 'ws1', tool: 'edit', shape: 'cannot modify', sample: 'x', sessionId, at })
+      }
+    }
+    db.prepare('DELETE FROM delivery').run()
+
+    // (a) Nothing delivered: the failure is about a missing delivery, not a broken lesson.
+    resetShape('s9')
+    const undelivered = verdictOf()
+    eq(undelivered?.verdict, 'not-delivered', 'no delivery before the failure is reported as such')
+    eq(undelivered?.delivery.before, false, 'and the flag says nothing was put in front of the agent')
+
+    // (c) A delivery in the same session of a record that does *not* claim to cover the shape:
+    // the partial-match guard has to survive the delivery, or every delivered record would be
+    // read as one that claimed to prevent this failure.
+    db.prepare('UPDATE record SET trigger = ? WHERE id = ?').run('edit', 'r3')
+    noteDelivery(db, { recordId: 'r3', sessionId: 's9', tool: 'edit', matched: ['edit'], at: BASE + 5 * MINUTE })
+    const adjacent = verdictOf()
+    eq(adjacent?.verdict, 'delivered-still-failed', 'a delivery in the same session is evidence it was shown')
+    eq(adjacent?.delivery.bySession, 'session', 'and the session id is what linked them')
+    eq(adjacent?.delivery.count, 1, 'with the delivery counted rather than merely flagged')
+    eq(adjacent?.delivery.recordId, 'r3', 'and the delivery that decided it is named')
+
+    // (d) The same delivery, with the record restored to a full keyword match: now it claims to
+    // cover the shape, which is the case that used to be indistinguishable from (a).
+    db.prepare('UPDATE record SET trigger = ? WHERE id = ?').run(claim, 'r3')
+    eq(verdictOf()?.verdict, 'delivered-and-ignored', 'a full match that was delivered and ignored')
+
+    // (d) A delivery from a different session, outside the window: it cannot be about this.
+    // Without this case the session filter would be untested and (b) would pass on the clock.
+    db.prepare('DELETE FROM delivery').run()
+    noteDelivery(db, { recordId: 'r3', sessionId: 'other', tool: 'edit', matched: ['edit'], at: BASE - 2 * 60 * MINUTE })
+    eq(verdictOf()?.verdict, 'not-delivered', 'a delivery long before and in another session does not count')
+
+    // (e) A delivery after the failures happened: it cannot have prevented them. The direction of
+    // time is the whole point, and `at <= lastSeen` is what enforces it.
+    db.prepare('DELETE FROM delivery').run()
+    noteDelivery(db, { recordId: 'r3', sessionId: 's9', tool: 'edit', matched: ['edit'], at: BASE + 40 * MINUTE })
+    eq(verdictOf()?.verdict, 'not-delivered', 'a delivery after the failure does not count as having prevented it')
+
+    // (f) A record with no session id at all still associates by the window, and says so — the
+    // weaker link is labelled rather than passed off as the strong one. The shape has to carry
+    // no session id either: the clock is a fallback for a shape that never recorded one, not a
+    // second chance for a delivery that shares none.
+    db.prepare('DELETE FROM delivery').run()
+    resetShape('')
+    noteDelivery(db, { recordId: 'r3', tool: 'edit', matched: ['edit'], at: BASE + 25 * MINUTE })
+    const byWindow = verdictOf()
+    eq(byWindow?.verdict, 'delivered-and-ignored', 'the clock alone can associate a delivery')
+    eq(byWindow?.delivery.bySession, 'window', 'and the report names the weaker rule it used')
   } finally {
     db.close()
     rmSync(dir, { recursive: true, force: true })

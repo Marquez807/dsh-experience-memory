@@ -10,7 +10,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, eq } from './assert.ts'
-import { candidates, defaultDbPath, findByFingerprint, getRecord, indexRow, openDb, upsert, SCHEMA_VERSION } from '../src/db.ts'
+import { candidates, defaultDbPath, deliveriesAtOrBefore, deliveryTotals, findByFingerprint, getRecord, indexRow, noteDelivery, openDb, upsert, SCHEMA_VERSION } from '../src/db.ts'
 import { matchExpression } from '../src/tokenize.ts'
 import type { MemoryRecord } from '../src/types.ts'
 
@@ -117,6 +117,53 @@ export function run(): void {
     } finally {
       recolumned.close()
     }
+
+    // ── Schema 6 adds a table, and a table only arrives on a version bump ────
+    // Same trap as schema 4, restated because it caught this change too: the whole
+    // schema file is `CREATE TABLE IF NOT EXISTS`, so it runs only when the stamped
+    // version differs. A store that already has every other table and a version of 5
+    // is the exact store this migration exists for, so it is the one exercised.
+    const fivePath = join(dir, 'schema5.db')
+    const fiveOpen = openDb(fivePath)
+    fiveOpen.exec('DROP TABLE IF EXISTS delivery')
+    fiveOpen.exec('PRAGMA user_version = 5')
+    fiveOpen.close()
+    const sixOpen = openDb(fivePath)
+    try {
+      const tables = (sixOpen.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[])
+        .map(row => row.name)
+      assert(tables.includes('delivery'),
+        'reopening a schema-5 store creates the delivery table schema 6 declares')
+      eq(deliveryTotals(sixOpen), { deliveries: 0, records: 0 },
+        'which starts empty, because no delivery before it was recorded can be invented')
+      eq((sixOpen.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
+        SCHEMA_VERSION, 'and stamps the new version')
+    } finally {
+      sixOpen.close()
+    }
+
+    // ── Deliveries: written on a delivery, absent on a miss ─────────────────
+    // The negative half is the point. A row per near-miss would grow with the tool calls
+    // rather than the lessons, and the absence of a row already tells a reader "nothing was
+    // delivered in this window" — so the writer is called only when a hint actually went out.
+    eq(deliveryTotals(db), { deliveries: 0, records: 0 }, 'a store that delivered nothing has no rows')
+    noteDelivery(db, { recordId: 'r1', sessionId: 's1', tool: 'pwsh', matched: ['precall.ts'], at: NOW - 1000 })
+    noteDelivery(db, { recordId: 'r2', sessionId: 's1', tool: 'edit', matched: [], at: NOW })
+    eq(deliveryTotals(db), { deliveries: 2, records: 2 }, 'two deliveries of two records are counted as such')
+    const window = deliveriesAtOrBefore(db, NOW)
+    eq(window.length, 2, 'both deliveries fall at or before now')
+    eq(window[0]?.recordId, 'r2', 'and the newest is returned first')
+    eq(deliveriesAtOrBefore(db, NOW - 1).length, 1, 'a delivery after the cutoff is excluded')
+    eq(deliveriesAtOrBefore(db, NOW, { since: NOW - 500 }).length, 1, 'and the window start is honoured')
+    eq(deliveriesAtOrBefore(db, NOW, { recordIds: ['r1'] })[0]?.matched, 'precall.ts',
+      'the identifiers that carried the delivery are kept, because the ledger reads them')
+    // A caller with no session id must be able to tell, rather than have one invented.
+    noteDelivery(db, { recordId: 'r2', at: NOW + 1 })
+    const anonymous = deliveriesAtOrBefore(db, NOW + 2)[0]
+    assert(anonymous?.sessionId === null && anonymous.tool === null,
+      'a delivery recorded without a session keeps that gap visible')
+    eq(anonymous?.reason, 'identifier', 'and still states why it was sent')
+    eq(deliveryTotals(db), { deliveries: 3, records: 2 }, 'the distinct-record count does not double-count')
 
     // ── Round trip ───────────────────────────────────────────────────────────
     upsert(db, make())

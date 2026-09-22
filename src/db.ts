@@ -16,7 +16,7 @@ import { tokenize } from './tokenize.ts'
 import type { Evidence, Kind, MemoryRecord, Scope, Status } from './types.ts'
 
 /** Bumped whenever a migration below changes the schema. */
-export const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 6
 
 /** `$DSH_HOME/experience-memory/memory.db`, with `~/.dsh` as the documented fallback. */
 export function defaultDbPath(): string {
@@ -139,6 +139,32 @@ CREATE TABLE IF NOT EXISTS failure_shape (
   PRIMARY KEY (workspace_id, tool, shape)
 );
 CREATE INDEX IF NOT EXISTS failure_shape_recent ON failure_shape(last_seen);
+
+-- Every time a lesson actually reached the agent, just before a tool call.
+--
+-- The layer this records had no trace at all, and that made the framework's central
+-- question unanswerable: "did the lesson stop the mistake" cannot be asked of a lesson
+-- whose delivery nobody wrote down. A maintenance sweep of a live store could say that
+-- no record covered the top eleven repeated failures, and could not say whether the
+-- records it *did* find had ever been shown to anyone.
+--
+-- Only a delivery is written, never a miss. A row per near-miss would grow with the tool
+-- calls rather than with the lessons, and "nothing was delivered" is already visible as
+-- the absence of a row in the window a reader is looking at.
+--
+-- session_id is nullable on purpose: when the caller cannot supply one, the reader has to
+-- be able to see that the association is weaker rather than have it faked with a tool name.
+CREATE TABLE IF NOT EXISTS delivery (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  record_id  TEXT NOT NULL,
+  session_id TEXT,
+  tool       TEXT,
+  matched    TEXT NOT NULL DEFAULT '',
+  reason     TEXT NOT NULL DEFAULT 'identifier',
+  at         INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS delivery_record ON delivery(record_id);
+CREATE INDEX IF NOT EXISTS delivery_at     ON delivery(at);
 `
 
 /**
@@ -636,6 +662,117 @@ export function checkpointWal(db: DatabaseSync): void {
   } catch {
     // A checkpoint that cannot run is not a failure of the pass it ran in.
   }
+}
+
+/**
+ * Record that a lesson actually reached the agent, just before a tool call.
+ *
+ * Called only when a hint went out. Deliberately not called on a near miss, for the reason
+ * the table's definition gives: a row per miss would grow with the tool calls rather than
+ * with the lessons, and the absence of a row already says "nothing was delivered here".
+ *
+ * The returned value is the row id, so a caller can tell a real write from a swallowed
+ * error; nothing about the tool call itself depends on it.
+ */
+export function noteDelivery(
+  db: DatabaseSync,
+  input: {
+    recordId: string
+    sessionId?: string | undefined
+    tool?: string | undefined
+    matched?: readonly string[]
+    reason?: string
+    at: number
+  },
+): number {
+  const result = db.prepare(
+    'INSERT INTO delivery (record_id, session_id, tool, matched, reason, at) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(
+    input.recordId,
+    input.sessionId ?? null,
+    input.tool ?? null,
+    (input.matched ?? []).join(','),
+    input.reason ?? 'identifier',
+    input.at,
+  )
+  return Number(result.lastInsertRowid ?? 0)
+}
+
+/** One delivery, as a reader of the ledger needs it. */
+export interface DeliveryRow {
+  recordId: string
+  sessionId: string | null
+  tool: string | null
+  matched: string
+  reason: string
+  at: number
+}
+
+/**
+ * Deliveries that happened at or before `at`, newest first.
+ *
+ * `since` bounds the window the caller cares about. Both filters are on `at`, so an index
+ * on that column is what the query uses; the session filter is applied by the caller rather
+ * than here, because a caller that has a session id wants a weaker window and one that does
+ * not wants a stronger one, and folding both rules into this function would hide which one
+ * decided the answer.
+ */
+export function deliveriesAtOrBefore(
+  db: DatabaseSync,
+  at: number,
+  options: { since?: number; recordIds?: readonly string[]; limit?: number } = {},
+): DeliveryRow[] {
+  const clauses = ['at <= ?']
+  const params: unknown[] = [at]
+  if (options.since !== undefined) {
+    clauses.push('at >= ?')
+    params.push(options.since)
+  }
+  if (options.recordIds !== undefined && options.recordIds.length > 0) {
+    clauses.push(`record_id IN (${options.recordIds.map(() => '?').join(', ')})`)
+    params.push(...options.recordIds)
+  }
+  params.push(options.limit ?? 200)
+  const rows = missingTableTolerant(() => db.prepare(
+    `SELECT record_id, session_id, tool, matched, reason, at FROM delivery
+     WHERE ${clauses.join(' AND ')} ORDER BY at DESC LIMIT ?`,
+  ).all(...params) as unknown as Record<string, unknown>[])
+  if (rows === undefined) return []
+  return rows.map(row => ({
+    recordId: String(row['record_id']),
+    sessionId: row['session_id'] === null || row['session_id'] === undefined ? null : String(row['session_id']),
+    tool: row['tool'] === null || row['tool'] === undefined ? null : String(row['tool']),
+    matched: String(row['matched'] ?? ''),
+    reason: String(row['reason'] ?? 'identifier'),
+    at: Number(row['at']),
+  }))
+}
+
+/**
+ * Run a read that depends on a table a store may not have yet.
+ *
+ * A reader has to survive a store that predates the schema, because the *writer* is the
+ * plugin's next activation and everything else — the ledger, the census, an offline preview —
+ * opens the store read-only and therefore never migrates it. Returning "nothing recorded here"
+ * is the honest answer for such a store; anything other than a missing table is a real fault
+ * and is re-thrown rather than swallowed into an empty list.
+ */
+function missingTableTolerant<T>(read: () => T): T | undefined {
+  try {
+    return read()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (/no such table/i.test(message)) return undefined
+    throw error
+  }
+}
+
+/** How many deliveries the store holds, and how many distinct records they were about. */
+export function deliveryTotals(db: DatabaseSync): { deliveries: number; records: number } {
+  const row = missingTableTolerant(() => db.prepare(
+    'SELECT COUNT(*) AS d, COUNT(DISTINCT record_id) AS r FROM delivery',
+  ).get() as unknown as { d: number; r: number } | undefined)
+  return { deliveries: Number(row?.d ?? 0), records: Number(row?.r ?? 0) }
 }
 
 /** One row of the failure-shape table, as the report needs it. */

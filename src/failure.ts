@@ -23,7 +23,7 @@
  * at this class had already been calibrated here once and rejected (71 hits, 5 real). Writing
  * those into the store would fill the candidate pool with things the model already knows.
  */
-import { evictFailureShapes, failureShapeWorkspaces, failureShapes, noteFailureShape, windowRecords } from './db.ts'
+import { deliveriesAtOrBefore, evictFailureShapes, failureShapeWorkspaces, failureShapes, noteFailureShape, windowRecords } from './db.ts'
 import type { FailureShape } from './db.ts'
 import type { DatabaseSync } from 'node:sqlite'
 import { lastTurn } from './harvest.ts'
@@ -157,6 +157,26 @@ export function noteFailures(
   return written
 }
 
+/**
+ * Which of the four things is true about a shape that keeps happening.
+ *
+ * The distinction this draws is the one that decides what to do next, and it was invisible
+ * before deliveries were written down: a lesson nobody was shown, and a lesson that was shown
+ * and did not change the outcome, are the same row without it.
+ */
+export type GapVerdict =
+  /** No record claims this shape, or none was delivered before it happened. */
+  | 'not-delivered'
+  /** A related lesson was delivered and the shape still happened. */
+  | 'delivered-still-failed'
+  /** A lesson whose keywords fully match was delivered and the shape still happened. */
+  | 'delivered-and-ignored'
+  /** The timestamps cannot carry the question. */
+  | 'unclear'
+
+/** How far back a delivery is allowed to count for a failure when no session id links them. */
+export const DELIVERY_WINDOW_MS = 6 * 60 * 60_000
+
 /** One line of the gap report: a shape, and how close the store comes to covering it. */
 export interface GapRow {
   shape: FailureShape
@@ -196,6 +216,26 @@ export interface GapRow {
    * be right but arriving too late, or right about something adjacent. The command says so.
    */
   lessonNotWorking: boolean
+  /**
+   * Whether a lesson reached the agent before this shape last happened, and how that was
+   * established.
+   *
+   * The association is weaker than it looks and says so: a delivery either shares a session
+   * id with one of the occurrences, or falls inside {@link DELIVERY_WINDOW_MS} before the last
+   * one. `bySession` names which of the two decided it, so a reader can discount an answer
+   * that rests on the window alone.
+   */
+  delivery: {
+    before: boolean
+    /** Deliveries that fell in the window, newest first. */
+    count: number
+    /** The delivery that decided it, if any. */
+    recordId: string | undefined
+    at: number | undefined
+    /** `session` when a session id linked them, `window` when only the clock did. */
+    bySession: 'session' | 'window' | 'none'
+  }
+  verdict: GapVerdict
 }
 
 /**
@@ -273,6 +313,44 @@ export function lessonNotWorking(
  * failure. Quoting is not covering. What a record claims lives in its title, its "when this
  * applies" line, its failure mode and its lesson, so those four are what is compared.
  */
+/**
+ * Whether a lesson reached the agent before this shape last happened.
+ *
+ * Two association rules, and the weaker one is labelled as such. A matching session id is
+ * the strong signal: the hint and the failure were in the same session, so "the lesson was in
+ * front of the agent and it went wrong anyway" is a fair reading. Without one, the clock is all
+ * that is left, and {@link DELIVERY_WINDOW_MS} is deliberately generous rather than tight —
+ * a delivery wrongly counted here inflates "delivered", and the report already prints which
+ * rule decided, so a reader can discount it instead of being misled silently.
+ *
+ * The scope is deliberately *any* delivery in the window, not only the closest record's: the
+ * question is whether this workspace had the lesson in front of the agent at the time, and a
+ * neighbouring record about the same failure is the same lesson for that purpose.
+ */
+function deliveryBeforeShape(
+  db: DatabaseSync,
+  shape: FailureShape,
+  now: number,
+): GapRow['delivery'] {
+  const at = shape.lastSeen
+  const rows = deliveriesAtOrBefore(db, at, { since: at - DELIVERY_WINDOW_MS, limit: 50 })
+  const sessions = new Set(shape.sessionIds)
+  const bySession = rows.find(row => row.sessionId !== null && sessions.has(row.sessionId))
+  // The clock is a fallback, not a second chance. It applies only when the shape recorded no
+  // session at all — otherwise a delivery from an unrelated session that merely happens to be
+  // recent would be counted as having been shown for this failure, which is exactly the false
+  // positive the "delivered" number must not have.
+  const chosen = bySession ?? (sessions.size === 0 ? rows[0] : undefined)
+  if (chosen === undefined) return { before: false, count: 0, recordId: undefined, at: undefined, bySession: 'none' }
+  return {
+    before: true,
+    count: rows.length,
+    recordId: chosen.recordId,
+    at: chosen.at,
+    bySession: bySession === undefined ? 'window' : 'session',
+  }
+}
+
 export function gapReport(
   db: DatabaseSync,
   input: { workspaceId: string; domain: string; now: number; limit: number; minCount: number },
@@ -299,6 +377,15 @@ export function gapReport(
       if (best === undefined || score > best.score) best = { record, score }
     }
     const lesson = lessonNotWorking(shape, best, keywords, input.now)
+    const delivery = deliveryBeforeShape(db, shape, input.now)
+    const completeMatch = best !== undefined && best.score >= keywords.length && keywords.length >= 2
+    const verdict: GapVerdict = best === undefined
+      ? 'not-delivered'
+      : !delivery.before
+        ? 'not-delivered'
+        : completeMatch
+          ? 'delivered-and-ignored'
+          : 'delivered-still-failed'
     rows.push({
       shape,
       closest: best?.record,
@@ -307,6 +394,8 @@ export function gapReport(
       workspaces: failureShapeWorkspaces(db, shape.tool, shape.shape),
       sinceRecord: lesson.sinceRecord,
       lessonNotWorking: lesson.notWorking,
+      delivery,
+      verdict,
     })
   }
   return rows

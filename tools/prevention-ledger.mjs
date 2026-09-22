@@ -95,6 +95,13 @@ if (rows.length === 0) {
 let withRecord = 0
 let fullMatch = 0
 let notWorking = 0
+const verdicts = { 'not-delivered': 0, 'delivered-still-failed': 0, 'delivered-and-ignored': 0, unclear: 0 }
+const VERDICT_TEXT = {
+  'not-delivered': '**没投过**',
+  'delivered-still-failed': '**投了没用**（投过相关经验，之后同类错仍发生）',
+  'delivered-and-ignored': '**投过"就是在讲这件事"的经验，仍复发**',
+  unclear: '信息不够',
+}
 
 for (const row of rows) {
   const shape = row.shape
@@ -109,8 +116,11 @@ for (const row of rows) {
   const occurrencesAfter = row.closest === undefined
     ? 0
     : Math.max(row.sinceRecord, recurredAfter ? 1 : 0)
-  const verdict = row.closest === undefined
-    ? '没有对应记录'
+  // What the keyword columns can say on their own. The verdict below is a different question:
+  // it asks whether a hint actually reached the agent before this happened, which needs the
+  // delivery table and says which rule linked the two.
+  const keywordReading = row.closest === undefined
+    ? '库里没有相关记录'
     : row.bestScore < row.keywords.length
       ? `只是部分相关（命中 ${row.bestScore}/${row.keywords.length} 个检索词）`
       : row.lessonNotWorking
@@ -121,6 +131,8 @@ for (const row of rows) {
             ? '记录写下之后再没出现过'
             : '无法判定（缺时间点）'
 
+  const verdict = row.verdict ?? 'unclear'
+  verdicts[verdict] = (verdicts[verdict] ?? 0) + 1
   if (row.closest !== undefined) withRecord += 1
   if (row.bestScore >= row.keywords.length && row.keywords.length >= 2) fullMatch += 1
   if (row.lessonNotWorking) notWorking += 1
@@ -138,7 +150,12 @@ for (const row of rows) {
       ? `  - 本表保留的时间点里：记录前 ${recentBefore} 次 / 记录后 ${recentAfter} 次`
       : '  - 这个形状在生成这张账时还没有保留逐次时间点，所以只有"首次/最近"两个时间可用')
   }
-  say(`- 判定：${verdict}`)
+  say(`- 关键词能看出的：${keywordReading}`)
+  const d = row.delivery ?? { before: false, count: 0, bySession: 'none' }
+  say(`- 动手前有没有把经验递上去：${d.before
+    ? `**有**（最近一次在 ${stamp(d.at)}，由${{ session: '同一会话', window: '时间窗', none: '' }[d.bySession]}关联，窗口内共 ${d.count} 次）`
+    : '**没有**（这个时间窗内没有任何投递记录）'}`)
+  say(`- 判定：${VERDICT_TEXT[verdict] ?? verdict}`)
   if (row.closest !== undefined && row.bestScore >= row.keywords.length && row.keywords.length >= 2
     && now - row.closest.createdAt < LESSON_GRACE_MS) {
     say(`  - （这条记录写下还不到 1 小时，${LESSON_GRACE_MS / 60000} 分钟内不下"没挡住"的结论）`)
@@ -149,9 +166,12 @@ for (const row of rows) {
 say('## 汇总')
 say('')
 say(`- 反复出现的失败形状：**${rows.length}** 类`)
-say(`- 库里有相关记录的：**${withRecord}** 类`)
-say(`- 检索词全命中的（这条记录确实在讲这件事）：**${fullMatch}** 类`)
-say(`- 记录之后仍复发的（判为"没挡住"）：**${notWorking}** 类`)
+say(`- 没投过经验就发生的：**${verdicts['not-delivered'] ?? 0}** 类`)
+say(`- 投过相关经验、之后仍发生的：**${verdicts['delivered-still-failed'] ?? 0}** 类`)
+say(`- 投过"就是在讲这件事"的经验、仍复发的：**${verdicts['delivered-and-ignored'] ?? 0}** 类`)
+say(`- 信息不够、判不了的：**${verdicts.unclear ?? 0}** 类`)
+say('')
+say(`（关键词口径：库里有相关记录 ${withRecord} 类 · 检索词全命中 ${fullMatch} 类 · 判为"记录后仍复发" ${notWorking} 类）`)
 say('')
 say('读这张账要注意三件事：')
 say('')

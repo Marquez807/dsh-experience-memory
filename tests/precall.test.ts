@@ -21,7 +21,7 @@ import Commands from '@deepseek-ai/dsh-commands'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { TOOL_RUNTIME_SCHEDULER, defineTool } from '@deepseek-ai/dsh-tools'
 import * as experienceMemory from '../src/index.ts'
-import { openDb } from '../src/db.ts'
+import { deliveriesAtOrBefore, openDb } from '../src/db.ts'
 import { resolveWorkspace } from '../src/domain.ts'
 import { identifiersOf, recallForCall } from '../src/precall.ts'
 import { assert, eq } from './assert.ts'
@@ -181,14 +181,36 @@ export async function run(): Promise<void> {
       `the lesson is attached to the very call it warns about: ${attached}`)
     assert(attached.includes('Steam'), 'and it carries the lesson, not just an id')
 
-    // ── A call about something else gets nothing ───────────────────────────
-    const unrelated = await runTool({
-      name: 'probe_run',
-      arguments: { command: 'Get-ChildItem -Force' },
-      callId: 'call_test_unrelated',
-    })
-    eq((unrelated.additionalContexts ?? []).length, 0,
-      'a call that names nothing in the store costs nothing — no identifier, no attachment')
+    // ── The delivery is written down ───────────────────────────────────────
+    // This is the record that makes the framework's central claim checkable, so it is asserted
+    // on the real waterfall rather than by calling the recorder: the hint the agent sees and
+    // the row the ledger reads must come from the same event, or the ledger measures fiction.
+    const deliverySide = openDb(dbPath)
+    try {
+      const deliveries = deliveriesAtOrBefore(deliverySide, Date.now() + 1000)
+      eq(deliveries.length, 1, 'exactly one delivery is recorded for the one hint that went out')
+      eq(deliveries[0]?.recordId, remembered.id, 'and it names the lesson that was attached')
+      assert((deliveries[0]?.matched ?? '').includes('launch-a-runtime-clean.ps1'),
+        `and the identifier that carried it: ${deliveries[0]?.matched ?? '(none)'}`)
+      eq(deliveries[0]?.tool, 'probe_run', 'with the tool the call was about')
+      assert(typeof deliveries[0]?.sessionId === 'string' && deliveries[0].sessionId !== '',
+        'and the session, without which the ledger could only ever associate by the clock')
+      eq(deliveries[0]?.sessionId, agent.id,
+        'which is the agent the call ran as, not a placeholder')
+
+      // ── A call about something else gets nothing ───────────────────────────
+      const unrelated = await runTool({
+        name: 'probe_run',
+        arguments: { command: 'Get-ChildItem -Force' },
+        callId: 'call_test_unrelated',
+      })
+      eq((unrelated.additionalContexts ?? []).length, 0,
+        'a call that names nothing in the store costs nothing — no identifier, no attachment')
+      eq(deliveriesAtOrBefore(deliverySide, Date.now() + 1000).length, 1,
+        'and a call that was shown nothing writes nothing — absence is the record of a miss')
+    } finally {
+      deliverySide.close()
+    }
 
     // ── The throttle is the cooldown, not a per-turn limit ─────────────────
     // A per-turn limit was tried and replayed against the real session this feature exists
