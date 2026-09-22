@@ -1,0 +1,448 @@
+{
+  "toRestore": 220,
+  "restored": [
+    {
+      "title": "经验要在动手前送出去，必须由记录自己声明\"适用哪次调用\"（锚点），不能靠猜",
+      "id": "4e681fc314e752ac3a74",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "dsh-bigfat 全仓扫描禁用 rglob：node_modules 是联接，会走进 29 万条出不来",
+      "id": "d137cbd766e2216612ff",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "探针要跑「脚本式」测试文件时：import 会在导入期退出，得自己 exec 源码",
+      "id": "e485e58c8408f0f77b02",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "advice propose 对选填的 quantity/price 不报错，到 rebalance 才炸",
+      "id": "5168e0c069ec608bbb4d",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "facts.jsonl 是追加式：同一字段存多快照，行情类取数必须按 at/quote_timestamp 取最新",
+      "id": "1322f8ed826629ae7eaa",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "verify/propose 的 source_ids 只吃数据源 id，不吃独立性分组名",
+      "id": "d12dda7fc0249df5b928",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "verify 调用面：code 必须顶层，source_ids 只能填 provider id（分组名会被判未登记）",
+      "id": "cad0c5e44516c0d3f196",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "verify 的 source_ids 要填数据源 id，不填独立性分组名",
+      "id": "3be5f56d7c7946beab84",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "verify 的 source_ids 只能填真实 source_id，不能填独立性分组名",
+      "id": "fec274b2f7ec2f9ef060",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "bigfat verify 的 source_ids 要填具体源 id，不能填独立性分组名（code 也必须走顶层参数）",
+      "id": "662e3f88fe89b28424c3",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "600690 海尔智家 2026H1：毛利率升 0.36pp、净利率降 0.83pp，三项费用合计只增 0.13%，净利率下滑不出在费用",
+      "id": "edb22dcdf46d470cea9e",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "bigfat_research verify：payload.code 必须是数字而不是字符串，否则报「payload.code 与请求标的不一致」",
+      "id": "66d25a66ebdc265c43ab",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "因子库 pre_close/pct_chg 是官方口径；但项目自算收益率仍含除权跳空",
+      "id": "df654f9171c70876f286",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": ".bigfat/facts.jsonl 是证据表的底库：单源字段在这里有值，但不会进 task 的证据表",
+      "id": "60ffdd2c87520afa701a",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "验证框架修复只能用「同输入重跑 + 比对产物」，不能信 coverage 自述统计",
+      "id": "5eb4254ae2ff02c43d8e",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "报 bug 前先写会失败的复现：测试一写就绿，往往是我读错了",
+      "id": "15da5912614289fe56fd",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "bigfat 资讯层无新增时不重写 intel 文件：09-23 采集后 intel 文件时间戳仍是 09-21",
+      "id": "11592387041caaf16f49",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "bigfat 资讯层无新增时不重写 intel 文件：今天是 09-23，intel 文件时间戳仍是 09-21",
+      "id": "651a410a0b5661aebaf5",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "被测试钉住的 README 重排：先集中锚点常量，镜像语言版只共享层级结构",
+      "id": "b0fde97f62179d00a213",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "跨会话交接要投到对方工作区根；对方是独立子工作区时放自己根目录对方读不到",
+      "id": "d6fa1725659d12e8b369",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "退市股开关是三态且默认开启；C3 只在退市股真进面板时才声明",
+      "id": "8325010a58bab158807d",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "因子库 174 只\"2020-12-31 集体停更\"全部是建库截断，不是退市",
+      "id": "944723d736a4393d6ca4",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "本工作区分工：开发会话只做开发与排错，研究由 bigfat 研究员会话跑",
+      "id": "6c73e674472e13065d62",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "DSH 插件市场上架 = 给 awesome-dsh-plugin 提 PR；核查看 PR/详情页而非 grep 目录快照",
+      "id": "ae23b0b684754d865913",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "DSH 插件市场上架 = 给 awesome-dsh-plugin 提 PR，不是往 dsh-market 提",
+      "id": "2fff3712e21241510250",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗",
+      "id": "857999ad0c61f7e8362b",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "第三方（不是用户本人）的持仓绝不能写进 .bigfat/portfolio_snapshot.json",
+      "id": "77b93de8b554944df693",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "bigfat 数据层只有 A 股上市公司口径，没有公募基金；基金代码 002246 会撞上北化股份",
+      "id": "b71219b0c790624a885d",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件",
+      "id": "bb49d6a97400afc0738a",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "小米 MiMo 桌面版的卸载程序会连用户数据一起删，卸载前必须先备份",
+      "id": "a6a833bb0794e78411f2",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+      "id": "dd95de58c0e0916e01f0",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "查经验记忆用关键词不用长句：短关键词排第 1 的记录，长句问法会掉出前 5",
+      "id": "95ef174f4dcb66505c03",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+      "id": "6cb77cc2fcc2fa3a3a90",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "记忆框架健康检查实测（2026-09-22）：检索与统计接口可用",
+      "id": "2c0f76b2bd0194ba2124",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "preset 里 allow:[] 会把模式自己的工具也挡掉；屏蔽宿主工具只能用显式 deny 名单",
+      "id": "fd7fd9db6589256cc430",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "mimo 在 DSH 里 0 次工具调用、且编造工具结果；端点本身会用工具（对照 deepseek 174 次）",
+      "id": "ecfd16be008a84f3ce14",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "模型自述不可信：它把自带人设误报成\"上下文里的指令\"，工具名也是现编的",
+      "id": "e80e5cd2cfa8e0ae1392",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "页面开着时改 desktop-storage.json 会被写回，约 20 秒即失效",
+      "id": "2c6502fc37c43e9dfaf8",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "记忆库的工作区分区键 = sha256(工作区路径小写) 前 16 位",
+      "id": "8171b85018938b2fa2a3",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "DSH 工作区的数据分散在 5 处，清一个工作区不能只删目录",
+      "id": "7d127447f9413581c327",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "preset 挂载失败会被加载器缓存：改对内容也没用，要换文件路径",
+      "id": "e4b60680ba00410dfac3",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "tools.restrict 只认宿主全局工具名：preset 自己的工具名会抛错挂掉整个模式",
+      "id": "30410496980ba041d3cc",
+      "status": "confirmed",
+      "grade": "verified-file",
+      "route": "file"
+    },
+    {
+      "title": "DSH 沙箱下 mkdtemp/0o700 目录不可写，测试临时目录要用 os.makedirs",
+      "id": "b9bf9e993d25562af950",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "本仓库测试不用 pytest tmp_path，改用项目内临时目录（沙箱限制）",
+      "id": "6c80efed25c276538dee",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "受限沙箱下 pytest 的 tmp_path/tmpdir 不可用，测试改用项目内临时目录",
+      "id": "88ef2f04aceb2ec47307",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "recon 项目目标 Python 3.12，但本环境实际只有 3.11.15",
+      "id": "4cedb24f279ac5301be8",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "导出约定：CSV 用 utf-8-sig，文件名 export-YYYYMMDD.csv（UTC），金额用整数分",
+      "id": "7ae08d0e9ff759f08a72",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "发布环境代号：K4-烛龙（用于指代部署环境）",
+      "id": "89f9dec6462e6e190cee",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "本项目无正式发布流程，不存在发布环境代号",
+      "id": "00027488916296ddab03",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "本项目发布环境代号为 K4-烛龙，提及\"部署\"即指它",
+      "id": "a3dd5e1ba95ccaa8acb1",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "pipeline-service 构建产物只允许落 F 盘，禁止写 C:\\artifacts",
+      "id": "abb4707fb79bb1645870",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "pipeline-service 采集 batchSize 上限 500，超限静默截断不报错",
+      "id": "85f289e7a004e9778127",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "pipeline-service：增量清洗不能建在时间戳去重之上，监控缺数据新鲜度",
+      "id": "db6ff29de8dcd9136b44",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "pipeline-service：构建产物落盘只允许 F 盘，禁止写 C:\\artifacts",
+      "id": "9d1d5d7a776417cb1cb9",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "pipeline-service：batchSize 硬上限 500，超限被供货方静默截断",
+      "id": "53f009f0e24346e687a7",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "本项目构建命令是 pnpm build",
+      "id": "773377f4329f8c4d992b",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "部署产物只写 F 盘，禁止写 C 盘",
+      "id": "60362e7d3659ff2489ad",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "本项目部署产物只写 F 盘，构建命令为 pnpm build",
+      "id": "a400caf6b9d953c2ad37",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "部署产物落盘代号：Q9-荧惑（内部约定，环境不可查）",
+      "id": "8058ecbef1ed74d3993c",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "本项目部署盘内部代号为 Q7-紫电",
+      "id": "399c946168e1b7ff9cd3",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "部署路径约定：一律写 F 盘，不写 C 盘",
+      "id": "284fea80cde03c269ef4",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "部署约定：产物一律落 F 盘，禁止落 C 盘",
+      "id": "0209f3cdb8863f916f64",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    },
+    {
+      "title": "项目约定：所有部署产物只能写到 F 盘，禁止写 C 盘",
+      "id": "dbda1527d74571a4f1cd",
+      "status": "candidate",
+      "grade": "inferred",
+      "route": "none"
+    }
+  ],
+  "failed": [],
+  "dangling": []
+}
