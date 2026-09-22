@@ -23,6 +23,12 @@
  * checked number is mirrored here exactly once, and each message names the
  * promise in the README that says the same thing — so changing either side fails
  * loudly and quotes the other.
+ *
+ * Two files carry the claims: `README.md` (Chinese, the document the plugin is
+ * used from) and `README.en.md` (the English mirror). They share the same heading
+ * text on purpose, so one set of anchors locates a promise in either, and the
+ * name lists are read off both — a mirror that quietly loses a tool is the same
+ * defect as a table that never had it.
  */
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -80,8 +86,27 @@ const commandList = (readme: string): string[] => tableNames(readme, /^\|\s*`\/(
  */
 const configKeys = (): string[] => Object.keys(resolveConfig({}))
 
-const readme = readFileSync(join(ROOT, 'README.md'), 'utf8')
+const readmeZh = readFileSync(join(ROOT, 'README.md'), 'utf8')
+const readmeEn = readFileSync(join(ROOT, 'README.en.md'), 'utf8')
 const patch = readFileSync(join(ROOT, 'cordis.patch.yml'), 'utf8')
+
+/**
+ * The headings this suite reads a claim out of, written once.
+ *
+ * `sectionOf` matches a heading by exact line equality, so renaming one in the
+ * README without touching this map turns five assertions into "no such section"
+ * failures. That is the intended behaviour — a check that cannot find its anchor
+ * must fail rather than pass on an empty string — but the strings live here so a
+ * rename is one edit, not five. The map is also what pins the two language files
+ * to the same structure.
+ */
+const SECTION_ANCHORS = {
+  config: '## 配置',
+  experience: '## 模型的体验（Model Experience）',
+  surfaces: '### 它挂了四个表面',
+  tokenEffect: '#### Token effect',
+  limitations: '## Known Limitations and Deferred Work',
+} as const
 
 function record(over: Partial<MemoryRecord>): MemoryRecord {
   return {
@@ -146,10 +171,10 @@ function sectionLines(digest: string, label: string): number {
  * is structure, not prose scraping. Free-form sentences are still not checked;
  * this watches the documented defaults, which is the reference a reader acts on.
  */
-function readmeConfigDefaults(): Record<string, string> {
-  const lines = readme.split('\n')
-  const start = lines.findIndex(line => line.trim() === '## 配置')
-  assert(start >= 0, 'the README still has a 配置 section to check')
+function readmeConfigDefaults(text: string, heading: string = SECTION_ANCHORS.config): Record<string, string> {
+  const lines = text.split('\n')
+  const start = lines.findIndex(line => line.trim() === heading)
+  assert(start >= 0, `the README still has a ${heading} section to check`)
   const found: Record<string, string> = {}
   for (const line of lines.slice(start + 1)) {
     if (line.startsWith('## ')) break
@@ -194,7 +219,7 @@ export async function run(): Promise<void> {
     // with the code in both directions: edit a default in `config.ts` and this
     // fails, edit the table alone and this fails too.
     const resolved = resolveConfig({})
-    const documented = readmeConfigDefaults()
+    const documented = readmeConfigDefaults(readmeZh)
     eq(Object.keys(documented).sort(), configKeys().sort(),
       'the README config table documents exactly the keys the plugin accepts, and no others')
     assert((documented['dbPath'] ?? '').includes('experience-memory/memory.db'),
@@ -258,7 +283,7 @@ export async function run(): Promise<void> {
     // nothing — the first version of this check missed a reinstated false claim
     // exactly that way.
     const ceiling = `${resolved.coreMaxRecords}+${resolved.residentMaxRecords}=${resolved.coreMaxRecords + resolved.residentMaxRecords}`
-    const experience = sectionOf(readme, '## Model Experience')
+    const experience = sectionOf(readmeZh, SECTION_ANCHORS.experience)
     assert(experience.includes(ceiling),
       `the README's Model Experience section states the digest ceiling as ${ceiling} records,`
       + ' which is coreMaxRecords + residentMaxRecords')
@@ -268,10 +293,10 @@ export async function run(): Promise<void> {
     assert(!experience.includes('两段合计最多'),
       'the README does not claim a combined record ceiling for the two sections — only their byte budget is shared')
     const suitesOnDisk = readdirSync(join(ROOT, 'tests')).filter(name => name.endsWith('.test.ts')).length
-    assert(readme.includes(`${suitesOnDisk} 个套件`),
+    assert(readmeZh.includes(`${suitesOnDisk} 个套件`),
       `README states the suite count as ${suitesOnDisk}, which is how many *.test.ts files exist`)
     for (const file of Object.values(AUDIT_FILES)) {
-      assert(readme.includes(file), `README names the audit report ${file} that the audit actually writes`)
+      assert(readmeZh.includes(file), `README names the audit report ${file} that the audit actually writes`)
     }
 
     // ── Every key is restated in the bundle patch ───────────────────────────
@@ -306,20 +331,20 @@ export async function run(): Promise<void> {
     await ctx.plugin(experienceMemory, { enabled: true, dbPath: join(dir, 'mount.db') })
 
     const registered = ctx.tools.schemas().map(schema => schema.name).sort()
-    eq(registered, toolNames(readme).sort(),
+    eq(registered, toolNames(readmeZh).sort(),
       'the registered tools are exactly the ones the README tool table lists — no more, no fewer')
 
     const agent = { id: 'docs-session', session: { header: { cwd: dir }, snapshotEvents: () => [], append: () => {} } }
     const listed = ctx.commands.list(agent).map(entry => entry.name).filter(name => name.startsWith('memory-')).sort()
-    const inTable = commandList(readme).sort()
+    const inTable = commandList(readmeZh).sort()
     assert(inTable.length >= 6, `the README command table was actually parsed: ${inTable.join(', ')}`)
     eq(listed, inTable,
       'the registered commands are exactly the ones the README command table lists')
     eq([...COMMAND_NAMES].sort(), inTable, 'COMMAND_NAMES says the same ones')
 
     // Presence, not placement: enough to catch a rename landing on one side only.
-    for (const name of [...toolNames(readme), ...inTable]) {
-      assert(readme.includes(name), `${name} is named in the README, so the identifier and the docs agree`)
+    for (const name of [...toolNames(readmeZh), ...inTable]) {
+      assert(readmeZh.includes(name), `${name} is named in the README, so the identifier and the docs agree`)
     }
 
     // ── The always-on hint is bounded, and its cost is documented ───────────
@@ -338,9 +363,9 @@ export async function run(): Promise<void> {
     // wrong number in one place passes as long as the right one survives elsewhere.
     const size = `${byteLength(RECORD_HINT)} 字节`
     const hintCeiling = `${RECORD_HINT_MAX_BYTES} 字节`
-    const surfaces = sectionOf(readme, '### 它挂了四个表面')
-    const tokenEffect = sectionOf(readme, '#### Token effect')
-    const limitations = sectionOf(readme, '## Known Limitations and Deferred Work')
+    const surfaces = sectionOf(readmeZh, SECTION_ANCHORS.surfaces)
+    const tokenEffect = sectionOf(readmeZh, SECTION_ANCHORS.tokenEffect)
+    const limitations = sectionOf(readmeZh, SECTION_ANCHORS.limitations)
     assert(surfaces.includes(size), `the surface table states the hint's cost as ${size}`)
     assert(tokenEffect.includes(size), `the token-effect section states the hint's cost as ${size}`)
     assert(tokenEffect.includes(hintCeiling), `the token-effect section states the ceiling as ${hintCeiling}`)
@@ -437,7 +462,36 @@ export async function run(): Promise<void> {
       auditDb.close()
     }
 
+    // ── The English mirror makes the same claims ────────────────────────────
+    // `README.en.md` is not decoration: it is read by people who will install the
+    // plugin and then wonder why a tool the other file lists is missing. Its
+    // headings are translated, so this cannot compare the text — what it compares
+    // is the *shape* (how many sections at each level, in order) plus the shared
+    // anchors, and then it runs the same readers over both files for the names,
+    // the config keys, the audit files and the two code-derived numbers.
+    const headingLevels = (text: string): number[] =>
+      text.split('\n').map(line => /^(#{2,3})\s/.exec(line.trim())?.[1].length ?? 0).filter(level => level > 0)
+    eq(headingLevels(readmeEn), headingLevels(readmeZh),
+      'README.en.md has as many sections, at the same levels and in the same order, as README.md')
+    for (const anchor of Object.values(SECTION_ANCHORS)) {
+      assert(readmeEn.includes(anchor), `README.en.md has the ${anchor} section, so its anchors resolve`)
+    }
+    eq(toolNames(readmeEn).sort(), toolNames(readmeZh).sort(),
+      'both READMEs list the same model tools')
+    eq(commandList(readmeEn).sort(), commandList(readmeZh).sort(),
+      'both READMEs list the same slash commands')
+    eq(Object.keys(readmeConfigDefaults(readmeEn, '## Configuration')).sort(), configKeys().sort(),
+      'the English config table documents the same keys the plugin accepts')
+    assert(readmeEn.includes(`${suitesOnDisk} 个套件`),
+      `README.en.md states the suite count as ${suitesOnDisk} too, so neither side goes stale alone`)
+    assert(readmeEn.includes(ceiling),
+      `README.en.md states the digest ceiling as ${ceiling} as well`)
+    for (const file of Object.values(AUDIT_FILES)) {
+      assert(readmeEn.includes(file), `README.en.md names the audit report ${file}`)
+    }
+
     console.log('  docs       ok')
+    console.log(`             (README.md + README.en.md, ${String(suitesOnDisk)} suites pinned)`)
   } finally {
     await ctx.fiber.dispose()
     rmSync(dir, { recursive: true, force: true })

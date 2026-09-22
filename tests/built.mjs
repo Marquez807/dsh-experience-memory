@@ -42,7 +42,7 @@ const eq = (actual, expected, label) => {
 
 // ── 0. The packaging contract ───────────────────────────────────────────────
 const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-eq(JSON.stringify(manifest.files), JSON.stringify(['lib', 'cordis.patch.yml', 'README.md', 'CHANGELOG.md', 'LICENSE']),
+eq(JSON.stringify(manifest.files), JSON.stringify(['lib', 'cordis.patch.yml', 'README.md', 'README.en.md', 'CHANGELOG.md', 'LICENSE']),
   'the shipped file list is exactly the runtime and its documents')
 for (const entry of manifest.files) {
   check(existsSync(join(root, entry)), `every promised file exists: ${entry}`)

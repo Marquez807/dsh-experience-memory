@@ -2,6 +2,52 @@
 
 ## 0.1.0 — unreleased
 
+### The README says what a reader needs, and the process moves out of its way
+
+Asked for directly: the README had grown into a process record, and the Chinese and English parts
+were mixed together rather than being one document in two languages.
+
+The document had reached 829 lines and 49 headings, and its order was backwards for anyone
+arriving at it: installation, then "installation (development details)" — build rationale,
+peer-dependency warnings, tarball-versus-`link:` contracts — while the section explaining what the
+plugin *does* began at line 200. There was no table of contents. Numbering ran `1.`, `2.`, then an
+unnumbered section, then `2.1`, then `3.`. And the two languages were interleaved inside single
+sections: Chinese prose, English headings, English subsections, Chinese bodies.
+
+What changed, and why in this shape rather than as a rewrite:
+
+- **Two audiences, two files.** `README.md` now carries what a reader needs in order — what it is,
+  how to install it, the four surfaces, what it does, how to operate it, migration, the model's
+  view, the limitations — and `docs/DEVELOPING.md` carries the build, packaging, boot acceptance,
+  the real-model turn, the test inventory and the development environment. The development text is
+  moved, not deleted; the README links to it.
+- **A contents table that answers "where do I go", not a list of headings.**
+- **One numbering scheme**: `1`/`2`/`3` for the three stages, with `1.1`–`1.3`, `2.1`–`2.2` and
+  `3.1` beneath them, and a separate `## 操作` for scope, the mode switch, tools, commands and
+  configuration.
+- **A real bilingual pair**: `README.md` in Chinese and `README.en.md` in English, each linking to
+  the other, instead of one mixed file. The English file is a full mirror, not a summary.
+- **A stale claim fixed**: the surfaces table still said five slash commands. There are seven, as
+  the command table forty lines below it, `COMMAND_NAMES`, and `tools/verify-install.mjs`
+  (`mine.length === 7`) all said — the prose was the only place that had not been updated when
+  harvest review and the repeat-failure report were added.
+
+Because the docs suite reads its claims by exact heading text, five anchors moved with the
+sections and are now written once in `SECTION_ANCHORS`: `## 配置`, `## 模型的体验（Model
+Experience）`, `### 它挂了四个表面`, `#### Token effect`, `## Known Limitations and Deferred
+Work`. Renaming one is one edit there instead of five scattered strings, and a heading the suite
+cannot find still fails rather than silently checking an empty string.
+
+The suite now also reads the English mirror: it asserts that both files have the same section
+count at the same levels in the same order, that both list the same tools and commands, that both
+config tables document exactly the keys the code accepts, and that both state the suite count, the
+digest ceiling and the audit report names. A mirror that quietly loses a tool is the same defect
+as a table that never had it.
+
+`README.en.md` is now in `files`, so it ships in the tarball; `tests/built.mjs` pins that list.
+
+Documentation only: no runtime behaviour changed. `pnpm verify` passes — 16 suites, 864 assertions.
+
 ### A mode can be left without memory, and only the plugin can arrange that
 
 Asked for directly: a model-test mode that has no memory. The obvious place to switch it off is
