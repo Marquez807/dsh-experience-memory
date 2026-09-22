@@ -1,0 +1,3405 @@
+{
+  "failures": 442,
+  "kept": [
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "tool:write",
+      "tool": "write",
+      "kind": "tool",
+      "failures": 20,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "tool:write",
+      "tool": "write",
+      "kind": "tool",
+      "failures": 20,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "a2daa5dc426961c4e412",
+      "title": "别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗",
+      "anchor": "tool:read",
+      "tool": "read",
+      "kind": "tool",
+      "failures": 20,
+      "tools": [
+        "read"
+      ]
+    },
+    {
+      "record": "ed3e33ec2ebd4128ea90",
+      "title": "本机 web_fetch 抓不了网页：域名被解析成代理 fake-IP（198.18.x.x）",
+      "anchor": "tool:web_fetch",
+      "tool": "web_fetch",
+      "kind": "tool",
+      "failures": 12,
+      "tools": [
+        "web_fetch"
+      ]
+    },
+    {
+      "record": "26ab614349b089cee2ac",
+      "title": "web_fetch 不可用 ≠ 不能联网：直连 HTTPS + pypdf 能取到论文原文",
+      "anchor": "tool:web_fetch",
+      "tool": "web_fetch",
+      "kind": "tool",
+      "failures": 12,
+      "tools": [
+        "web_fetch"
+      ]
+    },
+    {
+      "record": "6780b63e3971eab784e5",
+      "title": "本机取境外网页：web_fetch 与 .NET 都不行，curl.exe 直连可用",
+      "anchor": "tool:web_fetch",
+      "tool": "web_fetch",
+      "kind": "tool",
+      "failures": 12,
+      "tools": [
+        "web_fetch"
+      ]
+    },
+    {
+      "record": "3609a98d553542bb51cf",
+      "title": "记忆出处的判据：工作区相对路径 + 逐字引文 + 写入后核对 confirmed",
+      "anchor": "tool:memory_remember",
+      "tool": "memory_remember",
+      "kind": "tool",
+      "failures": 10,
+      "tools": [
+        "memory_remember"
+      ]
+    },
+    {
+      "record": "0d6f160e8a63d4c0b0cb",
+      "title": "经验要在动手前送出去，必须由记录自己声明\"适用哪次调用\"（锚点），不能靠猜",
+      "anchor": "tool:memory_remember",
+      "tool": "memory_remember",
+      "kind": "tool",
+      "failures": 10,
+      "tools": [
+        "memory_remember"
+      ]
+    },
+    {
+      "record": "26ab614349b089cee2ac",
+      "title": "web_fetch 不可用 ≠ 不能联网：直连 HTTPS + pypdf 能取到论文原文",
+      "anchor": "tool:pwsh",
+      "tool": "pwsh",
+      "kind": "tool",
+      "failures": 8,
+      "tools": [
+        "pwsh"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "tool:pwsh",
+      "tool": "pwsh",
+      "kind": "tool",
+      "failures": 8,
+      "tools": [
+        "pwsh"
+      ]
+    },
+    {
+      "record": "a2daa5dc426961c4e412",
+      "title": "别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗",
+      "anchor": "tool:pwsh",
+      "tool": "pwsh",
+      "kind": "tool",
+      "failures": 8,
+      "tools": [
+        "pwsh"
+      ]
+    },
+    {
+      "record": "546692bfe06e769b8988",
+      "title": "bigfat 是价值投资取向，量化是量化——两个项目不合并",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "f314426502d552bd8524",
+      "title": "bigfat 插件缺陷：expected_artifacts 工具 schema 与实现不一致，op=init 填不上",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "b44e5a33cdd3fdc9c623",
+      "title": "验收要换座位：在会话入口上跑真实用例，开发脚本跑通不算",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "02d4c801e901808c93f9",
+      "title": "bigfat 建议/校验的 payload 必填字段：code + scope + coverage_codes + 带 unit 的 fa",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "1f911d3835d27637964f",
+      "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "610a0b6aa3f4357c3891",
+      "title": "bigfat 数据层只有 A 股上市公司口径，没有公募基金；基金代码 002246 会撞上北化股份",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "de74d1d594f952010ba4",
+      "title": "第三方（不是用户本人）的持仓绝不能写进 .bigfat/portfolio_snapshot.json",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "1d5e5d8eee507c2fabe0",
+      "title": "本工作区分工：开发会话只做开发与排错，研究由 bigfat 研究员会话跑",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "d8d198f23898d34e2408",
+      "title": "跨会话交接要投到对方工作区根；对方是独立子工作区时放自己根目录对方读不到",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "79bd24233b0c71c7ec20",
+      "title": "bigfat 资讯层无新增时不重写 intel 文件：09-23 采集后 intel 文件时间戳仍是 09-21",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "426d924ce5e42a803c95",
+      "title": ".bigfat/facts.jsonl 是证据表的底库：单源字段在这里有值，但不会进 task 的证据表",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "7e49878d36dd7c499fbf",
+      "title": "bigfat verify 的 source_ids 要填具体源 id，不能填独立性分组名（code 也必须走顶层参数）",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "0d99623e2f0148bceeb5",
+      "title": "verify 的 source_ids 只能填真实 source_id，不能填独立性分组名",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "9445d152398515b044ca",
+      "title": "verify 的 source_ids 要填数据源 id，不填独立性分组名",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "e3543c6f66b711616d65",
+      "title": "verify/propose 的 source_ids 只吃数据源 id，不吃独立性分组名",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "7073746c7e7d423ce70d",
+      "title": "facts.jsonl 是追加式：同一字段存多快照，行情类取数必须按 at/quote_timestamp 取最新",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "f3a403c244dc1213afc4",
+      "title": "SD-Turbo 商用门槛：年收入低于 100 万美元免费（Stability 社区许可）；SD1.5 是 OpenRAIL-M",
+      "anchor": "path:100",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 5,
+      "tools": [
+        "exit_plan_mode",
+        "edit",
+        "pwsh"
+      ]
+    },
+    {
+      "record": "9d0f16fcbc03fff03c99",
+      "title": "SDXL-Turbo：fp16 6.46GB，许可与 SD-Turbo 相同（年收入<100万美元可免费商用）",
+      "anchor": "path:100",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 5,
+      "tools": [
+        "exit_plan_mode",
+        "edit",
+        "pwsh"
+      ]
+    },
+    {
+      "record": "74956a62c2ee2f67c5d4",
+      "title": "常驻资格线 6.0：写入瞬间越线、此后年龄扣分掉线，长期常驻只能靠真实复用加分",
+      "anchor": "path:n",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "4757a2c74bc9547d5357",
+      "title": "P10 的验收判据是机制门禁，可当下用注入时钟测；不必等真实未来数据",
+      "anchor": "path:quant",
+      "tool": "write",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "6f18ec4e57c0b5872182",
+      "title": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+      "anchor": "path:quant",
+      "tool": "write",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "76d10a15712855ec97ca",
+      "title": "1.5.2 时间控制与新档初始化：SetTimeSpeed 只认 0/1/2，新档不触发 OnGameLoaded",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "ae392ca0c01eaa1488fd",
+      "title": "客户端由 1.5.2 漂移到 1.5.3：1.5.2 证据失效，编译探针 PASS 但不等于可运行",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "78ce8f58c51bfcc812c7",
+      "title": "R1 行为层：写白名单扩到 5 个调用点，第二把开关 wanderer.activities 默认关闭",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "91c6f6df61ffb48373ec",
+      "title": "单次命令上限 10 分钟且超时后无输出：长任务必须后台跑 + 落日志",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "f3a403c244dc1213afc4",
+      "title": "SD-Turbo 商用门槛：年收入低于 100 万美元免费（Stability 社区许可）；SD1.5 是 OpenRAIL-M",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "0e68be69d0e09b643ef3",
+      "title": "国内生图 API 价格（2026-09）：阿里 qwen-image-3.0 约 0.18 元/张、火山 Seedream 5.0 Pro ",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "41f3d9638118d1953239",
+      "title": "DSH 工作区的数据分散在 5 处，清一个工作区不能只删目录",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "98896b0b8ee23fc9507e",
+      "title": "查经验记忆用关键词不用长句：短关键词排第 1 的记录，长句问法会掉出前 5",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "f314426502d552bd8524",
+      "title": "bigfat 插件缺陷：expected_artifacts 工具 schema 与实现不一致，op=init 填不上",
+      "anchor": "path:workflow",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "765a30c77927af9663ff",
+      "title": "PE 参考带的瓶颈是月线长度，不是 EPS 双源口径（实测 7 只全部 OK，故不改）",
+      "anchor": "path:7",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "0c51e4b5be637bd22f47",
+      "title": "退休返聘在2026年7月1日后已不是\"纯劳务关系\"：工伤保险成为强制义务",
+      "anchor": "path:7",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "0aac41a1e50b943609b3",
+      "title": "PowerShell 的 Measure-Object -Line 会漏计空行，核行数要用 (Get-Content $f).Count",
+      "anchor": "path:get",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "170543712a52bb9c5b34",
+      "title": "\"求不出值\"必须与\"值不是数字\"分开（present vs value is None）",
+      "anchor": "tool:present",
+      "tool": "present",
+      "kind": "tool",
+      "failures": 3,
+      "tools": [
+        "present"
+      ]
+    },
+    {
+      "record": "5ef2946ad8b05e96113d",
+      "title": "用户可见的承诺要三件套：清单进仓库 + 表格生成 + 端到端真跑",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "02d4c801e901808c93f9",
+      "title": "bigfat 建议/校验的 payload 必填字段：code + scope + coverage_codes + 带 unit 的 fa",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "eaa6f9fbaf1020645775",
+      "title": "bigfat_research verify：payload.code 必须是数字而不是字符串，否则报「payload.code 与请求标的",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "7e49878d36dd7c499fbf",
+      "title": "bigfat verify 的 source_ids 要填具体源 id，不能填独立性分组名（code 也必须走顶层参数）",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "0d99623e2f0148bceeb5",
+      "title": "verify 的 source_ids 只能填真实 source_id，不能填独立性分组名",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "9445d152398515b044ca",
+      "title": "verify 的 source_ids 要填数据源 id，不填独立性分组名",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "8f712ce4a00da0a24147",
+      "title": "verify 调用面：code 必须顶层，source_ids 只能填 provider id（分组名会被判未登记）",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "e3543c6f66b711616d65",
+      "title": "verify/propose 的 source_ids 只吃数据源 id，不吃独立性分组名",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "16b6933138f341ca11be",
+      "title": "游戏实例清理不可靠会作废 A/B 实验：必须断言 0 实例并用 taskkill",
+      "anchor": "path:b",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:20",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "586a23c5ca80a9c69127",
+      "title": "广东现行最低工资：粤府函〔2026〕188号，2026-09-01 起，阳江/阳春为三类 2040 元/月",
+      "anchor": "path:20",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "89ccf46fc9fffaad66ce",
+      "title": "页面开着时改 desktop-storage.json 会被写回，约 20 秒即失效",
+      "anchor": "path:20",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "4df2be2e895f09f6f4b5",
+      "title": "同花顺主指标是四舍五入到百万的近似值：能印证量级，不能用来算同比",
+      "anchor": "path:main",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "a2daa5dc426961c4e412",
+      "title": "别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗",
+      "anchor": "path:main",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "e3543c6f66b711616d65",
+      "title": "verify/propose 的 source_ids 只吃数据源 id，不吃独立性分组名",
+      "anchor": "path:17",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "7bcef6a9dd3782edb360",
+      "title": "在编译产物里查 TypeScript 类型名必然假阴：类型被擦除，要查字面量；负结果须先做阳性对照",
+      "anchor": "tool:grep",
+      "tool": "grep",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "grep"
+      ]
+    },
+    {
+      "record": "e2c1cf3e1c6f41273a74",
+      "title": "元数据扫描：key 出现次数 ≠ 值生效次数（requres_sector 201 vs 19）",
+      "anchor": "tool:grep",
+      "tool": "grep",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "grep"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:s",
+      "tool": "grep",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "grep",
+        "edit"
+      ]
+    },
+    {
+      "record": "f225aaabffe296eb2331",
+      "title": "DSH 插件市场上架 = 给 awesome-dsh-plugin 提 PR；核查看 PR/详情页而非 grep 目录快照",
+      "anchor": "tool:grep",
+      "tool": "grep",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "grep"
+      ]
+    },
+    {
+      "record": "d3860953191cd2462f8b",
+      "title": "JSON 里写中文引用别用英文双引号：会让整个登记表解析失败、12 步验收连环红",
+      "anchor": "path:12",
+      "tool": "memory_remember",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "memory_remember",
+        "edit"
+      ]
+    },
+    {
+      "record": "07069d0235957bfe2f3a",
+      "title": "因子库 174 只\"2020-12-31 集体停更\"全部是建库截断，不是退市",
+      "anchor": "path:12",
+      "tool": "memory_remember",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "memory_remember",
+        "edit"
+      ]
+    },
+    {
+      "record": "a9f6e21da180e0a352f5",
+      "title": "改了输入但交付产物逐字节没变：结论是内容根本没渲染，而非缓存",
+      "anchor": "path:sha256",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "f314426502d552bd8524",
+      "title": "bigfat 插件缺陷：expected_artifacts 工具 schema 与实现不一致，op=init 填不上",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "02d4c801e901808c93f9",
+      "title": "bigfat 建议/校验的 payload 必填字段：code + scope + coverage_codes + 带 unit 的 fa",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "eaa6f9fbaf1020645775",
+      "title": "bigfat_research verify：payload.code 必须是数字而不是字符串，否则报「payload.code 与请求标的",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "7e49878d36dd7c499fbf",
+      "title": "bigfat verify 的 source_ids 要填具体源 id，不能填独立性分组名（code 也必须走顶层参数）",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "8f712ce4a00da0a24147",
+      "title": "verify 调用面：code 必须顶层，source_ids 只能填 provider id（分组名会被判未登记）",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "80a96bc9809080ed96ce",
+      "title": "引用工具输出作记忆出处必须填 call id（verified-tool 9.0）；id 只能从失败 reason 里取",
+      "anchor": "path:9",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "path:25",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "ad3b0b8a3131ae7f8226",
+      "title": "AMD RX 7800 XT 用 sd.cpp Vulkan 即可生图（GPU 比 CPU 快 25 倍），画质瓶颈是模型",
+      "anchor": "path:25",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "6f18ec4e57c0b5872182",
+      "title": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+      "anchor": "path:not_implemented",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "55957abe9227d36b5138",
+      "title": "Steam 未登录会让 Bannerlord 10 秒静默退出，ERC403 是误导性报错",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "173a83d4890d1318c655",
+      "title": "无人值守长跑会被游戏自动存档覆盖用户存档：先备份、单次不超 10 分钟",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "91c6f6df61ffb48373ec",
+      "title": "单次命令上限 10 分钟且超时后无输出：长任务必须后台跑 + 落日志",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "ae392ca0c01eaa1488fd",
+      "title": "客户端由 1.5.2 漂移到 1.5.3：1.5.2 证据失效，编译探针 PASS 但不等于可运行",
+      "anchor": "path:3",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:3",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:3",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "0e68be69d0e09b643ef3",
+      "title": "国内生图 API 价格（2026-09）：阿里 qwen-image-3.0 约 0.18 元/张、火山 Seedream 5.0 Pro ",
+      "anchor": "path:3",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "76d10a15712855ec97ca",
+      "title": "1.5.2 时间控制与新档初始化：SetTimeSpeed 只认 0/1/2，新档不触发 OnGameLoaded",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "ae392ca0c01eaa1488fd",
+      "title": "客户端由 1.5.2 漂移到 1.5.3：1.5.2 证据失效，编译探针 PASS 但不等于可运行",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "586a23c5ca80a9c69127",
+      "title": "广东现行最低工资：粤府函〔2026〕188号，2026-09-01 起，阳江/阳春为三类 2040 元/月",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "98896b0b8ee23fc9507e",
+      "title": "查经验记忆用关键词不用长句：短关键词排第 1 的记录，长句问法会掉出前 5",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "0d2b6398987c2e687088",
+      "title": "harness.log 里没有 Cordis 插件的 logger 输出",
+      "anchor": "path:cordis",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "b15f8166cf2568639a05",
+      "title": "DSH 离线校验合成配置的正确命令：经 harness-node-entry.mjs + web --patch（web 不认 --prof",
+      "anchor": "path:cordis",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "c9b8e7d6a1ea4b6c9256",
+      "title": "改 DSH 的 settings.yaml 不用重启，实测改动即时可用",
+      "anchor": "path:cordis",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "4711aa46e17ae78766e3",
+      "title": "preset 挂载失败会被加载器缓存：改对内容也没用，要换文件路径",
+      "anchor": "path:cordis",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "path:write",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "path:write",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "74956a62c2ee2f67c5d4",
+      "title": "常驻资格线 6.0：写入瞬间越线、此后年龄扣分掉线，长期常驻只能靠真实复用加分",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "80a96bc9809080ed96ce",
+      "title": "引用工具输出作记忆出处必须填 call id（verified-tool 9.0）；id 只能从失败 reason 里取",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "b1f2b6fa04e115ef2ee0",
+      "title": "Bannerlord 项目的构建/部署/开关/证据四条强制脚本路径",
+      "anchor": "path:bannerlordplayerlikeai",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "76d10a15712855ec97ca",
+      "title": "1.5.2 时间控制与新档初始化：SetTimeSpeed 只认 0/1/2，新档不触发 OnGameLoaded",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "16b6933138f341ca11be",
+      "title": "游戏实例清理不可靠会作废 A/B 实验：必须断言 0 实例并用 taskkill",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "ae392ca0c01eaa1488fd",
+      "title": "客户端由 1.5.2 漂移到 1.5.3：1.5.2 证据失效，编译探针 PASS 但不等于可运行",
+      "anchor": "path:bannerlordplayerlikeai",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "78ce8f58c51bfcc812c7",
+      "title": "R1 行为层：写白名单扩到 5 个调用点，第二把开关 wanderer.activities 默认关闭",
+      "anchor": "path:bannerlordplayerlikeai",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "c853df87eceff0b8c734",
+      "title": "R2 真实小队会让游戏崩溃（默认关闭）；其余各层已用单变量二分证明干净",
+      "anchor": "path:bannerlordplayerlikeai",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "9fa882b0986cccb002a6",
+      "title": "Vibe-Trading 0.1.15 的多重检验与统计验证资产在 src/quantlib 与 src/strategy_discover",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "4df2be2e895f09f6f4b5",
+      "title": "同花顺主指标是四舍五入到百万的近似值：能印证量级，不能用来算同比",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "a43cabb2e0402c689982",
+      "title": "筛选产物：结论字段是 screen_status（无 picks/candidates），results 顺序不是排名",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "25cc0a73da0cd72e81cc",
+      "title": "判据方向反了，零假设校准查不出来 —— 必须跟独立实现对照",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "7965affdce67f33687a8",
+      "title": "Z-Image-Turbo 参考生图：强度 0.92 最佳；它不支持 CFG 所以不听反向提示词",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "0e68be69d0e09b643ef3",
+      "title": "国内生图 API 价格（2026-09）：阿里 qwen-image-3.0 约 0.18 元/张、火山 Seedream 5.0 Pro ",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "ba9fb68b9353304f9f91",
+      "title": "广东工伤行业基准费率：轴承制造属第四类0.8%，不是第三类0.6%",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "d6efbff47feafc444168",
+      "title": "mimo 在 DSH 里 0 次工具调用、且编造工具结果；端点本身会用工具（对照 deepseek 174 次）",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "79bd24233b0c71c7ec20",
+      "title": "bigfat 资讯层无新增时不重写 intel 文件：09-23 采集后 intel 文件时间戳仍是 09-21",
+      "anchor": "path:21",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    }
+  ],
+  "all": [
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "tool:write",
+      "tool": "write",
+      "kind": "tool",
+      "failures": 20,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "tool:write",
+      "tool": "write",
+      "kind": "tool",
+      "failures": 20,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "a2daa5dc426961c4e412",
+      "title": "别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗",
+      "anchor": "tool:read",
+      "tool": "read",
+      "kind": "tool",
+      "failures": 20,
+      "tools": [
+        "read"
+      ]
+    },
+    {
+      "record": "ed3e33ec2ebd4128ea90",
+      "title": "本机 web_fetch 抓不了网页：域名被解析成代理 fake-IP（198.18.x.x）",
+      "anchor": "tool:web_fetch",
+      "tool": "web_fetch",
+      "kind": "tool",
+      "failures": 12,
+      "tools": [
+        "web_fetch"
+      ]
+    },
+    {
+      "record": "26ab614349b089cee2ac",
+      "title": "web_fetch 不可用 ≠ 不能联网：直连 HTTPS + pypdf 能取到论文原文",
+      "anchor": "tool:web_fetch",
+      "tool": "web_fetch",
+      "kind": "tool",
+      "failures": 12,
+      "tools": [
+        "web_fetch"
+      ]
+    },
+    {
+      "record": "6780b63e3971eab784e5",
+      "title": "本机取境外网页：web_fetch 与 .NET 都不行，curl.exe 直连可用",
+      "anchor": "tool:web_fetch",
+      "tool": "web_fetch",
+      "kind": "tool",
+      "failures": 12,
+      "tools": [
+        "web_fetch"
+      ]
+    },
+    {
+      "record": "3609a98d553542bb51cf",
+      "title": "记忆出处的判据：工作区相对路径 + 逐字引文 + 写入后核对 confirmed",
+      "anchor": "tool:memory_remember",
+      "tool": "memory_remember",
+      "kind": "tool",
+      "failures": 10,
+      "tools": [
+        "memory_remember"
+      ]
+    },
+    {
+      "record": "0d6f160e8a63d4c0b0cb",
+      "title": "经验要在动手前送出去，必须由记录自己声明\"适用哪次调用\"（锚点），不能靠猜",
+      "anchor": "tool:memory_remember",
+      "tool": "memory_remember",
+      "kind": "tool",
+      "failures": 10,
+      "tools": [
+        "memory_remember"
+      ]
+    },
+    {
+      "record": "26ab614349b089cee2ac",
+      "title": "web_fetch 不可用 ≠ 不能联网：直连 HTTPS + pypdf 能取到论文原文",
+      "anchor": "tool:pwsh",
+      "tool": "pwsh",
+      "kind": "tool",
+      "failures": 8,
+      "tools": [
+        "pwsh"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "tool:pwsh",
+      "tool": "pwsh",
+      "kind": "tool",
+      "failures": 8,
+      "tools": [
+        "pwsh"
+      ]
+    },
+    {
+      "record": "a2daa5dc426961c4e412",
+      "title": "别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗",
+      "anchor": "tool:pwsh",
+      "tool": "pwsh",
+      "kind": "tool",
+      "failures": 8,
+      "tools": [
+        "pwsh"
+      ]
+    },
+    {
+      "record": "546692bfe06e769b8988",
+      "title": "bigfat 是价值投资取向，量化是量化——两个项目不合并",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "f314426502d552bd8524",
+      "title": "bigfat 插件缺陷：expected_artifacts 工具 schema 与实现不一致，op=init 填不上",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "b44e5a33cdd3fdc9c623",
+      "title": "验收要换座位：在会话入口上跑真实用例，开发脚本跑通不算",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "02d4c801e901808c93f9",
+      "title": "bigfat 建议/校验的 payload 必填字段：code + scope + coverage_codes + 带 unit 的 fa",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "1f911d3835d27637964f",
+      "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "610a0b6aa3f4357c3891",
+      "title": "bigfat 数据层只有 A 股上市公司口径，没有公募基金；基金代码 002246 会撞上北化股份",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "de74d1d594f952010ba4",
+      "title": "第三方（不是用户本人）的持仓绝不能写进 .bigfat/portfolio_snapshot.json",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "1d5e5d8eee507c2fabe0",
+      "title": "本工作区分工：开发会话只做开发与排错，研究由 bigfat 研究员会话跑",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "d8d198f23898d34e2408",
+      "title": "跨会话交接要投到对方工作区根；对方是独立子工作区时放自己根目录对方读不到",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "79bd24233b0c71c7ec20",
+      "title": "bigfat 资讯层无新增时不重写 intel 文件：09-23 采集后 intel 文件时间戳仍是 09-21",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "426d924ce5e42a803c95",
+      "title": ".bigfat/facts.jsonl 是证据表的底库：单源字段在这里有值，但不会进 task 的证据表",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "7e49878d36dd7c499fbf",
+      "title": "bigfat verify 的 source_ids 要填具体源 id，不能填独立性分组名（code 也必须走顶层参数）",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "0d99623e2f0148bceeb5",
+      "title": "verify 的 source_ids 只能填真实 source_id，不能填独立性分组名",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "9445d152398515b044ca",
+      "title": "verify 的 source_ids 要填数据源 id，不填独立性分组名",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "e3543c6f66b711616d65",
+      "title": "verify/propose 的 source_ids 只吃数据源 id，不吃独立性分组名",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "7073746c7e7d423ce70d",
+      "title": "facts.jsonl 是追加式：同一字段存多快照，行情类取数必须按 at/quote_timestamp 取最新",
+      "anchor": "path:bigfat",
+      "tool": "write",
+      "kind": "path",
+      "failures": 7,
+      "tools": [
+        "write",
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "f3a403c244dc1213afc4",
+      "title": "SD-Turbo 商用门槛：年收入低于 100 万美元免费（Stability 社区许可）；SD1.5 是 OpenRAIL-M",
+      "anchor": "path:100",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 5,
+      "tools": [
+        "exit_plan_mode",
+        "edit",
+        "pwsh"
+      ]
+    },
+    {
+      "record": "9d0f16fcbc03fff03c99",
+      "title": "SDXL-Turbo：fp16 6.46GB，许可与 SD-Turbo 相同（年收入<100万美元可免费商用）",
+      "anchor": "path:100",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 5,
+      "tools": [
+        "exit_plan_mode",
+        "edit",
+        "pwsh"
+      ]
+    },
+    {
+      "record": "74956a62c2ee2f67c5d4",
+      "title": "常驻资格线 6.0：写入瞬间越线、此后年龄扣分掉线，长期常驻只能靠真实复用加分",
+      "anchor": "path:n",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "4757a2c74bc9547d5357",
+      "title": "P10 的验收判据是机制门禁，可当下用注入时钟测；不必等真实未来数据",
+      "anchor": "path:quant",
+      "tool": "write",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "6f18ec4e57c0b5872182",
+      "title": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+      "anchor": "path:quant",
+      "tool": "write",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "76d10a15712855ec97ca",
+      "title": "1.5.2 时间控制与新档初始化：SetTimeSpeed 只认 0/1/2，新档不触发 OnGameLoaded",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "ae392ca0c01eaa1488fd",
+      "title": "客户端由 1.5.2 漂移到 1.5.3：1.5.2 证据失效，编译探针 PASS 但不等于可运行",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "78ce8f58c51bfcc812c7",
+      "title": "R1 行为层：写白名单扩到 5 个调用点，第二把开关 wanderer.activities 默认关闭",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "91c6f6df61ffb48373ec",
+      "title": "单次命令上限 10 分钟且超时后无输出：长任务必须后台跑 + 落日志",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "f3a403c244dc1213afc4",
+      "title": "SD-Turbo 商用门槛：年收入低于 100 万美元免费（Stability 社区许可）；SD1.5 是 OpenRAIL-M",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "0e68be69d0e09b643ef3",
+      "title": "国内生图 API 价格（2026-09）：阿里 qwen-image-3.0 约 0.18 元/张、火山 Seedream 5.0 Pro ",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "41f3d9638118d1953239",
+      "title": "DSH 工作区的数据分散在 5 处，清一个工作区不能只删目录",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "98896b0b8ee23fc9507e",
+      "title": "查经验记忆用关键词不用长句：短关键词排第 1 的记录，长句问法会掉出前 5",
+      "anchor": "path:5",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 4,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "f314426502d552bd8524",
+      "title": "bigfat 插件缺陷：expected_artifacts 工具 schema 与实现不一致，op=init 填不上",
+      "anchor": "path:workflow",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "765a30c77927af9663ff",
+      "title": "PE 参考带的瓶颈是月线长度，不是 EPS 双源口径（实测 7 只全部 OK，故不改）",
+      "anchor": "path:7",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "0c51e4b5be637bd22f47",
+      "title": "退休返聘在2026年7月1日后已不是\"纯劳务关系\"：工伤保险成为强制义务",
+      "anchor": "path:7",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "0aac41a1e50b943609b3",
+      "title": "PowerShell 的 Measure-Object -Line 会漏计空行，核行数要用 (Get-Content $f).Count",
+      "anchor": "path:get",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "170543712a52bb9c5b34",
+      "title": "\"求不出值\"必须与\"值不是数字\"分开（present vs value is None）",
+      "anchor": "tool:present",
+      "tool": "present",
+      "kind": "tool",
+      "failures": 3,
+      "tools": [
+        "present"
+      ]
+    },
+    {
+      "record": "5ef2946ad8b05e96113d",
+      "title": "用户可见的承诺要三件套：清单进仓库 + 表格生成 + 端到端真跑",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "02d4c801e901808c93f9",
+      "title": "bigfat 建议/校验的 payload 必填字段：code + scope + coverage_codes + 带 unit 的 fa",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "eaa6f9fbaf1020645775",
+      "title": "bigfat_research verify：payload.code 必须是数字而不是字符串，否则报「payload.code 与请求标的",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "7e49878d36dd7c499fbf",
+      "title": "bigfat verify 的 source_ids 要填具体源 id，不能填独立性分组名（code 也必须走顶层参数）",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "0d99623e2f0148bceeb5",
+      "title": "verify 的 source_ids 只能填真实 source_id，不能填独立性分组名",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "9445d152398515b044ca",
+      "title": "verify 的 source_ids 要填数据源 id，不填独立性分组名",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "8f712ce4a00da0a24147",
+      "title": "verify 调用面：code 必须顶层，source_ids 只能填 provider id（分组名会被判未登记）",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "e3543c6f66b711616d65",
+      "title": "verify/propose 的 source_ids 只吃数据源 id，不吃独立性分组名",
+      "anchor": "path:verify",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode",
+        "write"
+      ]
+    },
+    {
+      "record": "16b6933138f341ca11be",
+      "title": "游戏实例清理不可靠会作废 A/B 实验：必须断言 0 实例并用 taskkill",
+      "anchor": "path:b",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:20",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "586a23c5ca80a9c69127",
+      "title": "广东现行最低工资：粤府函〔2026〕188号，2026-09-01 起，阳江/阳春为三类 2040 元/月",
+      "anchor": "path:20",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "89ccf46fc9fffaad66ce",
+      "title": "页面开着时改 desktop-storage.json 会被写回，约 20 秒即失效",
+      "anchor": "path:20",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 3,
+      "tools": [
+        "edit",
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "4df2be2e895f09f6f4b5",
+      "title": "同花顺主指标是四舍五入到百万的近似值：能印证量级，不能用来算同比",
+      "anchor": "path:main",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "a2daa5dc426961c4e412",
+      "title": "别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗",
+      "anchor": "path:main",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "e3543c6f66b711616d65",
+      "title": "verify/propose 的 source_ids 只吃数据源 id，不吃独立性分组名",
+      "anchor": "path:17",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "7bcef6a9dd3782edb360",
+      "title": "在编译产物里查 TypeScript 类型名必然假阴：类型被擦除，要查字面量；负结果须先做阳性对照",
+      "anchor": "tool:grep",
+      "tool": "grep",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "grep"
+      ]
+    },
+    {
+      "record": "e2c1cf3e1c6f41273a74",
+      "title": "元数据扫描：key 出现次数 ≠ 值生效次数（requres_sector 201 vs 19）",
+      "anchor": "tool:grep",
+      "tool": "grep",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "grep"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:s",
+      "tool": "grep",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "grep",
+        "edit"
+      ]
+    },
+    {
+      "record": "f225aaabffe296eb2331",
+      "title": "DSH 插件市场上架 = 给 awesome-dsh-plugin 提 PR；核查看 PR/详情页而非 grep 目录快照",
+      "anchor": "tool:grep",
+      "tool": "grep",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "grep"
+      ]
+    },
+    {
+      "record": "d3860953191cd2462f8b",
+      "title": "JSON 里写中文引用别用英文双引号：会让整个登记表解析失败、12 步验收连环红",
+      "anchor": "path:12",
+      "tool": "memory_remember",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "memory_remember",
+        "edit"
+      ]
+    },
+    {
+      "record": "07069d0235957bfe2f3a",
+      "title": "因子库 174 只\"2020-12-31 集体停更\"全部是建库截断，不是退市",
+      "anchor": "path:12",
+      "tool": "memory_remember",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "memory_remember",
+        "edit"
+      ]
+    },
+    {
+      "record": "a9f6e21da180e0a352f5",
+      "title": "改了输入但交付产物逐字节没变：结论是内容根本没渲染，而非缓存",
+      "anchor": "path:sha256",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "f314426502d552bd8524",
+      "title": "bigfat 插件缺陷：expected_artifacts 工具 schema 与实现不一致，op=init 填不上",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "02d4c801e901808c93f9",
+      "title": "bigfat 建议/校验的 payload 必填字段：code + scope + coverage_codes + 带 unit 的 fa",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "eaa6f9fbaf1020645775",
+      "title": "bigfat_research verify：payload.code 必须是数字而不是字符串，否则报「payload.code 与请求标的",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "7e49878d36dd7c499fbf",
+      "title": "bigfat verify 的 source_ids 要填具体源 id，不能填独立性分组名（code 也必须走顶层参数）",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "8f712ce4a00da0a24147",
+      "title": "verify 调用面：code 必须顶层，source_ids 只能填 provider id（分组名会被判未登记）",
+      "anchor": "tool:bigfat_research",
+      "tool": "bigfat_research",
+      "kind": "tool",
+      "failures": 2,
+      "tools": [
+        "bigfat_research"
+      ]
+    },
+    {
+      "record": "80a96bc9809080ed96ce",
+      "title": "引用工具输出作记忆出处必须填 call id（verified-tool 9.0）；id 只能从失败 reason 里取",
+      "anchor": "path:9",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "path:25",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "ad3b0b8a3131ae7f8226",
+      "title": "AMD RX 7800 XT 用 sd.cpp Vulkan 即可生图（GPU 比 CPU 快 25 倍），画质瓶颈是模型",
+      "anchor": "path:25",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "6f18ec4e57c0b5872182",
+      "title": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+      "anchor": "path:not_implemented",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "55957abe9227d36b5138",
+      "title": "Steam 未登录会让 Bannerlord 10 秒静默退出，ERC403 是误导性报错",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "173a83d4890d1318c655",
+      "title": "无人值守长跑会被游戏自动存档覆盖用户存档：先备份、单次不超 10 分钟",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "91c6f6df61ffb48373ec",
+      "title": "单次命令上限 10 分钟且超时后无输出：长任务必须后台跑 + 落日志",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:10",
+      "tool": "present",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "present",
+        "edit"
+      ]
+    },
+    {
+      "record": "ae392ca0c01eaa1488fd",
+      "title": "客户端由 1.5.2 漂移到 1.5.3：1.5.2 证据失效，编译探针 PASS 但不等于可运行",
+      "anchor": "path:3",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:3",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:3",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "0e68be69d0e09b643ef3",
+      "title": "国内生图 API 价格（2026-09）：阿里 qwen-image-3.0 约 0.18 元/张、火山 Seedream 5.0 Pro ",
+      "anchor": "path:3",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "76d10a15712855ec97ca",
+      "title": "1.5.2 时间控制与新档初始化：SetTimeSpeed 只认 0/1/2，新档不触发 OnGameLoaded",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "ae392ca0c01eaa1488fd",
+      "title": "客户端由 1.5.2 漂移到 1.5.3：1.5.2 证据失效，编译探针 PASS 但不等于可运行",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "586a23c5ca80a9c69127",
+      "title": "广东现行最低工资：粤府函〔2026〕188号，2026-09-01 起，阳江/阳春为三类 2040 元/月",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "98896b0b8ee23fc9507e",
+      "title": "查经验记忆用关键词不用长句：短关键词排第 1 的记录，长句问法会掉出前 5",
+      "anchor": "path:2",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "0d2b6398987c2e687088",
+      "title": "harness.log 里没有 Cordis 插件的 logger 输出",
+      "anchor": "path:cordis",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "b15f8166cf2568639a05",
+      "title": "DSH 离线校验合成配置的正确命令：经 harness-node-entry.mjs + web --patch（web 不认 --prof",
+      "anchor": "path:cordis",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "c9b8e7d6a1ea4b6c9256",
+      "title": "改 DSH 的 settings.yaml 不用重启，实测改动即时可用",
+      "anchor": "path:cordis",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "4711aa46e17ae78766e3",
+      "title": "preset 挂载失败会被加载器缓存：改对内容也没用，要换文件路径",
+      "anchor": "path:cordis",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit",
+        "write"
+      ]
+    },
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "path:write",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "path:write",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "74956a62c2ee2f67c5d4",
+      "title": "常驻资格线 6.0：写入瞬间越线、此后年龄扣分掉线，长期常驻只能靠真实复用加分",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "80a96bc9809080ed96ce",
+      "title": "引用工具输出作记忆出处必须填 call id（verified-tool 9.0）；id 只能从失败 reason 里取",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "b1f2b6fa04e115ef2ee0",
+      "title": "Bannerlord 项目的构建/部署/开关/证据四条强制脚本路径",
+      "anchor": "path:bannerlordplayerlikeai",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "76d10a15712855ec97ca",
+      "title": "1.5.2 时间控制与新档初始化：SetTimeSpeed 只认 0/1/2，新档不触发 OnGameLoaded",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "16b6933138f341ca11be",
+      "title": "游戏实例清理不可靠会作废 A/B 实验：必须断言 0 实例并用 taskkill",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "ae392ca0c01eaa1488fd",
+      "title": "客户端由 1.5.2 漂移到 1.5.3：1.5.2 证据失效，编译探针 PASS 但不等于可运行",
+      "anchor": "path:bannerlordplayerlikeai",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "78ce8f58c51bfcc812c7",
+      "title": "R1 行为层：写白名单扩到 5 个调用点，第二把开关 wanderer.activities 默认关闭",
+      "anchor": "path:bannerlordplayerlikeai",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "c853df87eceff0b8c734",
+      "title": "R2 真实小队会让游戏崩溃（默认关闭）；其余各层已用单变量二分证明干净",
+      "anchor": "path:bannerlordplayerlikeai",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode",
+        "edit"
+      ]
+    },
+    {
+      "record": "9fa882b0986cccb002a6",
+      "title": "Vibe-Trading 0.1.15 的多重检验与统计验证资产在 src/quantlib 与 src/strategy_discover",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "4df2be2e895f09f6f4b5",
+      "title": "同花顺主指标是四舍五入到百万的近似值：能印证量级，不能用来算同比",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "a43cabb2e0402c689982",
+      "title": "筛选产物：结论字段是 screen_status（无 picks/candidates），results 顺序不是排名",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "25cc0a73da0cd72e81cc",
+      "title": "判据方向反了，零假设校准查不出来 —— 必须跟独立实现对照",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "7965affdce67f33687a8",
+      "title": "Z-Image-Turbo 参考生图：强度 0.92 最佳；它不支持 CFG 所以不听反向提示词",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "0e68be69d0e09b643ef3",
+      "title": "国内生图 API 价格（2026-09）：阿里 qwen-image-3.0 约 0.18 元/张、火山 Seedream 5.0 Pro ",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "ba9fb68b9353304f9f91",
+      "title": "广东工伤行业基准费率：轴承制造属第四类0.8%，不是第三类0.6%",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "d6efbff47feafc444168",
+      "title": "mimo 在 DSH 里 0 次工具调用、且编造工具结果；端点本身会用工具（对照 deepseek 174 次）",
+      "anchor": "path:0",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "79bd24233b0c71c7ec20",
+      "title": "bigfat 资讯层无新增时不重写 intel 文件：09-23 采集后 intel 文件时间戳仍是 09-21",
+      "anchor": "path:21",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 2,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "8a3de2df51e82c04d282",
+      "title": "常驻 Python worker 必须接代码指纹，否则「改对了却看到旧结果」",
+      "anchor": "path:js",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "84feae93f4dba1b9a91d",
+      "title": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+      "anchor": "path:js",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "385e693b25ba9a3ad668",
+      "title": "同花顺历史行情：hs_=沪深、sb_=老三板；全量要按年取 YYYY.js",
+      "anchor": "path:js",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "149ae77e54ecd1ec8f8d",
+      "title": "素材管道：供应商无关 + 假接口自检 + manifest.js 绕开 file:// CORS",
+      "anchor": "path:js",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "9bf1684eeb8d36846444",
+      "title": "给工具加参数必须同时改 lib/tools.js，否则会话调不到（Python 单测全绿也发现不了）",
+      "anchor": "path:js",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "170543712a52bb9c5b34",
+      "title": "\"求不出值\"必须与\"值不是数字\"分开（present vs value is None）",
+      "anchor": "path:missing",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "a43cabb2e0402c689982",
+      "title": "筛选产物：结论字段是 screen_status（无 picks/candidates），results 顺序不是排名",
+      "anchor": "path:excluded",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "ba9fb68b9353304f9f91",
+      "title": "广东工伤行业基准费率：轴承制造属第四类0.8%，不是第三类0.6%",
+      "anchor": "path:8",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "path:output",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "e5f7d28c2be2fddbae42",
+      "title": "本机抓不到网页时的三条排查顺序：换 http 端口 / 跟随 301 / 中文路径发原始 UTF-8",
+      "anchor": "path:8",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "3b84814f4f76dd0a078e",
+      "title": "advice propose 三处契约：入参=研究报告 payload、返回无 ok（看 advice_id/red_lines_count",
+      "anchor": "path:st",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "path:audit",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "76d10a15712855ec97ca",
+      "title": "1.5.2 时间控制与新档初始化：SetTimeSpeed 只认 0/1/2，新档不触发 OnGameLoaded",
+      "anchor": "path:1",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "ae392ca0c01eaa1488fd",
+      "title": "客户端由 1.5.2 漂移到 1.5.3：1.5.2 证据失效，编译探针 PASS 但不等于可运行",
+      "anchor": "path:1",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "9fa882b0986cccb002a6",
+      "title": "Vibe-Trading 0.1.15 的多重检验与统计验证资产在 src/quantlib 与 src/strategy_discover",
+      "anchor": "path:1",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "e106a7f78d93335aaa6c",
+      "title": "出图提示词：主体词必须放最前；Turbo 在 cfg=1 下不听反向提示词",
+      "anchor": "path:1",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "25cc0a73da0cd72e81cc",
+      "title": "判据方向反了，零假设校准查不出来 —— 必须跟独立实现对照",
+      "anchor": "path:1",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "0c51e4b5be637bd22f47",
+      "title": "退休返聘在2026年7月1日后已不是\"纯劳务关系\"：工伤保险成为强制义务",
+      "anchor": "path:1",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "path:1",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "98896b0b8ee23fc9507e",
+      "title": "查经验记忆用关键词不用长句：短关键词排第 1 的记录，长句问法会掉出前 5",
+      "anchor": "path:1",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "765a30c77927af9663ff",
+      "title": "PE 参考带的瓶颈是月线长度，不是 EPS 双源口径（实测 7 只全部 OK，故不改）",
+      "anchor": "path:eps",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "7073746c7e7d423ce70d",
+      "title": "facts.jsonl 是追加式：同一字段存多快照，行情类取数必须按 at/quote_timestamp 取最新",
+      "anchor": "path:27",
+      "tool": "write",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "3abebf8514f66103fb5f",
+      "title": "验证框架修复只能用「同输入重跑 + 比对产物」，不能信 coverage 自述统计",
+      "anchor": "path:coverage",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "f314426502d552bd8524",
+      "title": "bigfat 插件缺陷：expected_artifacts 工具 schema 与实现不一致，op=init 填不上",
+      "anchor": "path:list",
+      "tool": "write",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "8ccc64204de82eb0ccdd",
+      "title": "DSH：新增 bundle 必须重启；HMR 只能重载已加载 bundle 的模块",
+      "anchor": "path:lib",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "84feae93f4dba1b9a91d",
+      "title": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+      "anchor": "path:lib",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "9bf1684eeb8d36846444",
+      "title": "给工具加参数必须同时改 lib/tools.js，否则会话调不到（Python 单测全绿也发现不了）",
+      "anchor": "path:lib",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "9bf1684eeb8d36846444",
+      "title": "给工具加参数必须同时改 lib/tools.js，否则会话调不到（Python 单测全绿也发现不了）",
+      "anchor": "path:cli",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "6f18ec4e57c0b5872182",
+      "title": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+      "anchor": "path:cli",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "93cd82f12646b9754170",
+      "title": "退市股开关是三态且默认开启；C3 只在退市股真进面板时才声明",
+      "anchor": "path:c3",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "463413082a3fee7fff3c",
+      "title": "小米 MiMo 端点只认 reasoning_effort 的 none/low/medium/high，写 max 就 400",
+      "anchor": "path:max",
+      "tool": "write",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "c13827b45be585ea3277",
+      "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s",
+      "anchor": "path:4",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "512e622341cb5fd4c3f3",
+      "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+      "anchor": "path:4",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "98896b0b8ee23fc9507e",
+      "title": "查经验记忆用关键词不用长句：短关键词排第 1 的记录，长句问法会掉出前 5",
+      "anchor": "path:4",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "149ae77e54ecd1ec8f8d",
+      "title": "素材管道：供应商无关 + 假接口自检 + manifest.js 绕开 file:// CORS",
+      "anchor": "path:file",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "f723c6539a87d160c680",
+      "title": "审计前先用实测行数核对任务书：行数不符会让所有引用行号错位",
+      "anchor": "path:file",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "0aac41a1e50b943609b3",
+      "title": "PowerShell 的 Measure-Object -Line 会漏计空行，核行数要用 (Get-Content $f).Count",
+      "anchor": "path:file",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "512e622341cb5fd4c3f3",
+      "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+      "anchor": "path:file",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "f3a403c244dc1213afc4",
+      "title": "SD-Turbo 商用门槛：年收入低于 100 万美元免费（Stability 社区许可）；SD1.5 是 OpenRAIL-M",
+      "anchor": "path:license",
+      "tool": "write",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "74956a62c2ee2f67c5d4",
+      "title": "常驻资格线 6.0：写入瞬间越线、此后年龄扣分掉线，长期常驻只能靠真实复用加分",
+      "anchor": "path:6",
+      "tool": "memory_remember",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "memory_remember"
+      ]
+    },
+    {
+      "record": "9d0f16fcbc03fff03c99",
+      "title": "SDXL-Turbo：fp16 6.46GB，许可与 SD-Turbo 相同（年收入<100万美元可免费商用）",
+      "anchor": "path:6",
+      "tool": "memory_remember",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "memory_remember"
+      ]
+    },
+    {
+      "record": "cf87a3b86a22447dc1d3",
+      "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB",
+      "anchor": "path:6",
+      "tool": "memory_remember",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "memory_remember"
+      ]
+    },
+    {
+      "record": "12f0590e61c10b33ad5c",
+      "title": "广东允许超龄人员（含已领养老金者）单项参加工伤保险，现行文号粤人社规〔2024〕6号，全省可线上办",
+      "anchor": "path:6",
+      "tool": "memory_remember",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "memory_remember"
+      ]
+    },
+    {
+      "record": "ba9fb68b9353304f9f91",
+      "title": "广东工伤行业基准费率：轴承制造属第四类0.8%，不是第三类0.6%",
+      "anchor": "path:6",
+      "tool": "memory_remember",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "memory_remember"
+      ]
+    },
+    {
+      "record": "3e52bb040cb80e550ca9",
+      "title": "Bannerlord 崩溃会伪装成假死：认 Application Popup id 26 + 心跳 + 看门狗",
+      "anchor": "path:26",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "a2daa5dc426961c4e412",
+      "title": "别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗",
+      "anchor": "path:logs",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "79bd24233b0c71c7ec20",
+      "title": "bigfat 资讯层无新增时不重写 intel 文件：09-23 采集后 intel 文件时间戳仍是 09-21",
+      "anchor": "path:23",
+      "tool": "exit_plan_mode",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "exit_plan_mode"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "path:program",
+      "tool": "write",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "write"
+      ]
+    },
+    {
+      "record": "8a3de2df51e82c04d282",
+      "title": "常驻 Python worker 必须接代码指纹，否则「改对了却看到旧结果」",
+      "anchor": "command:python",
+      "tool": "promptx_cmdx_ask9m3b",
+      "kind": "command",
+      "failures": 1,
+      "tools": [
+        "promptx_cmdx_ask9m3b"
+      ]
+    },
+    {
+      "record": "3c1395e7f3408b1565b2",
+      "title": "用户只会简单 Python/SQL：汇报必须大白话，不靠术语和代码",
+      "anchor": "command:python",
+      "tool": "promptx_cmdx_ask9m3b",
+      "kind": "command",
+      "failures": 1,
+      "tools": [
+        "promptx_cmdx_ask9m3b"
+      ]
+    },
+    {
+      "record": "9bf1684eeb8d36846444",
+      "title": "给工具加参数必须同时改 lib/tools.js，否则会话调不到（Python 单测全绿也发现不了）",
+      "anchor": "command:python",
+      "tool": "promptx_cmdx_ask9m3b",
+      "kind": "command",
+      "failures": 1,
+      "tools": [
+        "promptx_cmdx_ask9m3b"
+      ]
+    },
+    {
+      "record": "bf0c2fd7dbcf750a05d5",
+      "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度",
+      "anchor": "command:python",
+      "tool": "promptx_cmdx_ask9m3b",
+      "kind": "command",
+      "failures": 1,
+      "tools": [
+        "promptx_cmdx_ask9m3b"
+      ]
+    },
+    {
+      "record": "1f911d3835d27637964f",
+      "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件",
+      "anchor": "path:docs",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "8129bc00f16cfa2ec77d",
+      "title": "接手半成品仓库：先打独立基线提交，绝不 git add -A",
+      "anchor": "path:a",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "16b6933138f341ca11be",
+      "title": "游戏实例清理不可靠会作废 A/B 实验：必须断言 0 实例并用 taskkill",
+      "anchor": "path:a",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "c4b54587b754a9553b3a",
+      "title": "bigfat 审计链路：audit stage=A 只吃 JSON（report 动作只产 Markdown），且强制要求 25 行以上的 ",
+      "anchor": "path:a",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "610a0b6aa3f4357c3891",
+      "title": "bigfat 数据层只有 A 股上市公司口径，没有公募基金；基金代码 002246 会撞上北化股份",
+      "anchor": "path:a",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    },
+    {
+      "record": "07069d0235957bfe2f3a",
+      "title": "因子库 174 只\"2020-12-31 集体停更\"全部是建库截断，不是退市",
+      "anchor": "path:a",
+      "tool": "edit",
+      "kind": "path",
+      "failures": 1,
+      "tools": [
+        "edit"
+      ]
+    }
+  ]
+}
