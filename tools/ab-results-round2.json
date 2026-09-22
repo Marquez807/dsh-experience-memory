@@ -1,0 +1,112 @@
+[
+    {
+        "mode":  "without",
+        "trial":  20,
+        "verdict":  "nothing",
+        "upstream":  "30000",
+        "defaults":  "30000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    },
+    {
+        "mode":  "without",
+        "trial":  21,
+        "verdict":  "correct",
+        "upstream":  "30000",
+        "defaults":  "45000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    },
+    {
+        "mode":  "without",
+        "trial":  22,
+        "verdict":  "nothing",
+        "upstream":  "30000",
+        "defaults":  "30000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    },
+    {
+        "mode":  "without",
+        "trial":  23,
+        "verdict":  "nothing",
+        "upstream":  "30000",
+        "defaults":  "30000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    },
+    {
+        "mode":  "without",
+        "trial":  24,
+        "verdict":  "nothing",
+        "upstream":  "30000",
+        "defaults":  "30000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    },
+    {
+        "mode":  "with",
+        "trial":  20,
+        "verdict":  "both",
+        "upstream":  "45000",
+        "defaults":  "45000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    },
+    {
+        "mode":  "with",
+        "trial":  21,
+        "verdict":  "correct",
+        "upstream":  "30000",
+        "defaults":  "45000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    },
+    {
+        "mode":  "with",
+        "trial":  22,
+        "verdict":  "correct",
+        "upstream":  "30000",
+        "defaults":  "45000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    },
+    {
+        "mode":  "with",
+        "trial":  23,
+        "verdict":  "correct",
+        "upstream":  "30000",
+        "defaults":  "45000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    },
+    {
+        "mode":  "with",
+        "trial":  24,
+        "verdict":  "wrong-branch",
+        "upstream":  "45000",
+        "defaults":  "30000",
+        "hint":  "no-hint",
+        "deliveries":  0,
+        "matched":  "ERR file is not a database",
+        "byTool":  ""
+    }
+]
