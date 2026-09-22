@@ -1,0 +1,82 @@
+[
+    {
+        "mode":  "without",
+        "trial":  1,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  436
+    },
+    {
+        "mode":  "without",
+        "trial":  2,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  724
+    },
+    {
+        "mode":  "without",
+        "trial":  3,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  249
+    },
+    {
+        "mode":  "without",
+        "trial":  4,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  340
+    },
+    {
+        "mode":  "without",
+        "trial":  5,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  521
+    },
+    {
+        "mode":  "with",
+        "trial":  1,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  428
+    },
+    {
+        "mode":  "with",
+        "trial":  2,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  438
+    },
+    {
+        "mode":  "with",
+        "trial":  3,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  835
+    },
+    {
+        "mode":  "with",
+        "trial":  4,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  399
+    },
+    {
+        "mode":  "with",
+        "trial":  5,
+        "verdict":  "correct",
+        "vault":  true,
+        "namespace":  true,
+        "bytes":  316
+    }
+]

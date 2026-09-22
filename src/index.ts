@@ -513,12 +513,14 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
     description:
       'Call this the moment you learn something that will still matter in a later session: a project '
       + 'convention, a boundary or invariant, a command that works, or a lesson from a mistake. '
-      + 'Supply `quote` with the exact passage the claim rests on, and `source_ref` naming where it '
-      + 'came from: the plugin verifies that passage against this session and the workspace and '
-      + 'grades the record accordingly, accepting a verbatim user assertion, a file in the workspace, '
-      + 'or a tool call that succeeded. Without a verifiable passage the record stays a candidate and '
-      + 'is never injected automatically. Record the durable rule, not the errand: do not record '
-      + 'one-off task detail, transient tool output, secrets, or unverified guesses.',
+      + 'Supply `quote` with the exact passage the claim rests on — and make sure that passage **says '
+      + 'the thing you are claiming**, because a later reader checks exactly that and throws the record '
+      + 'away when it does not (see the `quote` parameter). `source_ref` names where it came from: the '
+      + 'plugin verifies the passage against this session and the workspace and grades the record '
+      + 'accordingly, accepting a verbatim user assertion, a file in the workspace, or a tool call that '
+      + 'succeeded. Without a verifiable passage the record stays a candidate and is never injected '
+      + 'automatically. Record the durable rule, not the errand: do not record one-off task detail, '
+      + 'transient tool output, secrets, or unverified guesses.',
     parameters: {
       kind: {
         type: 'string',
@@ -531,7 +533,13 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       body: { type: 'string', required: true, description: 'The atomic claim. One record, one claim.' },
       quote: {
         type: 'string',
-        description: 'The verbatim passage from this conversation or from a workspace file that supports the claim.',
+        description: 'The verbatim passage the claim rests on — and it has to **state the rule itself**, '
+          + 'not merely come from the same file. A real model reading a record back checks exactly this: '
+          + 'given a claim about a deployment vault and a quote that only says how to start the server '
+          + 'locally, it answers "the cited evidence does not match the claim" and discards the record. '
+          + 'So quote the sentence that says the thing (a rule, an order, a value, an error message), not '
+          + 'the paragraph you happened to be reading. If no passage states it, the claim is not yet ready '
+          + 'to record: write the `inferred` version and say what is missing.',
       },
       source_ref: {
         type: 'string',
