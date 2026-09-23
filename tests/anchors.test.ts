@@ -83,6 +83,18 @@ export async function run(): Promise<void> {
     'newest call first; an absolute path yields no anchor, a workspace-relative one does')
   eq(suggestAnchors({ events: turn, limit: 1 }).length, 1, 'the limit is honoured')
   eq(suggestAnchors({ events: [] }), [], 'no turn, no proposals')
+  // Live check 2026-09-24: the first real call proposed `command:$target`, because that turn's
+  // PowerShell started with an assignment. A variable is not a program.
+  eq(
+    suggestAnchors({
+      events: [
+        { type: 'turn/start', data: {} },
+        { type: 'tool/call', data: { callId: 'c8', name: 'pwsh', arguments: JSON.stringify({ command: '$target = "x"; Write-Output $target' }) } },
+      ],
+    }).map(item => item.anchor),
+    ['tool:pwsh'],
+    'a variable assignment is not proposed as a command anchor',
+  )
   eq(
     suggestAnchors({ events: turn, sourceRef: 'dsh-experience-memory/src/anchors.ts:277' }).map(item => item.anchor),
     ['path:dsh-experience-memory/src/anchors.ts', 'path:tools/status-report.mjs'],
