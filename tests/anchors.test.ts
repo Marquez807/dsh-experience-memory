@@ -88,6 +88,19 @@ export async function run(): Promise<void> {
     ['path:dsh-experience-memory/src/anchors.ts', 'path:tools/status-report.mjs'],
     'the cited path comes first: it is what the writer already decided the lesson is about',
   )
+  // A report is evidence, not a location — the rule `deriveAnchorFromSourceRef` already applies.
+  // Live check 2026-09-24: a real call proposed `path:.../DELIVERY-GAPS.md` because the turn had
+  // read it, which would fire the lesson on whoever edits the audit trail.
+  eq(
+    suggestAnchors({
+      events: [
+        { type: 'turn/start', data: {} },
+        { type: 'tool/call', data: { callId: 'c9', name: 'read', arguments: JSON.stringify({ file_path: 'docs/DELIVERY-GAPS.md' }) } },
+      ],
+    }).map(item => item.anchor),
+    ['tool:read'],
+    'a report file is not proposed as a location; the tool anchor still is',
+  )
 
   // ── End to end on a store ────────────────────────────────────────────────
   const dir = mkdtempSync(join(tmpdir(), 'expmem-anchors-'))
