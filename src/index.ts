@@ -325,6 +325,10 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         batchSize: resolved.maintenanceBatchSize,
         candidateTtlDays: resolved.harvestCandidateTtlDays,
         candidatePoolLimit: resolved.harvestPoolLimit,
+        // The provenance step needs the workspace root to resolve a record's relative
+        // `source_ref`. Deliberately no fallback: a wrong root would flag every record whose
+        // evidence file lives elsewhere, which is a worse silence than skipping the check.
+        workspaceRoot: payload?.agent?.session?.header?.cwd,
       })
     } catch (error) {
       // A failed maintenance pass must never break a turn — but it must be
