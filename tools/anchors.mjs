@@ -58,10 +58,13 @@ const pool = records.filter(visibleTo).map(row => ({
   title: String(row.title),
   createdAt: Number(row.created_at),
   sourceRef: String(row.source_ref ?? ''),
+  // `derived: true` is what makes the source_ref fallback visible at all. Without it the
+  // derived count silently reads 0 and the tool under-reports the store — which is exactly
+  // what happened the first time it ran.
   ...recordAnchors({
     trigger: String(row.trigger ?? ''),
     sourceRef: String(row.source_ref ?? ''),
-  }),
+  }, { derived: true }),
 }))
 
 const declared = pool.filter(row => row.via === 'declared')
@@ -88,10 +91,14 @@ say('## 结论')
 say('')
 say(`- 有资格被投递的记录：**${pool.length}** 条（已确认、未被取代、未过期、本工作区可见）`)
 say(`- **自己声明了锚点**（写记录时填了"以后什么调用该把它端出来"）：**${declared.length}** 条（${pct(declared.length, pool.length)}）`)
-say(`- **由出处推断出锚点**（出处是代码/配置文件，用那个文件名当锚点）：**${derived.length}** 条（${pct(derived.length, pool.length)}）`)
+say(`- **由出处推断出锚点**（出处是代码/配置文件，用那个路径当锚点）：**${derived.length}** 条（${pct(derived.length, pool.length)}）`)
 say(`- **没有任何锚点、动手前永远静默**：**${silent.length}** 条（${pct(silent.length, pool.length)}）`)
 say('')
-say('自己声明的锚点是可靠的那一档；推断出来的只在调用**要动那个文件**（edit/write）时才生效，')
+say(`**只有"自己声明"的那 ${declared.length} 条会在动手前真的送出去。** 推断出来的那 ${derived.length} 条`)
+say('是备用的一档：默认**关着**（`decideForCall` 的 `derivedAnchors` 选项，生产路径不传它），')
+say('而且即使打开也只在调用**要动那个文件**（edit/write）时才生效——实测它会把"记录提到过这个文件"')
+say('当成"这条记录讲的就是这次改动"，单条撞过 247 次，所以默认不开。要复核：')
+say('`node tools/replay.mjs --judge derived`。')
 say('因为"这个文件在记录的出处里"比"这条记录讲的就是这个文件"弱一档。')
 say('')
 

@@ -43,10 +43,18 @@ const eligible = rows.filter(r =>
   (r.scope !== 'workspace' || r.workspace_id === workspace.id
     || (workspace.domain !== '' && r.domain === workspace.domain))
   && (r.expires_at === null || Number(r.expires_at) > now))
-const withAnchor = eligible.filter(r => recordAnchors(
+// Split by how the anchor arrived: a *declared* one is what the delivery gate uses, a *derived*
+// one only fires when `derivedAnchors` is switched on and the production path does not switch it
+// on. Collapsing the two made this tool report 64 anchors where the plugin's own tool said 9 —
+// both numbers were right about different things and the label was missing.
+const declaredCount = eligible.filter(r => recordAnchors(
   { trigger: String(r.trigger ?? ''), sourceRef: String(r.source_ref ?? '') },
   { derived: true },
-).anchors.length > 0)
+).via === 'declared').length
+const derivedCount = eligible.filter(r => {
+  const a = recordAnchors({ trigger: String(r.trigger ?? ''), sourceRef: String(r.source_ref ?? '') }, { derived: true })
+  return a.via === 'derived' && a.anchors.length > 0
+}).length
 
 const total = db.prepare('SELECT COUNT(*) n FROM record').get().n
 const confirmed = db.prepare("SELECT COUNT(*) n FROM record WHERE status='confirmed'").get().n
@@ -58,7 +66,10 @@ db.close()
 
 console.log('')
 console.log('--- 库 ---')
-console.log(`记录 ${total}（已确认 ${confirmed}）；本工作区可投递 ${eligible.length}，其中带锚点 ${withAnchor.length}`)
+console.log(`记录 ${total}（已确认 ${confirmed}）；本工作区可投递 ${eligible.length}`)
+console.log(`  其中动手前**真会送**的（自己声明的锚点）：${declaredCount}`)
+console.log(`  有备用锚点但默认不启用的（从出处推断）：${derivedCount}`)
+console.log(`  动手前永远静默的：${eligible.length - declaredCount - derivedCount}`)
 console.log(`索引 ${index} 行（孤儿 ${orphans}）；悬空引用 ${dangling}；投递痕迹 ${delivery} 行`)
 
 console.log('')
