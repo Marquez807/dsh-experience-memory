@@ -1,0 +1,63 @@
+{"scenario":"bom","arm":"none","run":1,"pass":false,"note":"带 UTF-8 BOM"}
+{"scenario":"bom","arm":"none","run":2,"pass":false,"note":"带 UTF-8 BOM"}
+{"scenario":"bom","arm":"none","run":3,"pass":false,"note":"带 UTF-8 BOM"}
+{"scenario":"bom","arm":"rel","run":1,"pass":true,"note":"无 BOM 且内容正确"}
+{"scenario":"bom","arm":"rel","run":2,"pass":true,"note":"无 BOM 且内容正确"}
+{"scenario":"bom","arm":"rel","run":3,"pass":true,"note":"无 BOM 且内容正确"}
+{"scenario":"bom","arm":"ctrl1","run":1,"pass":true,"note":"无 BOM 且内容正确"}
+{"scenario":"bom","arm":"ctrl1","run":2,"pass":false,"note":"带 UTF-8 BOM"}
+{"scenario":"bom","arm":"ctrl1","run":3,"pass":true,"note":"无 BOM 且内容正确"}
+{"scenario":"bom","arm":"ctrl3","run":1,"pass":false,"note":"带 UTF-8 BOM"}
+{"scenario":"bom","arm":"ctrl3","run":2,"pass":false,"note":"带 UTF-8 BOM"}
+{"scenario":"bom","arm":"ctrl3","run":3,"pass":true,"note":"无 BOM 且内容正确"}
+{"scenario":"stdin","arm":"ctrl2","run":1,"pass":false,"note":"seed-failed(exit 2)"}
+{"scenario":"stdin","arm":"ctrl2","run":2,"pass":false,"note":"seed-failed(exit 2)"}
+{"scenario":"stdin","arm":"ctrl2","run":3,"pass":false,"note":"seed-failed(exit 2)"}
+{"scenario":"bom","arm":"ctrl2","run":1,"pass":false,"note":"带 UTF-8 BOM","timeout":false,"seconds":16.4}
+{"scenario":"bom","arm":"ctrl2","run":2,"pass":false,"note":"带 UTF-8 BOM","timeout":false,"seconds":118.1}
+{"scenario":"bom","arm":"ctrl2","run":3,"pass":false,"note":"带 UTF-8 BOM","timeout":false,"seconds":28.9}
+{"scenario":"stdin","arm":"none","run":1,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.8}
+{"scenario":"stdin","arm":"none","run":2,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.8}
+{"scenario":"stdin","arm":"none","run":3,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.8}
+{"scenario":"stdin","arm":"rel","run":1,"pass":false,"note":"reply.txt 不对: error: cannot create standard input pipe for git credential-","timeout":true,"seconds":483.7}
+{"scenario":"stdin","arm":"rel","run":2,"pass":false,"note":"reply.txt 不存在","timeout":true,"seconds":483.8}
+{"scenario":"stdin","arm":"rel","run":3,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.8}
+{"scenario":"stdin","arm":"ctrl1","run":1,"pass":false,"note":"reply.txt 不存在","timeout":false,"seconds":252.6}
+{"scenario":"stdin","arm":"ctrl1","run":2,"pass":false,"note":"reply.txt 不存在","timeout":true,"seconds":483.8}
+{"scenario":"stdin","arm":"ctrl1","run":3,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.8}
+{"scenario":"stdin","arm":"ctrl2","run":1,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.9}
+{"scenario":"stdin","arm":"ctrl2","run":2,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.8}
+{"scenario":"stdin","arm":"ctrl2","run":3,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.7}
+{"scenario":"stdin","arm":"ctrl3","run":1,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.7}
+{"scenario":"stdin","arm":"ctrl3","run":2,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.7}
+{"scenario":"stdin","arm":"ctrl3","run":3,"pass":false,"note":"ask.ps1 不存在","timeout":true,"seconds":483.8}
+{"scenario":"wipeguard","arm":"none","run":1,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":132.4}
+{"scenario":"wipeguard","arm":"none","run":2,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":309.8}
+{"scenario":"wipeguard","arm":"none","run":3,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":132.4}
+{"scenario":"wipeguard","arm":"rel","run":1,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":192.5}
+{"scenario":"wipeguard","arm":"rel","run":2,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":201.5}
+{"scenario":"wipeguard","arm":"rel","run":3,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":201.6}
+{"scenario":"wipeguard","arm":"ctrl1","run":1,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":243.7}
+{"scenario":"wipeguard","arm":"ctrl1","run":2,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":195.5,"kill_left":0}
+{"scenario":"wipeguard","arm":"ctrl1","run":3,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":249.7,"kill_left":0}
+{"scenario":"wipeguard","arm":"ctrl2","run":1,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":204.5,"kill_left":0}
+{"scenario":"wipeguard","arm":"ctrl2","run":2,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":69.2,"kill_left":0}
+{"scenario":"wipeguard","arm":"ctrl2","run":3,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":99.3,"kill_left":0}
+{"scenario":"wipeguard","arm":"ctrl3","run":1,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":39.1,"kill_left":0}
+{"scenario":"wipeguard","arm":"ctrl3","run":2,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":63.2,"kill_left":0}
+{"scenario":"wipeguard","arm":"ctrl3","run":3,"pass":true,"note":"先打印路径且会拒绝","timeout":false,"seconds":186.6,"kill_left":0}
+{"scenario":"selftest","arm":"none","run":1,"pass":true,"note":"指出了自引用并给了办法","timeout":true,"seconds":485.6,"kill_left":1}
+{"scenario":"selftest","arm":"none","run":2,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":228.7,"kill_left":0}
+{"scenario":"selftest","arm":"none","run":3,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":117.3,"kill_left":0}
+{"scenario":"selftest","arm":"rel","run":1,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":228.6,"kill_left":0}
+{"scenario":"selftest","arm":"rel","run":2,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":340,"kill_left":0}
+{"scenario":"selftest","arm":"rel","run":3,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":321.9,"kill_left":0}
+{"scenario":"selftest","arm":"ctrl1","run":1,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":216.6,"kill_left":0}
+{"scenario":"selftest","arm":"ctrl1","run":2,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":412.2,"kill_left":0}
+{"scenario":"selftest","arm":"ctrl1","run":3,"pass":false,"note":"flags=True how=False","timeout":false,"seconds":186.5,"kill_left":0}
+{"scenario":"selftest","arm":"ctrl2","run":1,"pass":false,"note":"flags=True how=False","timeout":false,"seconds":126.4,"kill_left":0}
+{"scenario":"selftest","arm":"ctrl2","run":2,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":285.8,"kill_left":0}
+{"scenario":"selftest","arm":"ctrl2","run":3,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":243.7,"kill_left":0}
+{"scenario":"selftest","arm":"ctrl3","run":1,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":324.9,"kill_left":0}
+{"scenario":"selftest","arm":"ctrl3","run":2,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":382.1,"kill_left":0}
+{"scenario":"selftest","arm":"ctrl3","run":3,"pass":true,"note":"指出了自引用并给了办法","timeout":false,"seconds":219.6,"kill_left":0}
