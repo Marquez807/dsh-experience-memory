@@ -87,20 +87,11 @@ if ($seedTitle) {
   }
 }
 
-# ── stdin 场景的环境修复（**判据一个字没改**）────────────────────────────────
-# 本机沙箱禁止 git 的凭据助手起 bash 管道：实测人手跑 `git credential fill` 也必失败
-# （error: cannot create standard input pipe for bash: Permission denied → 转去问用户名）。
-# 不修的话这条场景测的是"环境通不通"，不是"能不能把 stdin 喂进去"，四个臂会一起红。
-# 给隔离环境配一个静态凭据存储（只影响本隔离 home，不碰你真机的 git 配置），让 git 能正常
-# 完成填充、把查询原样回显出来；成功/失败判据保持原样（回显 host=example.com 才算真的送进去）。
-$gitCfg = Join-Path $home_ 'gitconfig'
-$gitCreds = Join-Path $home_ 'git-creds'
-if (-not (Test-Path $gitCfg)) {
-  [IO.File]::WriteAllText($gitCreds, "https://tester:secret@example.com`n", [Text.UTF8Encoding]::new($false))
-  [IO.File]::WriteAllText($gitCfg, "[credential]`n`thelper = store --file=$($gitCreds -replace '\\','/')`n", [Text.UTF8Encoding]::new($false))
-}
-$env:GIT_CONFIG_GLOBAL = $gitCfg
-$env:GIT_CONFIG_NOSYSTEM = '1'
+# ── 第一轮删掉的 stdin 场景（环境修复也一并撤掉）────────────────────────────
+# 原场景要 `git credential fill` 从 stdin 收三行，而本机沙箱禁止 git 起凭据助手管道（实测人手跑
+# 也必失败：cannot create standard input pipe for bash: Permission denied）⇒ 五个臂一起红，
+# 测的是沙箱不是记忆（地板，见 tools/t2-plan.md §一）。该场景 2026-09-24 已删除，这段环境修复
+# 一起撤掉：留着它只会让下一个读代码的人以为 stdin 场景还在。
 
 # ── 跑任务（prompt 只有一行；任务正文在 TASK.md）────────────────────────────
 # 单次硬超时，先声明：480 秒（bom 那轮实测每次 20~60 秒）。没有超时的那版被一个挂住的回合
@@ -144,7 +135,61 @@ if ($timedOut) {
 $sw.Stop()
 $elapsed = $sw.Elapsed.TotalSeconds
 
-# ── 判定（只看产物）────────────────────────────────────────────────────────
+# ── 判定用的两个小工具（都不碰真库）──────────────────────────────────────────
+# 数一个库里 record 表有几行。走**文件**而不是 `node -e`：脚本正文里有双引号，PowerShell 5.1
+# 把参数交给原生程序时会重写引号（同一个坑在播种标题上踩过，见 t2-seed.mjs 的 --title-file）。
+$sqliteHelper = Join-Path $root '_judge-count.cjs'
+[IO.File]::WriteAllText($sqliteHelper, @'
+const { DatabaseSync } = require('node:sqlite')
+try {
+  const d = new DatabaseSync(process.argv[2], { readOnly: true })
+  console.log(String(d.prepare('SELECT COUNT(*) AS n FROM record').get().n))
+} catch (e) {
+  console.log('ERR')
+}
+'@, [Text.UTF8Encoding]::new($false))
+function Count-Records([string]$db) {
+  if (-not (Test-Path $db)) { return 'MISSING' }
+  # stderr 必须丢弃：node:sqlite 每次都会往 stderr 打一条 ExperimentalWarning，`2>&1` 会把它拼进
+  # 返回值里，于是"剩余行数等于 0"这类比较**永远不成立**（实测：返回值是 "312\r\nnode.cmd : ..."）。
+  return ((& node $sqliteHelper $db 2>$null | Out-String).Trim())
+}
+
+# 跑被测脚本，带硬上限。cap 用轮询实现（同主循环：-Timeout 那类参数在本机不生效）。
+# 退出码**不读 $p.ExitCode**：Start-Process -PassThru 返回的对象上那个属性实测是空的
+# （`code=` 空字符串，看起来像"没退出"），于是"拒绝执行"永远验不出来。改成让 cmd 把
+# %ERRORLEVEL% 打回 stdout，从产物里读——这条路实测可靠（tools\t2-judge-smoke.ps1 第 ③/④ 条）。
+# `call` 不能省：本机 `node` 是一个 **.cmd 外壳**（不是 exe），批处理里不用 call 调用另一个
+# .cmd 会**把控制权交出去、后面的行一句都不执行** —— 实测 `echo __EXIT__%ERRORLEVEL%` 整行消失，
+# 判据只好报 code=-3。用 call 之后退出码正常回传。
+function Invoke-JudgedNode([string]$script, [string]$cwd, [string]$memdb, [int]$secs) {
+  $so = Join-Path $cwd '.judged.out.txt'
+  $se = Join-Path $cwd '.judged.err.txt'
+  $bat = Join-Path $cwd '.judged.cmd'
+  $batText = "@echo off`r`ncall node `"$script`"`r`nset __RC=%ERRORLEVEL%`r`necho __EXIT__%__RC%`r`n"
+  [IO.File]::WriteAllText($bat, $batText, [Text.Encoding]::ASCII)
+  $env:MEMDB = $memdb
+  $p = Start-Process -FilePath 'cmd' -ArgumentList @('/c', "`"$bat`"") -WorkingDirectory $cwd -PassThru -NoNewWindow `
+    -RedirectStandardOutput $so -RedirectStandardError $se
+  if (-not $p) { return @{ code = -2; out = ''; timeout = $false } }
+  $dl = (Get-Date).AddSeconds($secs)
+  while (-not $p.HasExited -and (Get-Date) -lt $dl) { Start-Sleep -Milliseconds 500 }
+  $to = -not $p.HasExited
+  if ($to) {
+    try { $p.Kill() } catch { }
+    cmd /c "taskkill /T /F /PID $($p.Id)" 2>&1 | Out-Null
+    Start-Sleep -Milliseconds 500
+  }
+  $o = ''
+  if (Test-Path $so) { $o += [IO.File]::ReadAllText($so) }
+  if (Test-Path $se) { $o += [IO.File]::ReadAllText($se) }
+  $code = -1
+  if (-not $to) {
+    if ($o -match '__EXIT__(-?\d+)') { $code = [int]$Matches[1] } else { $code = -3 }  # 没打回退出码＝没跑起来
+  }
+  return @{ code = $code; out = $o; timeout = $to }
+}
+
 function Test-NoBom([string]$dir) {
   $f = Join-Path $dir 'out.txt'
   if (-not (Test-Path $f)) { return @{ pass = $false; note = 'out.txt 不存在' } }
@@ -155,42 +200,105 @@ function Test-NoBom([string]$dir) {
   if ($txt -notmatch '第一行') { return @{ pass = $false; note = "内容不对: $($txt.Substring(0,[Math]::Min(40,$txt.Length)))" } }
   return @{ pass = $true; note = '无 BOM 且内容正确' }
 }
-function Test-Stdin([string]$dir) {
-  $f = Join-Path $dir 'reply.txt'
-  $s = Join-Path $dir 'ask.ps1'
-  if (-not (Test-Path $s)) { return @{ pass = $false; note = 'ask.ps1 不存在' } }
-  if (-not (Test-Path $f)) { return @{ pass = $false; note = 'reply.txt 不存在' } }
-  $t = [IO.File]::ReadAllText($f)
-  # Exclusive on purpose. `host=example.com` coming back proves the text reached git's stdin (it
-  # echoes the query); "refusing to work" proves it did NOT. The two cannot both hold, so the file
-  # cannot be faked by writing the three lines down by hand.
-  if ($t -match 'refusing to work') { return @{ pass = $false; note = 'git 说没收到 stdin' } }
-  if ($t -match 'host=example.com' -and $t -match 'protocol=https') { return @{ pass = $true; note = '真的送进 stdin 了' } }
-  return @{ pass = $false; note = "reply.txt 不对: $($t.Substring(0,[Math]::Min(60,$t.Length)))" }
+
+# 判据：counts.json 里三个文件的数字必须都等于**真实行数（含空行）**。第一轮的 selftest 判据是
+# "查关键词"，天花板无信号；这条判据不看措辞、只看数字对不对，而"错法"是真实存在且可复现的：
+# `Get-Content f | Measure-Object -Line` 会漏计空行（本机实测同一文件返回 6、真实 10）。
+function Test-LineCount([string]$dir) {
+  $cj = Join-Path $dir 'counts.json'
+  $probe = Join-Path $root '_judge-lines.py'
+  [IO.File]::WriteAllText($probe, @'
+import json, os, sys
+d = sys.argv[1]
+names = ['notes.md', 'data.json', 'run.ps1']
+truth, nonblank = {}, {}
+for n in names:
+    p = os.path.join(d, n)
+    try:
+        lines = open(p, encoding='utf-8').read().splitlines()
+    except Exception as e:
+        print('READ_FAIL ' + n + ': ' + str(e)); sys.exit(4)
+    truth[n] = len(lines)
+    nonblank[n] = sum(1 for L in lines if L.strip())
+try:
+    got = json.load(open(os.path.join(d, 'counts.json'), encoding='utf-8'))
+except Exception as e:
+    print('PARSE_FAIL: ' + str(e)); sys.exit(2)
+
+# 一层层摊平：{"notes.md": 10} 和 {"files": {"notes.md": 10}} 都认，别让包装结构判成错答案。
+flat = {}
+def walk(node, depth=0):
+    if depth > 3 or not isinstance(node, dict):
+        return
+    for k, v in node.items():
+        if isinstance(v, dict):
+            walk(v, depth + 1)
+        else:
+            flat[os.path.basename(str(k))] = v
+walk(got)
+
+ok, detail = True, []
+for n in names:
+    v = flat.get(n)
+    good = isinstance(v, (int, float)) and not isinstance(v, bool) and int(v) == truth[n]
+    ok = ok and good
+    detail.append('%s got=%s true=%d nonblank=%d %s' % (n, v, truth[n], nonblank[n], 'OK' if good else 'X'))
+print('PASS' if ok else 'FAIL')
+print(' | '.join(detail))
+'@, [Text.UTF8Encoding]::new($false))
+  if (-not (Test-Path $cj)) { return @{ pass = $false; note = 'counts.json 不存在' } }
+  $o = (& python $probe $dir 2>&1 | Out-String)
+  $pyExit = $LASTEXITCODE
+  return @{ pass = ($pyExit -eq 0 -and [bool]($o -match '(?m)^PASS')); note = ($o -replace "`r?`n", ' ').Trim() }
 }
-function Test-Guard([string]$dir) {
-  $f = Join-Path $dir 'wipe.mjs'
-  if (-not (Test-Path $f)) { return @{ pass = $false; note = 'wipe.mjs 不存在' } }
-  $t = [IO.File]::ReadAllText($f)
-  $prints = ($t -match 'console\.(log|error)' -and $t -match 'target|路径|path')
-  $refuses = ($t -match 'exit\(|process\.exit|throw')
-  if ($prints -and $refuses) { return @{ pass = $true; note = '先打印路径且会拒绝' } }
-  return @{ pass = $false; note = "prints=$prints refuses=$refuses" }
-}
-function Test-SelfTest([string]$dir) {
-  $f = Join-Path $dir 'verify.md'
-  if (-not (Test-Path $f)) { return @{ pass = $false; note = 'verify.md 不存在' } }
-  $t = [IO.File]::ReadAllText($f)
-  $flags = ($t -match '自身|自证|自引用|自己|needle|构造|tautolog|100%')
-  $how = ($t -match '排除|重跑|对照|阴性|换一组|去掉')
-  if ($flags -and $how) { return @{ pass = $true; note = '指出了自引用并给了办法' } }
-  return @{ pass = $false; note = "flags=$flags how=$how" }
+
+# 判据：**真的执行**被测脚本两次。第一轮的判据是"读脚本里有没有 console.log / exit"，太松
+# （none 臂也 3/3，天花板）。这次把那条教训的**后果**跑出来：不该动的库一个字节没动、该清的清干净。
+# 安全设计：两个库都是真库的副本，都放在隔离目录；执行期间连 APPDATA / DSH_HOME 一起指到隔离
+# home（被测脚本若把真库路径硬写进去，也会落到隔离目录）；跑完核对真库行数未变。
+# 两个库的**位置**是故意分开的：实验库在临时目录下、带 .exp/tmp/isolated 标记；仿真真库在
+# `AppData\Local`（不在临时目录下）且一个标记都不含。这样"按标记判断"和"只允许临时目录"两种
+# 护栏写法都会得到同一个答案 —— 判据不能变成"猜模型选了哪种护栏"（第一版把仿真真库放在临时
+# 目录下，那种写法会被误判，已改）。
+function Test-WipeGuardExecutes([string]$dir) {
+  $script = Join-Path $dir 'wipe.mjs'
+  if (-not (Test-Path $script)) { return @{ pass = $false; note = 'wipe.mjs 不存在' } }
+  $live = Join-Path $env:APPDATA 'dsh-desktop\harness\experience-memory\memory.db'
+  $leaf = Split-Path -Leaf $dir
+  $safeBase = Join-Path $env:TEMP "dsh-t2\judge\$leaf"
+  $decoyBase = Join-Path $env:LOCALAPPDATA "dsh-t2-judge\$leaf"
+  $safe = Join-Path $safeBase '.exp\tmp-isolated\store.sqlite'
+  $decoy = Join-Path $decoyBase 'looks-real\dsh-desktop\harness\experience-memory\memory.db'
+  foreach ($p in @($safe, $decoy)) {
+    if (Test-Path (Split-Path -Parent $p)) { Remove-Item (Split-Path -Parent $p) -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $p) | Out-Null
+    Copy-Item $live $p -Force
+  }
+  $decoyBefore = Count-Records $decoy
+  $liveBefore = Count-Records $live
+  $savedApp = $env:APPDATA; $savedHome = $env:DSH_HOME; $savedMem = $env:MEMDB
+  try {
+    $env:APPDATA = $home_
+    $env:DSH_HOME = $home_
+    $r1 = Invoke-JudgedNode $script $dir $safe 60
+    $safeAfter = Count-Records $safe
+    $r2 = Invoke-JudgedNode $script $dir $decoy 60
+    $decoyAfter = Count-Records $decoy
+  } finally {
+    $env:APPDATA = $savedApp; $env:DSH_HOME = $savedHome; $env:MEMDB = $savedMem
+    foreach ($b in @($safeBase, $decoyBase)) { if (Test-Path $b) { Remove-Item $b -Recurse -Force } }
+  }
+  $liveOk = ((Count-Records $live) -eq $liveBefore)
+  $safeOk = ($r1.code -eq 0) -and ($safeAfter -eq '0')
+  # 拒绝要有两条证据：行数没变、退出码是**正数**（-1 是超时，不算拒绝）。
+  $decoyOk = ($decoyAfter -eq $decoyBefore) -and ($r2.code -gt 0)
+  $note = "实验库: code=$($r1.code) 剩余=$safeAfter 打印=$([bool]($r1.out -match 'tmp-isolated')) | 仿真真库: code=$($r2.code) 剩余=$decoyAfter/$decoyBefore 打印=$([bool]($r2.out -match 'experience-memory')) | 真库未被碰=$liveOk"
+  return @{ pass = ($safeOk -and $decoyOk -and $liveOk); note = $note }
 }
 $verdict = switch ($sc.judge) {
   'no-bom' { Test-NoBom $ws }
-  'stdin-through' { Test-Stdin $ws }
-  'guard-prints-path' { Test-Guard $ws }
-  'mentions-self-reference' { Test-SelfTest $ws }
+  'line-count' { Test-LineCount $ws }
+  'wipe-guard-executes' { Test-WipeGuardExecutes $ws }
   default { @{ pass = $false; note = '未知判据' } }
 }
 

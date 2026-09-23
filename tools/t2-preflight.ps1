@@ -7,8 +7,12 @@
 # 播种标题里带英文双引号 ⇒ 被命令行吃掉、那个臂静默退化成"没有记忆"。
 # 这三件事都能在**跑之前**查出来，所以做成门。全绿才开跑。
 #
+# 2026-09-24 又加了一条（⑦）：第一轮 60 格跑完才发现**四条场景里三条没有判别力**（两条天花板、
+# 一条地板），一整晚白跑。所以"这条场景到底区不区分得出来"也必须开跑前回答，不能等跑完。
+#
 #   powershell -ExecutionPolicy Bypass -File tools\t2-preflight.ps1
-param([string]$ScenarioFilter = '')
+#   powershell -ExecutionPolicy Bypass -File tools\t2-preflight.ps1 -SkipDiscrimination   # 只查①–⑥，快
+param([string]$ScenarioFilter = '', [switch]$SkipDiscrimination)
 $ErrorActionPreference = 'Continue'
 $fail = 0
 function Chk($ok, $what, $detail) {
@@ -68,22 +72,12 @@ $got = @((Get-Content $out -Raw -ErrorAction SilentlyContinue).Trim() -split '\|
 # 数错，报了个假红（假红比漏报更坏：会让人开始不信整套预检）。所以这里连字段数一起断言。
 Chk ($got.Count -eq 5 -and $got[1] -eq $entry -and $got[4] -eq $prompt) '③ 启动参数不被空格拆开' "收到 $($got.Count) 个字段（脚本+4 参数）；入口路径完整：$($got[1] -eq $entry)；任务正文完整：$($got[4] -eq $prompt)"
 
-# ④ stdin 场景的**环境**确实可用（沙箱禁止 git 起凭据助手管道，实测人手跑也必失败）
-$gitCfg = Join-Path $home_ 'gitconfig'
-$gitCreds = Join-Path $home_ 'git-creds'
-if (-not (Test-Path $gitCfg)) {
-  [IO.File]::WriteAllText($gitCreds, "https://tester:secret@example.com`n", [Text.UTF8Encoding]::new($false))
-  [IO.File]::WriteAllText($gitCfg, "[credential]`n`thelper = store --file=$($gitCreds -replace '\\','/')`n", [Text.UTF8Encoding]::new($false))
-}
-$g = Join-Path $scratch 'gittry'
-New-Item -ItemType Directory -Force -Path $g | Out-Null
-[IO.File]::WriteAllText((Join-Path $g 'in.txt'), "protocol=https`nhost=example.com`n`n", [Text.UTF8Encoding]::new($false))
-Set-Location $g
-$env:GIT_CONFIG_GLOBAL = $gitCfg
-$env:GIT_CONFIG_NOSYSTEM = '1'
-cmd /c "git credential fill < in.txt > out.txt 2> err.txt"
-$gitOut = [IO.File]::ReadAllText((Join-Path $g 'out.txt'))
-Chk (($LASTEXITCODE -eq 0) -and $gitOut -match 'host=example.com') '④ stdin 场景的环境可用（git 能回显被喂进去的内容）' "退出码 $LASTEXITCODE；输出 $(($gitOut -split "`n")[0..1] -join ' / ')"
+# ④ 判据依赖 python 的两条场景（linecount / wipeguard 的库行数）**环境**确实可用
+#    stdin 场景已删除（本机沙箱地板），对应的 git 环境检查一并撤掉。
+$jf = Join-Path $scratch 'jtry.json'
+[IO.File]::WriteAllText($jf, '{"sources":[{"note":"ok"}]}', [Text.UTF8Encoding]::new($false))
+$py = & python -c "import json,sys;print(len(json.load(open(sys.argv[1],encoding='utf-8'))['sources']))" $jf 2>&1
+Chk (($LASTEXITCODE -eq 0) -and ("$py".Trim() -eq '1')) '④ 判据要用的 python + json 可用' "退出码 $LASTEXITCODE；读出 $("$py".Trim())"
 
 # ⑤ 记录版本，免得事后说不清是哪套环境跑的
 $nodeV = (& node --version) 2>&1
@@ -110,6 +104,38 @@ $sw.Stop()
 $capSecs = [math]::Round($sw.Elapsed.TotalSeconds, 1)
 $probeOut = [IO.File]::ReadAllText((Join-Path $scratch 'cap.out.txt'))
 Chk ($capFired -and $capSecs -lt 15 -and $probeOut -notmatch 'probe-done') '⑥ 超时上限真的会掐断（轮询机制）' "上限设 5 秒、探针要跑 20 秒：$capSecs 秒被掐断（应 <15 秒，且探针没跑完）"
+
+# ⑦ 场景的**判别力**：开跑前先各跑一格 —— none×1（不给记忆）与 rel×1（给对口记忆）。
+#    两边都过 = 天花板（不用记忆也能过，没信号）；两边都不过 = 地板（记忆也救不了，没信号）；
+#    rel 过 / none 不过 = 有判别力，这条场景才值得跑满 15 格。
+#    第一轮就是没做这一步：60 格跑完才发现 3/4 条场景是天花板或地板，一整晚白跑（t2-plan.md §一）。
+#    ⚠️ 探针的单格上限**必须与正式扫一致**（用默认 480 秒，不许调小）：第一版探针写死 240 秒，
+#    结果 wipeguard 两个臂都"没写出文件"，被读成"地板"——其实那是**探针自己的上限**造出来的假地板
+#    （事后看那个工作区：模型在 240 秒里一直在推敲判据、一个字都还没写）。探针量的是"有没有判别力"，
+#    不是"跑得快不快"。
+if (-not $SkipDiscrimination) {
+  $disc = if ($ScenarioFilter -eq '') { $spec.scenarios } else { @($spec.scenarios | Where-Object { $_.id -eq $ScenarioFilter }) }
+  foreach ($sc in $disc) {
+    $probeRes = @{}
+    foreach ($arm in @('none', 'rel')) {
+      $line = ''
+      $raw = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 't2-run.ps1') -Scenario $sc.id -Arm $arm -Run 99 2>&1 | Out-String
+      $line = ($raw -split "`n" | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+      $probeRes[$arm] = if ($line) { try { $line.Trim() | ConvertFrom-Json } catch { $null } } else { $null }
+    }
+    $nPass = ($probeRes['none'] -and $probeRes['none'].pass)
+    $rPass = ($probeRes['rel'] -and $probeRes['rel'].pass)
+    $verdictTxt = if ($rPass -and -not $nPass) { '有判别力' } elseif ($nPass -and $rPass) { '天花板（两边都过）' } elseif (-not $nPass -and -not $rPass) { '地板（两边都不过）' } else { '反向（rel 不过、none 过）' }
+    $detail = "none.pass=$nPass rel.pass=$rPass ⇒ $verdictTxt；none: $($probeRes['none'].note)；rel: $($probeRes['rel'].note)"
+    if ($rPass -and -not $nPass) { Chk $true "⑦ 场景 $($sc.id) 有判别力" $detail }
+    else {
+      Chk $false "⑦ 场景 $($sc.id) 没有判别力 ⇒ **先改场景/判据，别跑满 15 格**" $detail
+      Write-Host '       判断"地板"时先分清三件事：① 是这条任务真的不需要那条记忆；② 还是判据本身坏了（note 里有判据两侧的明细）；③ 还是这一格就没跑完（note 里的 timeout / code=-1）。第 ③ 种最会骗人，所以探针的上限与正式扫一致。'
+    }
+  }
+} else {
+  Write-Host '  [跳过] ⑦ 判别力探针（-SkipDiscrimination）'
+}
 
 if ($fail -eq 0) { Write-Host '=== 全绿：可以开跑 ===' } else { Write-Host '=== 有红线：先修，别开跑（红了还跑＝白跑）===' }
 exit $fail

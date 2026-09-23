@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 /**
- * Read `tools/t2-results.jsonl` and print the 4×5 matrix. Read-only; no judgement beyond numbers.
+ * Read `tools/t2-results.jsonl` and print the scenario × arm matrix. Read-only; no judgement beyond
+ * numbers. The scenario list comes from `t2-scenarios.json`, so this file has no idea how many
+ * scenarios a round has — 第一轮是 4 条场景，现在是 3 条（bom / jsonquote / wipeguard），报告跟着表走。
+ *
+ * 第一轮的 60 格留在 `tools/t2-results-r1.jsonl`（同一格式），不删：那一轮本身是有结论的
+ * （见 `t2-plan.md` §一），只是场景数变了。本轮写的是 `t2-results.jsonl`，从空文件开始。
  *
  * What it enforces, because the raw file cannot:
  *

@@ -47,7 +47,16 @@ if (rows.length === 0) {
   console.error(`没有标题完全等于「${title}」的记录`)
   process.exit(2)
 }
-const row = rows.sort((a, b) => Number(b.created_at) - Number(a.created_at))[0]
+// 先挑 confirmed，再挑最新。为什么不直接取最新：库里同一个标题可能**同时**有一条 retired 和一条
+// confirmed（实测「清库脚本必须先核对目标路径」两条相差 6 秒，取最新的那次是靠运气不是靠规则）。
+// 播进去一条 retired 记录，那条记忆根本不会被送出，而产物上与"库里没有记忆"一模一样 ——
+// 又是一次静默退化，和 §23.2 那个"播种失败静默退化成 none 臂"是同一类病。
+const rank = r => (r.status === 'confirmed' ? 1 : 0)
+const row = rows.sort((a, b) => rank(b) - rank(a) || Number(b.created_at) - Number(a.created_at))[0]
+if (row.status !== 'confirmed') {
+  console.error(`标题「${title}」在库里只有 ${row.status} 状态的记录（${row.id}）：播进去等于没有记忆，拒绝播种`)
+  process.exit(3)
+}
 
 const record = toRecord(row)
 if (wsRoot !== undefined && record.scope === 'workspace') {
