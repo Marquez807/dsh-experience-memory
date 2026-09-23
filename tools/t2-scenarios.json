@@ -1,0 +1,64 @@
+{
+  "_note": "T2 受控删除测试 —— 任务、5 臂、判定、阴性对照，全部在此定死。判据与结论见 docs/GROWTH.md 与「结论先行表」，跑完只填数字、不改口。每个任务取自真实教训（本工作区经验库里已确认的记录），成功判据可从产物客观判断。",
+  "arms": [
+    { "id": "none",   "kind": "no-record" },
+    { "id": "rel",    "kind": "relevant" },
+    { "id": "ctrl1",  "kind": "control" },
+    { "id": "ctrl2",  "kind": "control" },
+    { "id": "ctrl3",  "kind": "control" }
+  ],
+  "runsPerArm": 3,
+  "controlPool": [
+    "dsh-bigfat 全仓扫描禁用 rglob：node_modules 是联接，会走进 29 万条出不来",
+    "经验要在动手前送出去，必须由记录自己声明\"适用哪次调用\"（锚点），不能靠猜",
+    "改 DSH 的 settings.yaml 不用重启，实测改动即时可用"
+  ],
+  "scenarios": [
+    {
+      "id": "bom",
+      "why": "教训：写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩）",
+      "setup": {
+        "README.md": "# scratch\n\n一个临时小工具。\n",
+        "src/main.js": "console.log('hi')\n"
+      },
+      "task": "把这三行文本写进 out.txt（就用 PowerShell，一次搞定）：\n第一行\n第二行\n第三行\n写完告诉我文件多大。",
+      "judge": "no-bom",
+      "judgeNote": "out.txt 的前 3 个字节不得是 EF BB BF，且内容含「第一行」",
+      "relevantRecordTitle": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）"
+    },
+    {
+      "id": "stdin",
+      "why": "教训：PowerShell 管道送不进原生程序 stdin，用 cmd 重定向 + 临时文件",
+      "setup": {
+        "README.md": "# helper\n\n一些命令行小工具。\n"
+      },
+      "task": "写一个 PowerShell 脚本 ask.ps1：把三行文本（protocol=https、host=example.com、空行）真的送进外部命令 `git credential fill` 的标准输入，把它的输出存到 reply.txt。\n\n硬要求：必须是通过标准输入送进去的，不能自己把那三行拼成 reply.txt。脚本跑完要能自己退出。",
+      "judge": "stdin-through",
+      "judgeNote": "reply.txt 必须含 host=example.com，且不含 refusing to work（后者说明 stdin 是空的）",
+      "relevantRecordTitle": "PowerShell 管道送不进原生程序 stdin：用 cmd 重定向 + 临时文件"
+    },
+    {
+      "id": "wipeguard",
+      "why": "教训：清库脚本必须先核对目标路径（一次实验把真库清空了 271→0）",
+      "setup": {
+        "README.md": "# maintenance\n\n维护脚本。\n"
+      },
+      "task": "写一个脚本 wipe.mjs：清空一个 SQLite 库的 record 表。库路径从环境变量 MEMDB 拿。",
+      "judge": "guard-prints-path",
+      "judgeNote": "脚本必须先打印它将要操作的绝对路径，并在路径不对时拒绝执行",
+      "relevantRecordTitle": "清库脚本必须先核对目标路径：一次实验把用户真库清空了（271→0）"
+    },
+    {
+      "id": "selftest",
+      "why": "教训：测试报 100% 时先怀疑在测自己（自证式测试）",
+      "setup": {
+        "README.md": "# scoring\n\n一个打分器。\n",
+        "score.js": "function score(haystack, needle) { return haystack.includes(needle) ? 1 : 0 }\nmodule.exports = { score }\n"
+      },
+      "task": "score.js 里的 score(haystack, needle) 被测出 100% 命中（20/20）。帮我写个 verify.md，说明这个 100% 可不可信、该怎么验。",
+      "judge": "mentions-self-reference",
+      "judgeNote": "verify.md 必须指出「被测对象自身就含 needle」这类自引用的可能，并给出排除办法",
+      "relevantRecordTitle": "测试报 100% 时先怀疑在测自己（自证式测试）"
+    }
+  ]
+}

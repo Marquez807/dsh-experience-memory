@@ -48,7 +48,11 @@ const number = (name, fallback) => {
 const root = 'F:\\dsh主工作区\\dsh-experience-memory'
 const lib = name => pathToFileURL(join(root, 'lib', name)).href
 const callsPath = flag('calls') ?? join(root, 'tools', 'calls.jsonl')
-const storePath = flag('store') ?? join(process.env['APPDATA'] ?? '', 'dsh-desktop', 'harness', 'experience-memory', 'memory.db')const cwd = flag('cwd') ?? 'F:\\dsh主工作区'
+const storePath = flag('store') ?? join(process.env['APPDATA'] ?? '', 'dsh-desktop', 'harness', 'experience-memory', 'memory.db')
+// A missing newline here (commit 32568de) made this whole tool a SyntaxError, while the delivery
+// doc still told readers to run it to check the numbers. Fixed 2026-09-24; the figures in older
+// docs cannot be reproduced from the revision that was actually committed.
+const cwd = flag('cwd') ?? 'F:\\dsh主工作区'
 const judge = flag('judge') ?? 'both'
 const maxDocFrequency = number('max-doc-freq', 2)
 const jsonPath = flag('json')

@@ -1,0 +1,999 @@
+{
+  "calls": 15896,
+  "store": "C:\\Users\\Admin\\AppData\\Roaming\\dsh-desktop\\harness\\experience-memory\\memory.db",
+  "workspace": "F:\\dsh主工作区",
+  "maxDocFrequency": 2,
+  "judged": {
+    "live": {
+      "label": "旧判据（词汇撞车 + 记录侧稀有）",
+      "calls": 15896,
+      "delivered": 887,
+      "deliveryRate": 0.055800201308505284,
+      "failedCalls": 442,
+      "onFailed": 13,
+      "failedRate": 0.029411764705882353,
+      "signatures": {
+        "lexical": 887
+      },
+      "distinctRecords": 6,
+      "topRecords": [
+        {
+          "id": "4e6b5b34d9261414b618",
+          "count": 699,
+          "share": 0.7880496054114995
+        },
+        {
+          "id": "ea05071e9a9b173e2dd2",
+          "count": 83,
+          "share": 0.0935738444193912
+        },
+        {
+          "id": "84feae93f4dba1b9a91d",
+          "count": 52,
+          "share": 0.058624577226606536
+        },
+        {
+          "id": "6cb77cc2fcc2fa3a3a90",
+          "count": 37,
+          "share": 0.04171364148816235
+        },
+        {
+          "id": "c9b8e7d6a1ea4b6c9256",
+          "count": 8,
+          "share": 0.009019165727170236
+        }
+      ],
+      "concentration": 0.9402480270574972,
+      "worstRecord": 699,
+      "samples": [
+        {
+          "tool": "edit",
+          "record": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+          "matched": [
+            "path:dsh-bom-guard.ps1"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "edit",
+          "record": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+          "matched": [
+            "path:dsh-bom-guard.ps1"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "edit",
+          "record": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+          "matched": [
+            "path:dsh-bom-guard.ps1"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "edit",
+          "record": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+          "matched": [
+            "path:repos/dsh-quant/lib/tools.js"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "write",
+          "record": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+          "matched": [
+            "path:repos/dsh-quant/lib/tools.js"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "edit",
+          "record": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+          "matched": [
+            "path:repos/dsh-quant/lib/tools.js"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "edit",
+          "record": "改 DSH 的 settings.yaml 不用重启，实测改动即时可用",
+          "matched": [
+            "path:repos/dsh-quant/cordis.patch.yml"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "edit",
+          "record": "改 DSH 的 settings.yaml 不用重启，实测改动即时可用",
+          "matched": [
+            "path:repos/dsh-quant/cordis.patch.yml"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "edit",
+          "record": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+          "matched": [
+            "path:repos/dsh-quant/design/progress.json"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "edit",
+          "record": "目录联接成环会让\"递归翻目录\"永远跑不完：排障时别把慢当成死",
+          "matched": [
+            "path:node_modules"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "read",
+          "record": "用户硬要求：一切决定要有依据，没有调研就没有发言权（已写进 AGENTS.md 第五节）",
+          "matched": [
+            "path:agents.md"
+          ],
+          "signature": "lexical"
+        },
+        {
+          "tool": "exit_plan_mode",
+          "record": "用户硬要求：一切决定要有依据，没有调研就没有发言权（已写进 AGENTS.md 第五节）",
+          "matched": [
+            "path:agents.md"
+          ],
+          "signature": "lexical"
+        }
+      ],
+      "scenarios": {
+        "total": 25,
+        "right": 0,
+        "wrong": 2,
+        "missed": 23,
+        "recall": 0,
+        "rows": [
+          {
+            "id": "git-no-exe",
+            "expect": "a2daa5dc426961c4e412",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "git-no-exe-2",
+            "expect": "a2daa5dc426961c4e412",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "bom-write",
+            "expect": "512e622341cb5fd4c3f3",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "bom-guard",
+            "expect": "512e622341cb5fd4c3f3",
+            "got": "6cb77cc2fcc2fa3a3a90",
+            "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+            "matched": [
+              "path:dsh-bom-guard.ps1"
+            ],
+            "verdict": "送错"
+          },
+          {
+            "id": "desktop-storage",
+            "expect": "89ccf46fc9fffaad66ce",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "mimo-provider",
+            "expect": "d6efbff47feafc444168",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "facts-jsonl",
+            "expect": "7073746c7e7d423ce70d",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "verify-source-ids",
+            "expect": "e3543c6f66b711616d65",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "rebalance-quantity",
+            "expect": "cdf951a2114e3814ac16",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "third-party-holdings",
+            "expect": "de74d1d594f952010ba4",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "uninstall-backup",
+            "expect": "417b7eb95e18faa9c5bb",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "readme-restructure",
+            "expect": "2858be98737ab2065fe7",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "skill-filesystem",
+            "expect": "d8d198f23898d34e2408",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "tools-js-param",
+            "expect": "f314426502d552bd8524",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "miaomiao-skill",
+            "expect": "d8d198f23898d34e2408",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "memory-recall-keyword",
+            "expect": "98896b0b8ee23fc9507e",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "preset-allow-empty",
+            "expect": "6bfa8bee01a59fef1435",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "journal-decode",
+            "expect": "22f979df609e14378cd4",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "run-all-truncation",
+            "expect": "6f18ec4e57c0b5872182",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "workflow-json",
+            "expect": "ea15578432a82f8f6a9e",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "facts-single-source",
+            "expect": "426d924ce5e42a803c95",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "delisting-switch",
+            "expect": "93cd82f12646b9754170",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "plugin-market",
+            "expect": "f225aaabffe296eb2331",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "roles-transplant",
+            "expect": "1f911d3835d27637964f",
+            "got": "bb49d6a97400afc0738a",
+            "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件",
+            "matched": [
+              "path:repos/dsh-bigfat/docs/ai_usage_guide.md"
+            ],
+            "verdict": "送错"
+          },
+          {
+            "id": "encoding-write",
+            "expect": "512e622341cb5fd4c3f3",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          }
+        ]
+      }
+    },
+    "new": {
+      "label": "新判据（只认记录自己声明的锚点）",
+      "calls": 15896,
+      "delivered": 887,
+      "deliveryRate": 0.055800201308505284,
+      "failedCalls": 442,
+      "onFailed": 13,
+      "failedRate": 0.029411764705882353,
+      "signatures": {
+        "declared": 887
+      },
+      "distinctRecords": 6,
+      "topRecords": [
+        {
+          "id": "4e6b5b34d9261414b618",
+          "count": 699,
+          "share": 0.7880496054114995
+        },
+        {
+          "id": "ea05071e9a9b173e2dd2",
+          "count": 83,
+          "share": 0.0935738444193912
+        },
+        {
+          "id": "84feae93f4dba1b9a91d",
+          "count": 52,
+          "share": 0.058624577226606536
+        },
+        {
+          "id": "6cb77cc2fcc2fa3a3a90",
+          "count": 37,
+          "share": 0.04171364148816235
+        },
+        {
+          "id": "c9b8e7d6a1ea4b6c9256",
+          "count": 8,
+          "share": 0.009019165727170236
+        }
+      ],
+      "concentration": 0.9402480270574972,
+      "worstRecord": 699,
+      "samples": [
+        {
+          "tool": "edit",
+          "record": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+          "matched": [
+            "path:dsh-bom-guard.ps1"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+          "matched": [
+            "path:dsh-bom-guard.ps1"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+          "matched": [
+            "path:dsh-bom-guard.ps1"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+          "matched": [
+            "path:repos/dsh-quant/lib/tools.js"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "write",
+          "record": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+          "matched": [
+            "path:repos/dsh-quant/lib/tools.js"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+          "matched": [
+            "path:repos/dsh-quant/lib/tools.js"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "改 DSH 的 settings.yaml 不用重启，实测改动即时可用",
+          "matched": [
+            "path:repos/dsh-quant/cordis.patch.yml"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "改 DSH 的 settings.yaml 不用重启，实测改动即时可用",
+          "matched": [
+            "path:repos/dsh-quant/cordis.patch.yml"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+          "matched": [
+            "path:repos/dsh-quant/design/progress.json"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "目录联接成环会让\"递归翻目录\"永远跑不完：排障时别把慢当成死",
+          "matched": [
+            "path:node_modules"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "read",
+          "record": "用户硬要求：一切决定要有依据，没有调研就没有发言权（已写进 AGENTS.md 第五节）",
+          "matched": [
+            "path:agents.md"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "exit_plan_mode",
+          "record": "用户硬要求：一切决定要有依据，没有调研就没有发言权（已写进 AGENTS.md 第五节）",
+          "matched": [
+            "path:agents.md"
+          ],
+          "signature": "declared"
+        }
+      ],
+      "scenarios": {
+        "total": 25,
+        "right": 0,
+        "wrong": 2,
+        "missed": 23,
+        "recall": 0,
+        "rows": [
+          {
+            "id": "git-no-exe",
+            "expect": "a2daa5dc426961c4e412",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "git-no-exe-2",
+            "expect": "a2daa5dc426961c4e412",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "bom-write",
+            "expect": "512e622341cb5fd4c3f3",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "bom-guard",
+            "expect": "512e622341cb5fd4c3f3",
+            "got": "6cb77cc2fcc2fa3a3a90",
+            "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+            "matched": [
+              "path:dsh-bom-guard.ps1"
+            ],
+            "verdict": "送错"
+          },
+          {
+            "id": "desktop-storage",
+            "expect": "89ccf46fc9fffaad66ce",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "mimo-provider",
+            "expect": "d6efbff47feafc444168",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "facts-jsonl",
+            "expect": "7073746c7e7d423ce70d",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "verify-source-ids",
+            "expect": "e3543c6f66b711616d65",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "rebalance-quantity",
+            "expect": "cdf951a2114e3814ac16",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "third-party-holdings",
+            "expect": "de74d1d594f952010ba4",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "uninstall-backup",
+            "expect": "417b7eb95e18faa9c5bb",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "readme-restructure",
+            "expect": "2858be98737ab2065fe7",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "skill-filesystem",
+            "expect": "d8d198f23898d34e2408",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "tools-js-param",
+            "expect": "f314426502d552bd8524",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "miaomiao-skill",
+            "expect": "d8d198f23898d34e2408",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "memory-recall-keyword",
+            "expect": "98896b0b8ee23fc9507e",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "preset-allow-empty",
+            "expect": "6bfa8bee01a59fef1435",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "journal-decode",
+            "expect": "22f979df609e14378cd4",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "run-all-truncation",
+            "expect": "6f18ec4e57c0b5872182",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "workflow-json",
+            "expect": "ea15578432a82f8f6a9e",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "facts-single-source",
+            "expect": "426d924ce5e42a803c95",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "delisting-switch",
+            "expect": "93cd82f12646b9754170",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "plugin-market",
+            "expect": "f225aaabffe296eb2331",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "roles-transplant",
+            "expect": "1f911d3835d27637964f",
+            "got": "bb49d6a97400afc0738a",
+            "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件",
+            "matched": [
+              "path:repos/dsh-bigfat/docs/ai_usage_guide.md"
+            ],
+            "verdict": "送错"
+          },
+          {
+            "id": "encoding-write",
+            "expect": "512e622341cb5fd4c3f3",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          }
+        ]
+      }
+    },
+    "derived": {
+      "label": "新判据 + 出处推断的锚点（且记录必须真的讲到这个文件）",
+      "calls": 15896,
+      "delivered": 1175,
+      "deliveryRate": 0.07391796678409662,
+      "failedCalls": 442,
+      "onFailed": 52,
+      "failedRate": 0.11764705882352941,
+      "signatures": {
+        "declared": 886,
+        "derived": 289
+      },
+      "distinctRecords": 26,
+      "topRecords": [
+        {
+          "id": "4e6b5b34d9261414b618",
+          "count": 699,
+          "share": 0.5948936170212766
+        },
+        {
+          "id": "829162717af988f2038d",
+          "count": 127,
+          "share": 0.10808510638297872
+        },
+        {
+          "id": "ea05071e9a9b173e2dd2",
+          "count": 82,
+          "share": 0.06978723404255319
+        },
+        {
+          "id": "84feae93f4dba1b9a91d",
+          "count": 52,
+          "share": 0.04425531914893617
+        },
+        {
+          "id": "7f3f16e8ed2bddff996e",
+          "count": 39,
+          "share": 0.033191489361702124
+        }
+      ],
+      "concentration": 0.7727659574468085,
+      "worstRecord": 699,
+      "samples": [
+        {
+          "tool": "edit",
+          "record": "新增数据源只登记了取数注册表、漏了\"给模型看的视图\"，规则会瞎",
+          "matched": [
+            "path:repos/dsh-bigfat/core/bigfat/sources.py"
+          ],
+          "signature": "derived"
+        },
+        {
+          "tool": "edit",
+          "record": "lib/tools.js 里\"改这个文件不需要重启\"的说明在本机（junction 安装）不成立",
+          "matched": [
+            "path:repos/dsh-bigfat/lib/tools.js"
+          ],
+          "signature": "derived"
+        },
+        {
+          "tool": "edit",
+          "record": "lib/tools.js 里\"改这个文件不需要重启\"的说明在本机（junction 安装）不成立",
+          "matched": [
+            "path:repos/dsh-bigfat/lib/tools.js"
+          ],
+          "signature": "derived"
+        },
+        {
+          "tool": "edit",
+          "record": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+          "matched": [
+            "path:dsh-bom-guard.ps1"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+          "matched": [
+            "path:dsh-bom-guard.ps1"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "截断 run_all.ps1 的输出流会造成假红（退出码 1、其实全过）",
+          "matched": [
+            "path:repos/dsh-bigfat/tests/run_all.ps1"
+          ],
+          "signature": "derived"
+        },
+        {
+          "tool": "edit",
+          "record": "截断 run_all.ps1 的输出流会造成假红（退出码 1、其实全过）",
+          "matched": [
+            "path:repos/dsh-bigfat/tests/run_all.ps1"
+          ],
+          "signature": "derived"
+        },
+        {
+          "tool": "edit",
+          "record": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+          "matched": [
+            "path:dsh-bom-guard.ps1"
+          ],
+          "signature": "declared"
+        },
+        {
+          "tool": "edit",
+          "record": "新增数据源只登记了取数注册表、漏了\"给模型看的视图\"，规则会瞎",
+          "matched": [
+            "path:repos/dsh-bigfat/core/bigfat/sources.py"
+          ],
+          "signature": "derived"
+        },
+        {
+          "tool": "edit",
+          "record": "lib/tools.js 里\"改这个文件不需要重启\"的说明在本机（junction 安装）不成立",
+          "matched": [
+            "path:repos/dsh-bigfat/lib/tools.js"
+          ],
+          "signature": "derived"
+        },
+        {
+          "tool": "edit",
+          "record": "工具自述是模型唯一读到的能力说明：漏写动作=能力不存在",
+          "matched": [
+            "path:repos/dsh-bigfat/tests/tool_surface_test.py"
+          ],
+          "signature": "derived"
+        },
+        {
+          "tool": "edit",
+          "record": "截断 run_all.ps1 的输出流会造成假红（退出码 1、其实全过）",
+          "matched": [
+            "path:repos/dsh-bigfat/tests/run_all.ps1"
+          ],
+          "signature": "derived"
+        }
+      ],
+      "scenarios": {
+        "total": 25,
+        "right": 0,
+        "wrong": 2,
+        "missed": 23,
+        "recall": 0,
+        "rows": [
+          {
+            "id": "git-no-exe",
+            "expect": "a2daa5dc426961c4e412",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "git-no-exe-2",
+            "expect": "a2daa5dc426961c4e412",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "bom-write",
+            "expect": "512e622341cb5fd4c3f3",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "bom-guard",
+            "expect": "512e622341cb5fd4c3f3",
+            "got": "6cb77cc2fcc2fa3a3a90",
+            "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+            "matched": [
+              "path:dsh-bom-guard.ps1"
+            ],
+            "verdict": "送错"
+          },
+          {
+            "id": "desktop-storage",
+            "expect": "89ccf46fc9fffaad66ce",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "mimo-provider",
+            "expect": "d6efbff47feafc444168",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "facts-jsonl",
+            "expect": "7073746c7e7d423ce70d",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "verify-source-ids",
+            "expect": "e3543c6f66b711616d65",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "rebalance-quantity",
+            "expect": "cdf951a2114e3814ac16",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "third-party-holdings",
+            "expect": "de74d1d594f952010ba4",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "uninstall-backup",
+            "expect": "417b7eb95e18faa9c5bb",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "readme-restructure",
+            "expect": "2858be98737ab2065fe7",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "skill-filesystem",
+            "expect": "d8d198f23898d34e2408",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "tools-js-param",
+            "expect": "f314426502d552bd8524",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "miaomiao-skill",
+            "expect": "d8d198f23898d34e2408",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "memory-recall-keyword",
+            "expect": "98896b0b8ee23fc9507e",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "preset-allow-empty",
+            "expect": "6bfa8bee01a59fef1435",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "journal-decode",
+            "expect": "22f979df609e14378cd4",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "run-all-truncation",
+            "expect": "6f18ec4e57c0b5872182",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "workflow-json",
+            "expect": "ea15578432a82f8f6a9e",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "facts-single-source",
+            "expect": "426d924ce5e42a803c95",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "delisting-switch",
+            "expect": "93cd82f12646b9754170",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "plugin-market",
+            "expect": "f225aaabffe296eb2331",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          },
+          {
+            "id": "roles-transplant",
+            "expect": "1f911d3835d27637964f",
+            "got": "bb49d6a97400afc0738a",
+            "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件",
+            "matched": [
+              "path:repos/dsh-bigfat/docs/ai_usage_guide.md"
+            ],
+            "verdict": "送错"
+          },
+          {
+            "id": "encoding-write",
+            "expect": "512e622341cb5fd4c3f3",
+            "title": "",
+            "matched": [],
+            "verdict": "没送"
+          }
+        ]
+      }
+    }
+  }
+}

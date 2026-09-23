@@ -1,0 +1,15 @@
+{"scenario":"stdin","arm":"none","run":1,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"none","run":2,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"none","run":3,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"rel","run":1,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"rel","run":2,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"rel","run":3,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"ctrl1","run":1,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"ctrl1","run":2,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"ctrl1","run":3,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"ctrl3","run":1,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"ctrl3","run":2,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"stdin","arm":"ctrl3","run":3,"pass":false,"note":"ask.ps1 不存在","timeout":false,"seconds":0.1}
+{"scenario":"bom","arm":"ctrl2","run":1,"pass":false,"note":"带 UTF-8 BOM"}
+{"scenario":"bom","arm":"ctrl2","run":2,"pass":false,"note":"带 UTF-8 BOM"}
+{"scenario":"bom","arm":"ctrl2","run":3,"pass":false,"note":"带 UTF-8 BOM"}
