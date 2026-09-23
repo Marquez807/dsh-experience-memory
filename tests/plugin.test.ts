@@ -409,6 +409,44 @@ export async function run(): Promise<void> {
     assert(storedExpiry !== null, 'expires_in_days is stored as an absolute expiry')
     eq(Math.round((storedExpiry! - Date.now()) / 86_400_000), 5, 'five days out from now')
 
+    // ── The write-side surface: proposals, and the retirement verdict ───────
+    // `memory_remember` answers two questions the outcome word alone could not: which anchors
+    // this turn suggests (read from its own calls, never written), and whether a re-report
+    // actually brought a retired record back. Both are pinned here because the tool surface is
+    // what the model reads, and the 2026-09-23 defect was a surface that read like success.
+    const proposed = await call<{ revived: boolean; recall_for_suggestions: string[] }>(
+      'memory_remember',
+      {
+        kind: 'experience', title: '提议锚点', body: '写记录时把本回合点过的文件提议成锚点',
+        quote: '写记录时把本回合点过的文件提议成锚点',
+      },
+      agentFor([
+        userMessage('写记录时把本回合点过的文件提议成锚点'),
+        { type: 'tool/call', data: { name: 'read', arguments: '{"file_path":"src/anchors.ts"}' } },
+      ]),
+    )
+    eq(proposed.revived, false, 'a fresh record revives nothing')
+    assert(proposed.recall_for_suggestions.includes('path:src/anchors.ts'),
+      'the turn\'s own calls come back as anchor proposals')
+
+    const doomed = await call<{ id: string }>(
+      'memory_remember',
+      { kind: 'fact', title: '会被忘掉', body: '这条会被显式忘掉，重报不该复活它' },
+      agentFor([]),
+    )
+    await call('memory_forget', { record_id: doomed.id, reason: '用户说不要' }, agentFor([]))
+    const afterForget = await call<{ outcome: string; revived: boolean; status: string }>(
+      'memory_remember',
+      {
+        kind: 'fact', title: '会被忘掉', body: '这条会被显式忘掉，重报不该复活它',
+        quote: '这条会被显式忘掉，重报不该复活它',
+      },
+      agentFor([userMessage('这条会被显式忘掉，重报不该复活它')]),
+    )
+    eq(afterForget.outcome, 'still-retired', 're-reporting a forgotten record says so instead of "corroborated"')
+    eq(afterForget.revived, false, 'and nothing was revived')
+    eq(afterForget.status, 'retired', 'the record stays retired behind the explicit decision')
+
     let refused = false
     try {
       await call(

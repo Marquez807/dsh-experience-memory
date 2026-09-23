@@ -19,6 +19,7 @@ import {
   retirementReason, REVIEW_GRACE_DAYS, STALE_DAYS,
 } from '../src/lifecycle.ts'
 import { retrieve } from '../src/retrieve.ts'
+import { renderRecall } from '../src/inject.ts'
 import type { MemoryRecord } from '../src/types.ts'
 
 const NOW = 1_800_000_000_000
@@ -123,6 +124,16 @@ export function run(): void {
       'so the candidate it replaces is retired')
     eq(getRecord(db, stranded.record.id)?.supersededBy, replaced.record.id,
       'and it names its replacement, which is what makes the call auditable')
+
+    // A record a graded successor replaced stays replaced: re-reporting the older wording is
+    // not new evidence about it, and reviving it would put two versions of one claim in play.
+    const supersededAgain = remember(db, {
+      workspaceId: 'ws-dup', domain: DOMAIN, kind: 'fact',
+      title: '采集上限', body: '单次最多 500 条，超了会静默截断。',
+      quote: '单次最多 500 条', agent: sessionSaying('单次最多 500 条', dir), now: NOW + 1 * DAY,
+    })
+    eq(supersededAgain.outcome, 'still-retired', 'a superseded record is not revived by a re-report')
+    eq(getRecord(db, stranded.record.id)?.status, 'retired', 'it stays retired behind its successor')
     assert(getRecord(db, stranded.record.id)?.body !== '',
       'retired, not deleted — a wrong call is reversible')
 
@@ -422,14 +433,54 @@ export function run(): void {
     }
     assert(rejected, 'a window in the past is rejected rather than stored to be retired immediately')
 
-    // Re-reporting the same claim with a fresh window is re-verification.
+    // Re-reporting the same claim with a fresh window is re-verification — but only when the
+    // report carries something *checkable*. A retired record whose window merely lapsed is not
+    // brought back by repeating the sentence: the store said it was retired, and saying it
+    // again without a passage adds nothing. (2026-09-23 live-store defect: the old answer was
+    // `corroborated`, which read like success while the record stayed retired and invisible.)
     const refreshed = remember(db, {
       workspaceId: 'ws1', domain: DOMAIN, kind: 'fact',
       title: '当前测试命令', body: '用 node tests/run.ts 跑测试', now: NOW + 2 * DAY,
       expiresAt: NOW + 30 * DAY,
     })
-    eq(refreshed.outcome, 'corroborated', 'the same claim corroborates instead of duplicating')
-    eq(refreshed.record.expiresAt, NOW + 30 * DAY, 'and the new window replaces the old one')
+    eq(refreshed.outcome, 'still-retired', 'repeating a retired claim without a passage leaves it retired')
+    eq(refreshed.revived, false, 'and says so instead of reporting a plain corroboration')
+    eq(getRecord(db, expiring.record.id)?.status, 'retired', 'the store is left untouched')
+    assert(/checkable passage/.test(refreshed.reason), 'and the reason names what would bring it back')
+
+    // The same report *with* a checkable passage does bring it back, and the revive is audited.
+    const revived = remember(db, {
+      workspaceId: 'ws1', domain: DOMAIN, kind: 'fact',
+      title: '当前测试命令', body: '用 node tests/run.ts 跑测试', now: NOW + 3 * DAY,
+      quote: '用 node tests/run.ts 跑测试',
+      agent: sessionSaying('用 node tests/run.ts 跑测试', dir),
+    })
+    eq(revived.outcome, 'corroborated', 'a checkable passage corroborates the claim')
+    eq(revived.revived, true, 'and revives the retired record')
+    eq(getRecord(db, expiring.record.id)?.status, 'confirmed', 'the record is live again')
+    eq(getRecord(db, expiring.record.id)?.needsReview, null, 'and nothing is left asking for review')
+    eq(
+      (db.prepare('SELECT count(*) AS n FROM correction WHERE record_id = ? AND reason = ?')
+        .get(expiring.record.id, 'revived by a fresh verified report') as { n: number }).n,
+      1,
+      'the revival is in the audit log',
+    )
+
+    // Two retirements survive a re-report, because they are decisions rather than accidents.
+    const vetoedRecord = remember(db, {
+      workspaceId: 'ws-veto', domain: DOMAIN, kind: 'fact',
+      title: '被忘掉的做法', body: '这条被显式忘掉了，重报不该把它带回来', now: NOW + 4 * DAY,
+    })
+    forget(db, { recordId: vetoedRecord.record.id, reason: '用户说不要', actor: 'agent', now: NOW + 5 * DAY })
+    const reReported = remember(db, {
+      workspaceId: 'ws-veto', domain: DOMAIN, kind: 'fact',
+      title: '被忘掉的做法', body: '这条被显式忘掉了，重报不该把它带回来',
+      quote: '这条被显式忘掉了，重报不该把它带回来',
+      agent: sessionSaying('这条被显式忘掉了，重报不该把它带回来', dir), now: NOW + 6 * DAY,
+    })
+    eq(reReported.outcome, 'still-retired', 'an explicitly forgotten record is not revived by a re-report')
+    eq(getRecord(db, vetoedRecord.record.id)?.status, 'retired', 'it stays retired')
+    assert(/memory_forget/.test(reReported.reason), 'and the reason says which decision is being respected')
   } finally {
     db.close()
     rmSync(dir, { recursive: true, force: true })
@@ -524,6 +575,19 @@ export function run(): void {
       eq(result.provenanceFlags, 1, 'the maintenance pass reports the provenance flag it wrote')
       assert(String(getRecord(provDb, 'p-gone')?.needsReview ?? '').startsWith(SOURCE_GONE),
         'and the note is on the record the maintenance pass scanned')
+
+      // And the note reaches the reader, not just the row. A record whose citation cannot be
+      // followed is one a model throws away, so the warning has to be in the text it reads —
+      // `renderRecall` is that path (it renders each record through `renderDetail`).
+      const pack = renderRecall([{
+        record: getRecord(provDb, 'p-gone')!,
+        importance: 9,
+        bm25: 0,
+        identifierMatches: 0,
+        why: '',
+      }], 4000)
+      assert(pack.text.includes(SOURCE_GONE),
+        'the recalled text carries the provenance warning, not only the database row')
     } finally {
       provDb.close()
     }

@@ -20,6 +20,7 @@ import {
   joinTrigger,
   parseAnchor,
   splitTrigger,
+  suggestAnchors,
 } from '../src/anchors.ts'
 import { resolveWorkspace } from '../src/domain.ts'
 import { assert, eq } from './assert.ts'
@@ -66,6 +67,27 @@ export async function run(): Promise<void> {
     'a tool-call id proves the record, it does not locate it')
   eq(deriveAnchorFromSourceRef('audit/量化项目-现状体检报告.md:285'), undefined,
     'and a report is not a location either — that is the false-positive class the audit found')
+
+  // ── Proposals from the turn (T1): read the calls, write nothing ──────────
+  // The measured basis: a record's cited file appears among the turn's own calls in 67.3% of
+  // cases at a ±8-call window and 90.6% at ±24 (random control 0%). So this proposes and stops —
+  // a wrong anchor fires a lesson at the wrong moment, and 67–90% is a suggestion, not a fact.
+  const turn = [
+    { type: 'turn/start', data: {} },
+    { type: 'tool/call', data: { callId: 'c1', name: 'read', arguments: JSON.stringify({ file_path: 'src/db.ts' }) } },
+    { type: 'tool/call', data: { callId: 'c2', name: 'edit', arguments: JSON.stringify({ file_path: 'F:\\ws\\src\\anchors.ts' }) } },
+    { type: 'tool/call', data: { callId: 'c3', name: 'pwsh', arguments: JSON.stringify({ command: 'node tools/status-report.mjs' }) } },
+  ]
+  eq(suggestAnchors({ events: turn, limit: 6 }).map(item => item.anchor),
+    ['path:tools/status-report.mjs', 'command:node', 'tool:pwsh', 'tool:edit', 'path:src/db.ts', 'tool:read'],
+    'newest call first; an absolute path yields no anchor, a workspace-relative one does')
+  eq(suggestAnchors({ events: turn, limit: 1 }).length, 1, 'the limit is honoured')
+  eq(suggestAnchors({ events: [] }), [], 'no turn, no proposals')
+  eq(
+    suggestAnchors({ events: turn, sourceRef: 'dsh-experience-memory/src/anchors.ts:277' }).map(item => item.anchor),
+    ['path:dsh-experience-memory/src/anchors.ts', 'path:tools/status-report.mjs'],
+    'the cited path comes first: it is what the writer already decided the lesson is about',
+  )
 
   // ── End to end on a store ────────────────────────────────────────────────
   const dir = mkdtempSync(join(tmpdir(), 'expmem-anchors-'))
