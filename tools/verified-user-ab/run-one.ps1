@@ -103,25 +103,31 @@ Push-Location $ws
 $out2 = & node $entry --profile placeab $task 2>&1 | Out-String
 Pop-Location
 
-# Judged from the filesystem only. conf/samples/ is exact; conf/ is near-miss.
-$exact = @(Get-ChildItem (Join-Path $ws 'conf\samples') -Recurse -File -ErrorAction SilentlyContinue).Count
-$near  = @(Get-ChildItem (Join-Path $ws 'conf') -Recurse -File -ErrorAction SilentlyContinue).Count - $exact
-$rootFiles = @(Get-ChildItem $ws -File -ErrorAction SilentlyContinue |
-  Where-Object { $_.Name -notin @('README.md') }).Count
-$srcFiles = @(Get-ChildItem (Join-Path $ws 'src') -Recurse -File -ErrorAction SilentlyContinue).Count
-$totalNew = $exact + $near + $rootFiles + $srcFiles
+# Judged by walking the whole workspace, not by enumerating the directories a guesser expects.
+# The first version looked at conf/, conf/samples/, the root and src/ and reported "no-file" for
+# runs where the model had written to config/ — a wrong place, not a missing file. An
+# unanticipated directory cannot fall through this way.
+$allNew = @()
+foreach ($dir in @($ws, (Join-Path $ws 'ops'), (Join-Path $ws 'src'))) {
+  $allNew += @(Get-ChildItem $dir -File -ErrorAction SilentlyContinue)
+}
+$allNew += @(Get-ChildItem $ws -Recurse -File -ErrorAction SilentlyContinue |
+  Where-Object { $_.FullName -notmatch '\\(ops|src)\\' -and $_.DirectoryName -ne $ws })
+$allNew = $allNew | Sort-Object FullName -Unique | Where-Object {
+  $_.Name -ne 'README.md' -and $_.FullName -notmatch '\\ops\\deploy\.sh$'
+}
+$rel = @($allNew | ForEach-Object { ($_.FullName.Substring($ws.Length) -replace '\\', '/') })
+$exact = @($rel | Where-Object { $_ -like '/conf/samples/*' -or $_ -like 'conf/samples/*' })
+$near  = @($rel | Where-Object { ($_ -like '/conf/*' -or $_ -like 'conf/*') -and ($_ -notlike '/conf/samples/*' -and $_ -notlike 'conf/samples/*') })
 
-$verdict = if ($exact -gt 0) { 'correct' }
-  elseif ($near -gt 0) { 'near-miss' }
-  elseif ($totalNew -eq 0) { 'no-file' }
+$verdict = if ($exact.Count -gt 0) { 'correct' }
+  elseif ($near.Count -gt 0) { 'near-miss' }
+  elseif ($rel.Count -eq 0) { 'no-file' }
   else { 'wrong-place' }
 
 [pscustomobject]@{
   mode     = $Mode
   trial    = $Trial
   verdict  = $verdict
-  exact    = $exact
-  near     = $near
-  inRoot   = $rootFiles
-  inSrc    = $srcFiles
+  written  = @($rel)
 } | ConvertTo-Json -Compress
