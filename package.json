@@ -1,10 +1,10 @@
 {
   "name": "dsh-experience-memory",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "跨会话长期经验记忆 for DeepSeek Harness — 证据定级 fail-closed：只有用户原话、工具实测或工作区文件引证过的经验才配自动注入，无从核实的只留候选、永不注入；工作区/领域双作用域，需两个工作区各自独立印证才升到领域级；每轮按话题门控注入相关经验，被检索到或被成功复用都加分，所以常用的留下、没人碰的自然退役；退役可逆，只有 purge 才真删；维护在每轮结束时跑，不占检索热路径。纯 SQLite + FTS5，零构建依赖。· Cross-session experience memory: graded evidence, query-gated injection, reversible retirement.",
+  "description": "跨会话长期经验记忆 for DeepSeek Harness — 证据定级 fail-closed：只有用户原话、工具实测或工作区文件引证过的经验才配自动注入，无从核实的只留候选、永不注入；工作区/领域双作用域，需两个工作区各自独立印证才升到领域级；每轮按话题门控注入相关经验，被检索到或被成功复用都加分，所以常用的留下、没人碰的自然退役；退役可逆，只有 purge 才真删；动手前提示要求记录自带 recall_for 锚点（path: / tool: / command:），没声明就不打断工具调用；维护在每轮结束时跑，不占检索热路径，还会标记出处文件已不存在的记录。纯 SQLite + FTS5，零构建依赖。· Cross-session experience memory: graded evidence, query-gated injection, just-in-time delivery keyed on declared anchors, reversible retirement.",
   "keywords": [
     "dsh",
     "dsh-plugin",

@@ -1,6 +1,165 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## 0.2.0 — 2026-09-23
+
+This version replaces how a lesson is delivered just before an action, and is the first version
+whose effect is measured rather than argued. **It is a behaviour change: a record that does not
+declare where it applies (`recall_for`) is no longer delivered just before a tool call** — it still
+reaches the per-turn digest and `memory_recall`, it still scores and retires normally, but it no
+longer interrupts a call on a hunch.
+
+What forced it is measured in `docs/DELIVERY-GAPS.md` §12: the previous rule inferred applicability
+from shared vocabulary and fired a hint on **57% of 15,383 real tool calls**, with **5 of 47**
+audited deliveries actually about the call (10.6%) and **68.7%** of them matching a word that
+appears only in the record's `body` and not in its own rule. §13–§15 are what was tried and thrown
+away; §19 and §22 are the two experiments that say the replacement works.
+
+Below, entries are grouped by concern rather than laid out strictly by date: what the replacement
+does and what it cannot do first, then the incident and the safety work, then the two mechanism
+changes in the order they landed. Three further entries belong to this line's first half — the
+delivery table, the failure-shape counter, and just-in-time delivery's first version — and they are
+listed under **0.1.0** because that is where they shipped. They are named here so the causal order
+stays visible: measure first, only then replace.
+
+### A second scenario: a placement rule, and the same result in a different shape
+
+The first experiment covered one shape of knowledge — what a config file must *contain*. This one
+covers another: where a thing must *go*. The convention exists only in a sentence the user says
+(「服务的示例配置一律放在 `conf/samples/` 下面，不要放在仓库根目录，也不要放在 `src/` 里」)
+and the repository never mentions `conf/` at all — not in the README, not as a directory.
+
+The task is "add a redis sample config". Judged from the filesystem alone, by walking the whole
+workspace and classifying by path:
+
+| arm | put in `conf/samples/` | 95% Wilson |
+|---|---|---|
+| no memory | **0 / 6** | 0.0% – 39.0% |
+| with the lesson | **6 / 6** | 61.0% – 100.0% |
+
+Fisher's exact test, two-sided: **p = 0.0022** (including a smoke run, 0/6 versus 7/7, p = 0.0006).
+
+The failure is as clean as the success: **all six control runs wrote a file, all six to `config/`** —
+the model's own default for where sample configs live — and all six treated runs wrote to
+`conf/samples/`. So the difference is not whether it acts; it is where it puts the thing. Pooled
+with the first experiment: **0/24 without the lesson, 20/24 with it**, p far below one in a million.
+
+That makes the effect two scenarios deep — config content and file placement, single turn and cross
+session — rather than one. And the boundary it draws is worth stating again, sharper now: the effect
+holds for **knowledge that lives in a conversation and not in a file**. If the repository says it,
+the model reads it; if nobody said it there is nothing to recall. What this framework is for is
+exactly the class of things with no second place to look, which is what separates it from reading
+the documentation.
+
+One judge in this run was wrong and the transcript caught it: it enumerated `conf/`, `conf/samples/`,
+the root and `src/`, and reported all six control runs as "no file written" while the model had
+written to `config/` — a wrong place, not a missing file. `tools/verified-user-ab/rescore.py` now
+walks the whole workspace and classifies by path. The general lesson is recorded in the store and in
+that folder's README: **a judge that enumerates where it expects things to appear reports "appeared
+somewhere else" as "appeared nowhere"** — and the first is a wrong answer while the second is no
+answer, so conflating them produced the opposite conclusion.
+
+### The delivery bar re-based: coverage of what a lesson could prevent
+
+The pre-registered bar asked the new rule to cover ≥15% of the corpus's tool failures. Three
+measured things say that number cannot be met here and should not be chased:
+
+1. **The denominator is wrong.** Of 442 failures in the call corpus, **83% are the harness's own
+   guard refusing a call and stating the fix in the error text** (`file has not been read` alone is
+   49%). No stored lesson can prevent a failure the tool already refuses and explains.
+2. **The numerator is unmeasurable.** Judging "which lesson should have prevented this failure"
+   needs a semantic call this framework refuses to make. The cheap proxy — shared words between a
+   call and a record — assigned a data-source independence rule to a "tool call aborted" failure.
+   It is the same defect that retired the old delivery rule, recurring one layer up.
+3. **What is left is not a knowledge problem.** Of the 75 attributable failures, most are
+   environmental traps (`rg` walking into `System Volume Information`, `svn.apache.org` resolving to
+   a non-public IP) and slips, not forgotten rules.
+
+Covering the 83% would mean anchoring "read the file before editing" on `edit`, which is 28.3% of
+all calls — fourteen times over the ≤2% trigger budget, and it is discipline rather than knowledge,
+which is exactly the magnet class this version's rewrite removed.
+
+So the clause is retired and replaced with the question it was standing in for: **does this class of
+mistake still happen after the lesson was written?** That is answerable from what is already here —
+`failure_shape` counts occurrences by shape with their times, `delivery` records what was shown, and
+`tools/prevention-ledger.mjs` produces the four-way account. No new metric is needed; the number
+being chased simply cannot be measured. Re-runnable: `tools/failure-anatomy.mjs`,
+`tools/coverage-honest.mjs`, `tools/coverage-reach.mjs`.
+
+### The store was emptied by an experiment: recovered, and three guards put in place
+
+An experiment's per-trial wipe resolved `DSH_HOME` to the live store and cleared `record` and
+`delivery`: **271 records became 0**. An operational mistake, not a defect in the plugin. What
+survived made recovery possible — `usage`, `correction`, `failure_shape` and `record_fts` were
+untouched, and the correction log still named every lost id.
+
+Recovered in two disciplined steps, because an invented record would be worse than the loss: a real
+snapshot of this workspace's store taken 2026-09-22 11:17 supplied 220 records by their own ids, and
+63 more were replayed from the session logs using the exact arguments the model originally passed to
+`memory_remember` — exact title match only, re-graded through the same `remember()` call, no fuzzy
+matching. Final state: **285 records, 181 confirmed, no dangling `superseded_by`, and the FTS index
+rebuilt to match the table exactly** (it had 55 rows pointing at records that no longer existed,
+which would have surfaced as stale search hits).
+
+Not recoverable, and stated rather than glossed: the 20 delivery rows, and the record ids themselves
+— ids are random strings, so hand-written references to them are now dead. The two records that
+carried an anchor block went with them, and no logged `memory_remember` call carries `recall_for`
+(the field did not exist when they were written), so there was nothing to replay for those.
+
+Three guards, each verified in both directions:
+
+- **`tools/snapshot.mjs`** — a consistent copy via SQLite's own `VACUUM INTO`, so the WAL does not
+  have to be hand-copied while another process writes. It prints the absolute path it is about to
+  touch before it touches it.
+- **`tools/recovery/`** — the restore and reindex scripts used above, kept in the repository so the
+  next recovery is not improvisation. `restore-from-backup.mjs` refuses to write anything it did not
+  read from a real call's arguments.
+- **The startup log line** (below) — the blind spot is that an *empty* store and a *wrong* store look
+  identical from outside: both answer every query with nothing.
+
+The store also gets a snapshot before and after any bulk write. That this recovery was possible at
+all was luck — another session happened to have left a backup. Luck is not a process.
+
+### Say which store this process opened, and how much is in it
+
+Activation now logs one line: the resolved store path, the record count, how many are confirmed, and
+how many carry an anchor —
+
+```
+experience-memory: store <path> — 285 records, 181 confirmed, 9 anchored
+```
+
+A store that is unexpectedly empty then reads as a stated fact rather than as lost memory, and a
+path that is not the one the operator expects is visible immediately.
+
+### Maintenance flags a record whose cited file is gone, and two tools were miscounting
+
+The `verified-file` grade proves the quoted passage is *in* a file at the moment the record is
+written. It does not promise the file will still exist — files get renamed, moved, cleaned up. And
+when it is gone the record turns actively harmful: a real model asked to trust it looks for the
+cited file, fails to find it, and throws the whole record away rather than follow a citation it
+cannot. Measured on this store: **22 of 191 confirmed records cited a file not on disk**, and 106
+more cited a report or log rather than a place a rule can be read off.
+
+Maintenance now checks, on the same bounded, cursor-resumed batch the rest of the pass scans. A
+`verified-file` record whose workspace-relative `source_ref` no longer resolves gets a note naming
+the missing file; a record whose file came back gets the note cleared with its cause. **Flagged,
+never blocked** — a cited file may legitimately not exist yet (a record about something the lesson
+precedes) or may come back from a restore, so this warns rather than refuses. Eleven assertions pin
+the branches that matter.
+
+The same session found two of this repository's own tools disagreeing about how many records carry
+an anchor: one said 64, the other said 9 declared plus 0 derived. The first collapsed two different
+things — a *declared* anchor, which is what the delivery gate uses, and a *derived* one, which only
+fires when `decideForCall`'s `derivedAnchors` is switched on and the production path does not switch
+it on. The second never asked for derived anchors at all. Both now report the same three-way split
+and say which of the three can actually fire: **163 eligible — 10 declared (these fire), 54 derived
+(off by default), 99 silent.** The label matters more than the number: a count that mixes an anchor
+that works with one that is switched off cannot support a claim.
+
+Also fixed a flaky assertion this exposed. "The first pass retires what has aged out" asserted a
+retirement on one bounded pass over randomly-ordered ids, so it failed about one run in N when the
+aged records did not sort into the first three. The suite's own note above `drainMaintenance` had
+already recorded exactly this fragility. Five consecutive runs green after the change.
 
 ### The A/B that worked: 0/12 without the lesson, 9/12 with it
 
@@ -31,11 +190,50 @@ with the anchored hint arriving as well. So this is not evidence that the just-i
 the result; it is evidence that the framework's whole chain works on the class of knowledge it can
 honestly hold, and it is the first time the anchored hint was seen landing in a real model turn.
 
-What it does not do is change the coverage account: §15's finding stands — the ≥15% coverage bar is
-mutually exclusive with the ≤2% trigger budget on this corpus and needs re-basing on attributable
-failures.
+What the first run left open was the whole "this session records it, a later session uses it" path —
+the record had been seeded. So the same scenario was re-run with the record produced the way the
+framework is meant to produce it: a first session hears the sentence and calls `memory_remember`
+itself (grade `verified-user`, anchor `path:deploy.yaml`), then a **new** session on the same repo
+gets the task with no hint that any convention exists.
 
-## 0.1.0 — unreleased
+| arm | fully correct | 95% Wilson |
+|---|---|---|
+| no memory | **0 / 6** | 0.0% – 39.0% |
+| with the lesson | **5 / 6** | 43.6% – 97.0% |
+
+Fisher's exact test, two-sided: **p = 0.0152**. Pooled with the seeded run above: **0/18 versus
+14/18, p = 0.000002** — and among the runs that actually wrote the file, 18/18 wrong without the
+lesson and 14/14 right with it.
+
+One design error is worth recording because it looked like a framework failure: the first version
+ran the two sessions in different directories and the second session could not see the record.
+Workspace identity is derived from the path, so a workspace-scoped record is deliberately not visible
+in another directory. Two sessions on the same repo is the real shape; two sibling directories is
+not.
+
+What it does not do is change the coverage account, and that account is now closed as
+unmeasurable rather than unmet — see *The delivery bar re-based* above.
+
+### The quote has to state the rule, not merely come from the same file
+
+`memory_remember`'s `quote` parameter now says what a real model checks. The wording is the model's
+own finding: given a claim about a deployment vault and a quote that only says how to start the
+server locally, it answers *"the cited evidence does not match the claim"* and discards the record.
+The `verified-file` grade proves the passage is *in* the file; it cannot prove the passage is
+*about* the claim — that is a semantic judgement, and this framework deliberately makes no LLM
+calls.
+
+So the parameter asks for the sentence that says the thing (a rule, an order, a value, an error
+message), not the paragraph the writer happened to be reading, and the tool's own description says
+what to do when no such passage exists: record the `inferred` version and say what is missing. There
+is no memory-writing skill in this workspace, so the tool description is the only channel a
+requirement like this can travel down. The per-turn fixed cost is untouched — that is the resident
+204-byte line, not a tool description.
+
+Measured first, which is why the requirement is written that way and not another: same lesson, same
+content, only `source_ref` changed — once at a README that exists, once at a file that does not —
+four real turns each. Both arms failed to use it. The second arm's reason was the file being gone;
+the first arm's was the finding above.
 
 ### Anchors, measured: path not name, and an A/B that did not reach significance
 
@@ -67,8 +265,6 @@ re-runnable commands are in `docs/DELIVERY-GAPS.md` §13–§14.
   the isolated session log) while the model also called `memory_recall` on its own. The ranking of
   what to fix next is unchanged and now documented: the model rarely asks memory before acting —
   9 `memory_recall` calls in 15,383, and only 1.8% of failures preceded by one.
-
-## 0.1.0 — unreleased
 
 ### Just-in-time delivery stops guessing: the record declares which call it applies to
 
@@ -141,7 +337,21 @@ Also in this change:
 **Not verified by this change**: whether a model writes useful anchors (there are none in the store
 yet), and whether any hint prevents a mistake. §12.8 lists both.
 
-## 0.1.0 — unreleased
+## 0.1.0 — 2026-09-22
+
+The framework as designed and built: graded evidence that refuses to call a claim verified unless a
+passage backs it, a resident digest that is not allowed to lie about what it holds, retrieval that
+separates an identifier hit from a lexical coincidence, a lifecycle that ages out what nothing is
+using, a turn harvester calibrated on real logs before it was trusted, migration tooling that
+audits before it imports, and packaging with zero third-party runtime dependencies. Eighteen suites
+of tests, 949 assertions.
+
+Three entries below belong to just-in-time delivery and are this version's half of that line: the
+delivery table (*Ask whether a lesson worked…*), the failure-shape counter (*The framework can now
+see what it keeps failing to learn*), and just-in-time delivery's first version (*The lesson now
+arrives at the call it is about…*). They are **0.2.0's premise, not its features** — kept here
+because this is where they shipped, and named in 0.2.0's lead so the causal order is visible:
+**measure first, only then replace.**
 
 ### The README says what a reader needs, and the process moves out of its way
 

@@ -299,6 +299,33 @@ export async function run(): Promise<void> {
       assert(readmeZh.includes(file), `README names the audit report ${file} that the audit actually writes`)
     }
 
+    // ── The version record, and the parameter that decides delivery ────────
+    // The changelog had four copies of `## 0.1.0 — unreleased` at one point and no date
+    // anywhere, and `package.json` drifts from it whenever one side is updated alone. Both
+    // are cheap to pin and expensive to leave unpinned: a reader decides whether to upgrade
+    // from these, so a version that does not exist is worse than an absent one.
+    const changelog = readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8')
+    const versions = [...changelog.matchAll(/^## (\d+\.\d+\.\d+) — (\d{4}-\d{2}-\d{2})\s*$/gm)]
+    assert(versions.length >= 1, 'the changelog states at least one version with a YYYY-MM-DD date')
+    for (const [, name, date] of versions) {
+      assert(/^\d{4}-\d{2}-\d{2}$/.test(date), `changelog version ${name} carries a date, not "${date}"`)
+    }
+    const versionNames = versions.map(([, name]) => name)
+    for (const name of versionNames) {
+      eq(versionNames.filter(each => each === name).length, 1,
+        `the changelog names ${name} exactly once — a repeated header is how it ended up with four copies of 0.1.0`)
+    }
+    eq(JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version as string, versionNames[0],
+      'package.json version is the changelog\'s newest version, so updating one side alone cannot drift')
+
+    // `recall_for` is the one parameter whose absence changes observable behaviour: an
+    // undeclared record is not delivered just before a tool call. Both READMEs have to say
+    // so, because a reader who never fills it in gets no delivery and would not know why.
+    assert(readmeZh.includes('recall_for'),
+      'README.md documents recall_for, which decides just-before-action delivery')
+    assert(readmeEn.includes('recall_for'),
+      'README.en.md documents recall_for too, so neither side goes stale alone')
+
     // ── Every key is restated in the bundle patch ───────────────────────────
     // `cordis.patch.yml` says of itself that a patch replaces the whole `config`
     // object, so a key left out is a key whose effective value is invisible from

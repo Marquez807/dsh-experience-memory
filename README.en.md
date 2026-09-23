@@ -25,12 +25,20 @@ Domain-scoped long-term experience memory for DeepSeek Harness: it tells weight 
 Install it (point the path at the tarball you have):
 
 ```sh
-dsh plugin --profile <name> add /path/to/dsh-experience-memory-0.1.0.tgz
+dsh plugin --profile <name> add /path/to/dsh-experience-memory-0.2.0.tgz
 ```
 
 **That is the whole step.** `dsh plugin add` does more than install a dependency — it **reconciles** `dsh.profile.bundles` with what is actually installed: any dependency declaring `dsh.bundle` is appended to the layer stack automatically (see `reconcilePlugins` in `@deepseek-ai/dsh`). No hand-editing of the profile's `package.json`.
 
 Then restart the app. **Zero configuration**: it works with no config at all — the default store is created at `$DSH_HOME/experience-memory/memory.db`, and the five tools, the seven slash commands and the resident injection all take effect immediately.
+
+**After the restart, look at one line of the startup log** (that line exists on purpose; the incident it comes from is in Known Limitations):
+
+```
+experience-memory: store <path> — 285 records, 181 confirmed, 9 anchored
+```
+
+**Check that `store <path>` is the store you expect.** An *empty* store and a *wrong* store look identical from outside — both answer every query with nothing — so this line states the path and the count, and a mis-resolved store is visible instead of silently telling you nothing.
 
 To confirm it is working, use the slash commands:
 
@@ -38,6 +46,8 @@ To confirm it is working, use the slash commands:
 /memory-status          # how many records, how many clear the resident bar
 /memory-preview 部署     # what this turn would actually inject
 ```
+
+There is also a self-check that runs **only in a maintenance pass**: when the file a `verified-file` record cites is no longer there (deleted, renamed), maintenance marks the record `needs_review` and names the missing file. **It flags and never refuses** — the file may simply not exist yet. To run it now: `tools/provenance-audit.mjs`.
 
 ### The four surfaces it hangs on
 
@@ -192,9 +202,11 @@ Two causes, neither of them "the memory is broken" — both of them "the deliver
 **Two changes, both measured against that session's real log (444 tool calls), not reasoned out:**
 
 - **The query now includes what the agent is doing**: the arguments of the tool it is calling, what it has written itself, its to-do list. Messages the plugin injected itself are always skipped, otherwise a hint would feed itself into the next turn's query. With no activity, the assembled query is character-for-character what it was before — and an assertion pins that.
-- **Delivery happens as a tool call is about to act (`precall`)**: a call names things by itself — the script it will run, the file it will change, the symbol it will look for. Only the **values** of read-only arguments are matched, and handles are extracted from them (paths, file names, symbols, switches). If a confirmed record mentions one of those **discriminating** handles (at most 2 records this workspace can see mention it), that record is delivered attached to the call — at most one per call, at most 300 bytes.
+- **Delivery happens as a tool call is about to act (`precall`)**, and the record **declares which calls it applies to** — `recall_for` is filled in when the memory is written, with one of three facts: `path:<file>` (this call names that file), `tool:<name>` (this call is that tool), `command:<word>` (the command line contains that word). A call satisfying one of those gets the record attached — at most one per call, at most 300 bytes. **A record with no declaration is not delivered just before an action** — it still reaches the per-turn digest and `memory_recall`.
 
-**Three things tried, measured and deleted** (replay said no, not laziness):
+**Why no longer "whatever is in the call, matched against the record"**: that rule fired on **57%** of 15,383 real tool calls; a hand-audited sample of 47 found **5 genuinely about the call** (10.6%), and **68.7%** of the deliveries matched a word that appears only in the record's `body` and never in the rules the record itself states (`trigger`/`failure_mode`/`lesson`). Tightening the threshold to remove the noise dropped recall on 25 hand-labelled scenarios to single digits — and even at the loosest setting only **14 of the scenarios' correct records ever entered the candidate pool**, so the right answer was never a candidate and re-ranking could not rescue it. Not a tuning problem: **"two words collide" does not entail "this lesson applies to this call."** Full measurements and the failure paths are in [`docs/DELIVERY-GAPS.md`](docs/DELIVERY-GAPS.md) §12–§13.
+
+**Three things tried, measured and deleted** (replay said no, not laziness. Kept to say why it is not done this way — all three belong to the word-matching rule that has since been replaced):
 
 | Attempt | Replay result |
 |---|---|
@@ -202,7 +214,9 @@ Two causes, neither of them "the memory is broken" — both of them "the deliver
 | **one delivery per turn** (1 through 6 all tried) | the turn's slot was taken by "some other record encountered earlier in the turn", and the Steam record **was never delivered once**. So throttling rests only on a per-record cooldown and a per-session cap, and the code says why |
 | using `Bannerlord` as the handle | **13 of the 17** records this workspace can see mention it, so hitting it means hitting nothing; `launch-a-runtime-clean.ps1` is mentioned by 2 and `ERC403` by 1 — that is what the lesson is actually about |
 
-The measured effect on that real session: **20 hints, landing in 4 of its 15 turns**; the Steam record was attached to the "write the launch script" call — **the same turn as launching the game, before it acted**.
+Those three are the history of the **replaced** word-matching rule. The new rule's own thresholds come from a different measurement: anchoring on the file *name* collided **508 times** on a single record (this workspace has three `tools.js`), and anchoring on the relative path brought that down to **83**.
+
+The old rule's measured effect on that real session was **20 hints, landing in 4 of its 15 turns** (the Steam record attached to the "write the launch script" call — the same turn as launching the game, before it acted). **That is the number for the mechanism that was replaced**, kept as the comparison point: the new rule's equivalents are **1.18% of calls and a worst case of 83 collisions on one record** (see "Does it actually work" below). They are not the same quantity — the old one fired often and off-topic, the new one fires rarely and only where the record named it.
 
 What it cannot do, stated plainly: it does **not** guarantee the hint lands on the call that most needs it. The first action in a turn that touches the topic takes the slot, so the "run" call may go without — the lesson is already in that turn's conversation, but it is not "attached to that line". That is a real trade-off, written here rather than glossed over.
 
@@ -266,7 +280,7 @@ How the tools disappear from the list: the mode mounts a small local plugin that
 | Tool | What it does |
 |---|---|
 | `memory_recall` | search by query, cap 16384 bytes, over the cap it **truncates in order and reports it**. `include_candidates` reviews claims you recorded but never verified; `include_retired` audits retired ones. **It records "was looked up" only for the records actually handed over** (the truncated tail does not count) — the only trace that memory was used |
-| `memory_remember` | record a fact / experience / strategy; without a verifiable passage it is stored as a candidate. Optional `expires_in_days` / `review_after_days` put a window on a perishable fact |
+| `memory_remember` | record a fact / experience / strategy; without a verifiable passage it is stored as a candidate. Optional `expires_in_days` / `review_after_days` put a window on a perishable fact; optional `recall_for` declares **which calls this record applies to**, and only a record that declares one is delivered just before an action (see below) |
 | `memory_feedback` | attach a real outcome; success clears the failure streak, two consecutive failures retire |
 | `memory_forget` | retire (default) or delete outright |
 | `memory_stats` | read-only census: how many records, how many clear the resident bar, reuse and correction counts, recent retirement reasons. No arguments. The first line is the build id, the last line this call's id; `/memory-status` is the human version |
@@ -274,6 +288,18 @@ How the tools disappear from the list: the mode mounts a small local plugin that
 The two descriptions the model reads are **instructions**, not capability statements: `memory_remember` opens with the trigger ("call this the moment you learn something that will still hold next session"), `memory_recall` opens with the occasion ("before entering unfamiliar territory, or before repeating a decision already made"). That is measured, not stylistic — putting a tool in the schema is not enough to make the model use it (see the 5,900 calls above). The constraint sits at the end of the description: record reusable rules only, not one-off details, transient tool output, secrets or unverified guesses.
 
 The `source_ref` parameter description also states **which citation can be graded**: for a file, write `path/file:line`; to claim "this command works", cite the id of a **successful** tool call; and **a lesson learned from a failure cannot cite that failed call** — a failed call is not evidence here (the existing `gradeEvidence` semantics, pinned in `evidence.test` as "a cited tool call that errored proves nothing") — cite instead **the file that records the finding**. That sentence came out of measurement: in an isolated turn the model cited a failed pytest call as its source, so the record could only land as a candidate and never reach the resident bar; in another turn it found its own way to "cite the test file committed to the repo", which is gradable, at the cost of one extra turn.
+
+**`quote` has a hard requirement of its own: the passage must itself say the thing** (a rule, an order, a value, an error message), not "the paragraph the writer happened to be reading". The evidence is the model's own judgement: given a claim about a deploy vault and a quote that only says how to start the server locally, it answers *"the cited evidence does not match the claim"* and throws the record away. `verified-file` proves the passage is *in* the file; it cannot prove the passage is *about* the claim — that is a semantic judgement, and this framework deliberately makes no model calls. So the parameter also states the fallback: when no such passage exists, record the `inferred` grade and say what is missing.
+
+**`recall_for` decides whether it reaches the model's eyes just before it acts.** One of three facts:
+
+| Value | Meaning | When to use it |
+|---|---|---|
+| `path:<file name>` | this call names that file | the lesson is about a file, or a kind of file |
+| `tool:<tool name>` | this call is that tool | the lesson is about how to use a tool |
+| `command:<word>` | the command line contains that word | the lesson is about a command |
+
+**With no declaration it is not delivered just before an action** — it only reaches the per-turn digest and `memory_recall`. That is the deliberate trade-off, and its cost and rationale are in "When recalling — telling weight from noise" above: it is not a choice of "fill it in or not", it is **no declaration means no just-before-action layer at all**.
 
 ### Slash commands (for people; the model cannot see them)
 
@@ -337,6 +363,56 @@ The digest has a hard ceiling of 1536 bytes and costs **0 bytes** when both sect
 #### KV Cache effect
 
 Content changes only when the hit set actually changes, so the effect on prefix caching is limited to the turns where it does. The core layer is stable, which makes it the cache-friendliest part.
+
+### Does it actually work: two controlled experiments
+
+Everything above describes the mechanism. This section answers one question: **did it actually
+prevent a mistake.**
+
+The method is two arms of N real model turns each — same repository, same task, one arm with the
+lesson in the store and one without. The conclusion is judged from the **artefacts** (file contents,
+file locations), never from what the model said.
+
+**Scenario one: what the config must say** (`docs/DELIVERY-GAPS.md` §19, §21)
+
+A convention that exists only in one thing the user said: a deploy config must declare the vault
+path first and the namespace second, **and the order matters**. No file in the repository says it.
+
+| | fully correct | 95% interval |
+|---|---|---|
+| no memory | **0 / 18** | 0.0% – 17.6% |
+| with the lesson | **14 / 18** | 54.8% – 91.0% |
+
+**Fisher's exact test, two-sided: p = 0.000002.** Split out: single turn 0/12 versus 9/12
+(p = 0.0003), cross-session 0/6 versus 5/6 (p = 0.0152 — one session hears the sentence and records
+it itself, a later session uses it).
+
+**Scenario two: where the file goes** (§22 of the same document)
+
+The convention becomes a placement rule: sample configs live in `conf/samples/`. The repository does
+not even have a `conf/` directory.
+
+| | in `conf/samples/` | 95% interval |
+|---|---|---|
+| no memory | **0 / 6** | 0.0% – 39.0% |
+| with the lesson | **6 / 6** | 61.0% – 100.0% |
+
+**Fisher's exact test, two-sided: p = 0.0022.**
+
+**Both scenarios together: 0 / 24 without the lesson, 20 / 24 with it** (p far below one in a
+million).
+
+**The detail that matters most**: those 24 control runs are not failures to act — almost every one
+of them wrote a file, just wrong content or wrong place. Scenario one's control arm produced a
+plausible-looking deploy config of 695–1751 bytes and was **wrong 18/18**; scenario two's control
+arm **wrote a file 6/6 times and put it in `config/` 6/6 times** — the model's own default guess for
+where sample configs live. So the difference is not *whether* it acts. It is *whether what it writes
+is right and where it puts it*.
+
+**The scope, stated plainly**: this holds only for **knowledge that lives in a conversation and not
+in a file**. If the repository says it, the model reads it and memory is not needed; if nobody said
+it there is nothing to recall. What this framework is for is exactly the class of things with no
+second place to look — which is what separates it from reading documentation.
 
 ### Automatic harvesting: catching the lesson the model never thought of
 
@@ -488,7 +564,17 @@ It loads the built `lib/`, so it doubles as a check that the shipped artefact be
 - **`/memory-gaps` also points out "which record was written but did not prevent it".** Three conditions must hold together: the keywords **all** match (and there are at least two — one word matching is coincidence), the record predates the repeats (a one-hour grace, otherwise a freshly written record is blamed for the next slip), and at least 3 repeats happened after it. The measured example: the "this machine cannot fetch web pages" lesson was written at 21:05; before it, the three kinds of `web_fetch` failure ran at 0.54/0.34/0.14 per hour, afterwards 0.00/0.12/0.00 — **the only hard evidence so far that a lesson prevented an error**. It can be recomputed any time with `audit/verify-prevention-before-after.mjs`.
 - **Some rows in `/memory-gaps` are not mistakes.** A user interrupting a plan review, a tool being aborted, a user cancelling a wait — all are recorded as "failure" shapes, and they are **the user's actions**, not the agent's misjudgement. This version deliberately does not filter them: filtering needs a literal "this does not count" list, and this repo has been burned by such lists before (one word of difference slips straight through). The cost is that the first rows of the report may mix them in; the mitigation is that **every row carries its raw error**, so a reader recognises them at a glance. The measurement supports the trade-off: 3 of 19 failures after the restart were of this kind.
 - **Counting reads only the most recent turn, at turn end.** Measured boundary (19 after a restart vs 19 counted turn by turn, identical): a turn already running before the restart is not counted (that build did not have the feature), and a session that never stopped is not counted either. The consistency script is `audit/diagnose-counter-gap.mjs`, rerunnable as-is at any time.
-- **Deferred: reminding by "when this applies" before acting.** All 59/59 records have a `trigger` field filled in, phrased as when the record is useful, which looks ready to use — and measured unreliable: using "the tool name about to be called appears in some record's trigger" as the condition fires 949 times in 13,198 calls (7.2%) and covers 62/358 failures (17%), but the largest source is `grep` (623 firings for 3 failures — sentences like "grep assertions" were taken as triggers), while the tool that should fire is `web_fetch` (193 calls / 49 failures). Telling "this record is about using this tool" from "it mentions this tool in passing" is a semantic judgement, and this plugin makes no LLM calls. **To touch it, meet the pre-registered criteria first**: replaying the same 7-day window, it must fire on ≤2% of calls and cover ≥15% of failures, and no single record may contribute ≥300 false firings; per-tool failure rates act as the gate (data from the `/memory-gaps` table). If it does not meet them, it is not done — writing "wanted" as a threshold keeps the next session from treating it as missed work better than writing it as a to-do.
+- **Just-before-action reminding: done, but by the record declaring when it applies — not by guessing from the `trigger` field.** It was deferred earlier because that route measured unreliable: using "the tool name about to be called appears in some record's `trigger`" as the condition fires 949 times in 13,198 calls (7.2%), the largest source being `grep` (623 firings for 3 failures — sentences like "grep assertions" were taken as triggers), while the tool that should fire, `web_fetch`, was drowned out. **The cause is not tuning**: telling "this record is about using this tool" from "it mentions this tool in passing" is a semantic judgement, and this plugin makes no model calls; "two words collide" does not entail "this lesson applies to this call". So it is declared at write time with `recall_for` (`path:` / `tool:` / `command:`), and a record with no declaration is not delivered just before an action. The four pre-registered criteria come out as:
+
+  | Criterion | Result |
+  |---|---|
+  | fires on ≤2% of calls | **1.18%** (replayed over the same 15,383 calls) |
+  | no single record ≥300 false firings | **83** (this workspace has three `tools.js`; anchoring on the file *name* collided 508 times, the relative path 83) |
+  | per-turn fixed cost unchanged | **unchanged** — the 204-byte line is still 204 bytes |
+  | covers ≥15% of failures | **retired** — see the next entry |
+
+  **The cost and the boundary**: this layer is empirically effective only for **knowledge that lives in a conversation and not in a file** (see "Does it actually work" above), and of **163 deliverable records only 10 declare an anchor** — the rest stay silent just before an action, most of them about things with no file to anchor to, so `tool:` / `command:` anchors have to be written by hand. **There is no automation for that step.**
+- **The "covers ≥15% of failures" criterion is retired, and replaced with the question it was standing in for**: "does this class of mistake still happen after the lesson was written?" The reason is measured, not convenience: of 442 tool failures, **83% are the harness's own guard refusing a call and stating the next step in the error text** (`file has not been read` alone is 49%), and no memory can prevent that. The numerator needs a semantic judgement ("should this record have prevented this failure"), which this framework deliberately does not make — even a word-overlap proxy assigned a data-source independence rule to a "tool call aborted" failure, the same defect recurring one layer up. The only way to hit the bar would be to anchor "read the file before editing" on `edit`, which is 28.3% of all calls — fourteen times over the trigger budget. That is cheating, not coverage. The replacement question **can** be answered from what is already here: `failure_shape` counts occurrences by shape with their times, `delivery` records what was shown, and `tools/prevention-ledger.mjs` produces the four-way account. The measurements and the reasoning are in [`docs/DELIVERY-GAPS.md`](docs/DELIVERY-GAPS.md) §5 (including the 2026-09-23 13:00 retirement entry), §15 and §20.
 - **Type annotations are never checked.** The build only strips them and the toolchain has no `tsc` (zero build dependencies is deliberate), so a type inconsistency is never discovered by any step — a wrong annotation is deleted as-is, runtime behaviour is unaffected, and not even the tests notice. Types here are documentation for people to read, not a verified contract. Adding a gate means adding a TypeScript dependency, which conflicts with "zero build-time dependencies"; that is a known trade-off, and it is written down here.
 - **The relevance gate makes "function words only" matches miss.** The resident layer requires an identifier hit or one shared content word, so a reply containing only 「这个/可以」 brings back no records even when one is genuinely relevant. The mitigation is on-demand retrieval: `memory_recall` is not subject to that gate.
 - **Title comparison folds punctuation, so different claims under one title can be retired together.** That is the price of a deliberately weak handle: the action is **retirement, not deletion**, `supersededBy` and the correction log both keep the trace, and a wrong judgement can be restored.
@@ -503,10 +589,17 @@ It loads the built `lib/`, so it doubles as a check that the shipped artefact be
 - **The slash commands need the `commands` service.** It is provided by `dsh-base` — the same bundle as `tools` and `systemPrompt` — so declaring it in `inject` adds no new environment constraint. The corollary: in any profile **without `dsh-base`** this plugin does not activate (which was already true before this change, since `tools` and `systemPrompt` come from base too).
 - **`src/` and `tools/` are not shipped in the package.** The runtime needs only `lib/`, and the scripts are in-repo tools. That also removes the class of defect where a shipped script imports `src/*.ts` and therefore cannot run under `node_modules` — not by fixing it, but by not shipping it.
 - **No cross-machine sync**; the database is a single-machine file.
-- **A real model turn was run once, and it is not part of `pnpm verify`.** That run caught a defect 12 suites could not: two readers were reading `agent.session.events`, and that property **does not exist on a real Session** — so in production the event log was always empty, a verbatim quote could never grade `verified-user`, the retrieval query was always the empty string, and the query section of the injection layer never matched anything. Every test had hand-written that array, so what they froze was an **assumption**, not the contract. Reads now go through `src/session.ts` (`snapshotEvents()`, with labelled compatibility branches elsewhere). Conclusion: a mount-layer assertion does not replace one real turn. How to run it is in the "running one real model turn" section of `docs/DEVELOPING.md`, but it spends real tokens, so it is not automated.
+- **Three independent experiments on real model turns were run, and none of them is part of `pnpm verify`.** Each caught something the suites could not:
+  1. **The mount layer did not match a real Session**: two readers were reading `agent.session.events`, and that property **does not exist on a real Session** — so in production the event log was always empty, a verbatim quote could never grade `verified-user`, the retrieval query was always the empty string, and the query section of the injection layer never matched anything. Every test had hand-written that array, so what they froze was an **assumption**, not the contract. Reads now go through `src/session.ts` (`snapshotEvents()`, with labelled compatibility branches elsewhere). **Conclusion: a mount-layer assertion does not replace one real turn.**
+  2. **Old versus new delivery rule on real turns**: 0/12 versus 9/12 (`p = 0.0003`), and cross-session 0/6 versus 5/6 (`p = 0.0152`). See "Does it actually work" above.
+  3. **The same result reproduced in a different shape of knowledge**: the convention moved from "what the config says" to "where the file goes", and it was 0/6 versus 6/6 (`p = 0.0022`). The combined figure is in the same section: both scenarios together **0/24 versus 20/24**.
+
+  How to run them is in the "running one real model turn" section of `docs/DEVELOPING.md` and in `tools/verified-user-ab/README.md`, but they spend real tokens, so they are not automated.
 - **Browser rendering of the slash menu is not automated.** The commands' **discoverability** is asserted: the test uses the same API the slash menu reads (`ctx.commands.list(agent)`) and checks that all 7 commands are present, have descriptions, declare argument hints where they take arguments, and are sorted by name. What remains unverified is only the step where the browser draws that data — a step shared with the in-box commands.
 
 ## About this document
+
+**Current version 0.2.0 (2026-09-23).** The full version record — what each version changed, why, and the measurements behind it — is in [`CHANGELOG.md`](CHANGELOG.md). The key change in `0.2.0` is **the delivery rule moving to a record declaring its own `recall_for` anchors**, which is a behaviour change: a record that declares none no longer interrupts a tool call just before it acts.
 
 - **The numbers in the READMEs are checked by machine, not copied by hand.** `tests/docs.test.ts` compares the config table value by value, the registered tool and command names, the digest line ceiling (2+5=7), the suite count, the audit output list and the byte size of that guidance line; any disagreement fails the suite. Changing the docs and changing the code are the same act here.
 - **The tests locate sections by exact heading text.** The pinned headings are `## Known Limitations and Deferred Work`, `## 配置`, `## 模型的体验（Model Experience）`, `### 它挂了四个表面` and `#### Token effect` — renaming one means changing the test in the same commit, otherwise those assertions fail on a missing anchor (fail, not silently skip). Details in the "documents and code" section of `docs/DEVELOPING.md`.

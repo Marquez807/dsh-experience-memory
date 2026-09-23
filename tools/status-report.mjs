@@ -90,8 +90,9 @@ try {
 
 console.log('')
 console.log('--- 判据（预注册，见 docs/DELIVERY-GAPS.md 第五节）---')
-console.log('投递率 ≤2% · 失败覆盖 ≥15%（已按可归因失败重写）· 单记录误触发 <300 · 每轮固定开销不变')
-console.log('同坑有经验时正确率显著更高：0/18 → 14/18，Fisher p=0.000002（docs §19、§21）')
+console.log('投递率 ≤2% · 单记录误触发 <300 · 每轮固定开销不变')
+console.log('（原第四条「失败覆盖 ≥15%」已于 2026-09-23 13:00 撤除，换成「这条经验写下之后，同类事件还犯不犯」——见第五节末尾）')
+console.log('同坑有经验时正确率显著更高：单轮 0/12 → 9/12，跨会话 0/6 → 5/6；第二场景 0/6 → 6/6（docs §19、§21、§22）')
 console.log('')
 console.log('回放这四个数：node tools/replay.mjs --judge both')
 console.log('看覆盖率三个分母：node tools/coverage-honest.mjs')
