@@ -337,14 +337,20 @@ Also in this change:
 **Not verified by this change**: whether a model writes useful anchors (there are none in the store
 yet), and whether any hint prevents a mistake. §12.8 lists both.
 
-## 0.1.0 — 2026-09-22
+## 0.1.0 — 2026-09-23
+
+> **The date is the version-cut date, not a content window.** This version's content spans
+> 2026-09-20 to 09-23 — the framework over those days, the delivery line's measurement on 09-23.
+> The `v0.1.0` tag points at the parent of `cd76f46`: **the state just before the delivery rule was
+> replaced**, which is the behavioural boundary between the two versions. So `v0.1.0` is exactly
+> "everything before 0.2.0's behaviour change", and both tags were cut on the same day.
 
 The framework as designed and built: graded evidence that refuses to call a claim verified unless a
 passage backs it, a resident digest that is not allowed to lie about what it holds, retrieval that
 separates an identifier hit from a lexical coincidence, a lifecycle that ages out what nothing is
 using, a turn harvester calibrated on real logs before it was trusted, migration tooling that
-audits before it imports, and packaging with zero third-party runtime dependencies. Eighteen suites
-of tests, 949 assertions.
+audits before it imports, and packaging with zero third-party runtime dependencies. By the end the
+suite had reached eighteen test suites pinning every claim above.
 
 Three entries below belong to just-in-time delivery and are this version's half of that line: the
 delivery table (*Ask whether a lesson worked…*), the failure-shape counter (*The framework can now
