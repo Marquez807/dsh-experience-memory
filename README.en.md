@@ -347,6 +347,8 @@ Why auditing and importing are not given to the model: they scan arbitrary direc
 | `disabledPresets` | `[]` | **which modes have no memory at all** (by preset id). A listed preset gets no injection, no hints, no harvesting and no counting, and its tool calls are refused |
 | `anchorCostTable` | `true` | check a declared anchor against what it would cost **before storing it**: an anchor that matches too many real calls is dropped and the caller is told (the record is still written; digest and recall are unchanged) |
 | `anchorCostMaxHits` | `300` | hits above which an anchor counts as too common. Defaults to the pre-registered per-record gate (`<300`), so one number governs both |
+| `effectWeight` | `0` | how much a *measured* deletion effect (remove this record and see whether the outcome changes) moves the ranking. `0` means not at all: the effect is recorded and shown but ranks nothing. It should only move once `docs/GROWTH.md` G5's experiment passes (same byte budget, decision-loss retention beats reuse-count retention by **≥5 points**) |
+| `decisionLossRetirement` | `false` | whether a record a deletion test measured as not changing the outcome may be retired for that reason. Off by default, and only a record that was **actually measured** (`effect` not null) can be retired this way — unmeasured is not the same as useless |
 
 An invalid value raises **at load time** and refuses to start the plugin instead of degrading silently. Exactly two limits may be `0`: `coreMaxRecords` (0 = core layer off) and `harvestMaxPerTurn` (0 = stop harvesting). For every other limit, 0 is indistinguishable from "off", so the minimum is 1.
 
@@ -605,5 +607,5 @@ It loads the built `lib/`, so it doubles as a check that the shipped artefact be
 
 - **The numbers in the READMEs are checked by machine, not copied by hand.** `tests/docs.test.ts` compares the config table value by value, the registered tool and command names, the digest line ceiling (2+5=7), the suite count, the audit output list and the byte size of that guidance line; any disagreement fails the suite. Changing the docs and changing the code are the same act here.
 - **The tests locate sections by exact heading text.** The pinned headings are `## Known Limitations and Deferred Work`, `## 配置`, `## 模型的体验（Model Experience）`, `### 它挂了四个表面` and `#### Token effect` — renaming one means changing the test in the same commit, otherwise those assertions fail on a missing anchor (fail, not silently skip). Details in the "documents and code" section of `docs/DEVELOPING.md`.
-- **18 个套件** (18 suites) in total, run with one command: `pnpm verify`. What each one covers is in the "tests" section of [`docs/DEVELOPING.md`](docs/DEVELOPING.md).
+- **19 个套件** (19 suites) in total, run with one command: `pnpm verify`. What each one covers is in the "tests" section of [`docs/DEVELOPING.md`](docs/DEVELOPING.md).
 - **Building, packaging, boot acceptance, the test inventory and the development environment** live in [`docs/DEVELOPING.md`](docs/DEVELOPING.md).

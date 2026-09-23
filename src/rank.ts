@@ -7,6 +7,7 @@
  * decision, so it lives in exactly one function.
  */
 import type { Evidence, MemoryRecord, RankedRecord } from './types.ts'
+import { effectWeight } from './effect.ts'
 
 const DAY = 86_400_000
 
@@ -77,6 +78,14 @@ export interface ImportanceFacts {
   reviewAfter: number | null
   now: number
   identifierMatches?: number
+  /**
+   * Measured deletion effect, `+1`..`-1`, or `null`/absent when unmeasured.
+   *
+   * It enters the score only through `effectWeight` (`src/effect.ts`), which is `0` unless the
+   * decision-loss experiment in `docs/GROWTH.md` G5 passed. An unmeasured record contributes
+   * nothing rather than contributing a zero-effect penalty.
+   */
+  effect?: number | null
 }
 
 /**
@@ -109,6 +118,11 @@ export function importance(facts: ImportanceFacts): number {
     + 0.3 * Math.log2(1 + facts.reuseCount)
     + Math.min(RETRIEVAL_BONUS_CAP, 0.3 * Math.log2(1 + retrieveCount))
     + Math.min(IDENTIFIER_BONUS_CAP, IDENTIFIER_BONUS * identifierMatches)
+    // Measured deletion effect, off by default (`effectWeight()` is 0 until the G5 experiment says
+    // otherwise). Symmetric on purpose: an effect of `-1` -- a record that made the outcome worse --
+    // has to be able to push a record *below* where it would otherwise sit, or the number could
+    // only ever promote things and the retirement rule would have no arithmetic behind it.
+    + effectWeight() * (facts.effect ?? 0)
 }
 
 /**
@@ -146,6 +160,10 @@ export function explain(record: MemoryRecord, identifierMatches: number, now: nu
   if (record.successCount > 0) parts.push(`${record.successCount} 次成功复用`)
   if (record.failStreak > 0) parts.push(`${record.failStreak} 次连续失败`)
   if (identifierMatches > 0) parts.push(`${identifierMatches} 处标识符精确命中`)
+  // Said out loud when it exists, because it is the one term in the score that came from an
+  // experiment rather than from counting: a reader is entitled to see the number the store is
+  // ranking on, and to see that it is missing when nobody measured the record.
+  if (record.effect !== null && record.effect !== undefined) parts.push(`删除测试 effect ${record.effect > 0 ? '+' : ''}${record.effect.toFixed(2)}`)
   // Said out loud because it is the question a reader otherwise cannot answer: has this
   // ever been reached for since it was written, or has it been sitting here unread?
   if (record.retrieveCount > 0) parts.push(`被查过 ${record.retrieveCount} 次`)

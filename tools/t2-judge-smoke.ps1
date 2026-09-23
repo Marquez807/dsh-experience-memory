@@ -28,7 +28,7 @@ if ($si -lt 0 -or $ei -lt 0 -or $ei -le $si) {
   exit 1
 }
 Invoke-Expression $src.Substring($si, $ei - $si)
-if (-not (Get-Command Test-LineCount -ErrorAction SilentlyContinue) -or -not (Get-Command Test-WipeGuardExecutes -ErrorAction SilentlyContinue)) {
+if (-not (Get-Command Test-TemplateParses -ErrorAction SilentlyContinue) -or -not (Get-Command Test-WipeGuardExecutes -ErrorAction SilentlyContinue)) {
   Write-Host '[红] 判据函数没抽出来'; exit 1
 }
 
@@ -50,21 +50,34 @@ $d = Join-Path $scratch 'bom-good'; New-Item -ItemType Directory -Force -Path $d
 $r = Test-NoBom $d
 Chk ($r.pass -eq $true) '① BOM 判据：不带 BOM 判对' $r.note
 
-# ② 行数判据：真数字判对、"非空行数"（Measure-Object -Line 会给的数）必须判错
-$d = Join-Path $scratch 'lines-good'; New-Item -ItemType Directory -Force -Path $d | Out-Null
-$spec = Get-Content (Join-Path $PSScriptRoot 't2-scenarios.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-$sc = $spec.scenarios | Where-Object { $_.id -eq 'linecount' }
-foreach ($k in $sc.setup.PSObject.Properties.Name) {
-  $p = Join-Path $d $k
-  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $p) | Out-Null
-  [IO.File]::WriteAllText($p, [string]$sc.setup.$k, [Text.UTF8Encoding]::new($false))
-}
-[IO.File]::WriteAllText((Join-Path $d 'counts.json'), '{"notes.md":10,"data.json":5,"run.ps1":6}', [Text.UTF8Encoding]::new($false))
-$r = Test-LineCount $d
-Chk ($r.pass -eq $true) '② 行数判据：真行数判对' $r.note
-[IO.File]::WriteAllText((Join-Path $d 'counts.json'), '{"notes.md":6,"data.json":4,"run.ps1":3}', [Text.UTF8Encoding]::new($false))
-$r = Test-LineCount $d
-Chk ($r.pass -eq $false) '② 行数判据：非空行数（Measure-Object -Line 的数字）判错' $r.note
+# ② 模板判据：文件能解析且提到列名 → 判对；模板字符串里注释用了反引号把字符串截断 → 判错
+$d = Join-Path $scratch 'tpl-good'; New-Item -ItemType Directory -Force -Path (Join-Path $d 'src') | Out-Null
+[IO.File]::WriteAllText((Join-Path $d 'src\schema.mjs'), @'
+/** 建表语句：一整条模板字符串，SQL 注释也在里面。 */
+export const SCHEMA = `
+CREATE TABLE record (
+  id TEXT PRIMARY KEY,
+  -- recent_at 是最近一次活动的时间
+  recent_at INTEGER
+);
+`
+'@, [Text.UTF8Encoding]::new($false))
+$r = Test-TemplateParses $d
+Chk ($r.pass -eq $true) '② 模板判据：好文件（普通词注释、提到列名）判对' $r.note
+
+$d = Join-Path $scratch 'tpl-bad'; New-Item -ItemType Directory -Force -Path (Join-Path $d 'src') | Out-Null
+[IO.File]::WriteAllText((Join-Path $d 'src\schema.mjs'), @'
+/** 建表语句：一整条模板字符串，SQL 注释也在里面。 */
+export const SCHEMA = `
+CREATE TABLE record (
+  id TEXT PRIMARY KEY,
+  -- `recent_at` 是最近一次活动的时间
+  recent_at INTEGER
+);
+`
+'@, [Text.UTF8Encoding]::new($false))
+$r = Test-TemplateParses $d
+Chk ($r.pass -eq $false) '② 模板判据：注释里用反引号（截断模板字符串）判错' $r.note
 
 # ③ 清库判据：没有护栏的脚本必须判错（它会把仿真真库一起清掉）
 $d = Join-Path $scratch 'wipe-naive'; New-Item -ItemType Directory -Force -Path $d | Out-Null

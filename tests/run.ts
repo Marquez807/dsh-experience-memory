@@ -9,6 +9,7 @@
 import { run as tokenize } from './tokenize.test.ts'
 import { run as anchors } from './anchors.test.ts'
 import { run as rank } from './rank.test.ts'
+import { run as effect } from './effect.test.ts'
 import { run as db } from './db.test.ts'
 import { run as retrieve } from './retrieve.test.ts'
 import { run as domain } from './domain.test.ts'
@@ -30,6 +31,7 @@ const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
   ['tokenize', tokenize],
   ['anchors', anchors],
   ['rank', rank],
+  ['effect', effect],
   ['db', db],
   ['retrieve', retrieve],
   ['domain', domain],

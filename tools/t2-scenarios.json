@@ -1,6 +1,6 @@
 {
   "_note": "T2 受控删除测试 —— 任务、5 臂、判定、阴性对照，全部在此定死。判据与结论见 docs/GROWTH.md 与「结论先行表」，跑完只填数字、不改口。每个任务取自真实教训（本工作区经验库里已确认的记录），成功判据可从产物客观判断。",
-  "_amendment": "2026-09-24 修订，共两轮，理由都是「这条场景没有判别力」而不是「我想要它通过」，逐条记在 tools/t2-plan.md §4.1 与 §4.7。第一轮后：① stdin 场景**删除**（本机沙箱禁止 git 起凭据助手管道，五个臂一起红，测的是环境不是记忆——地板）；② selftest 场景**删除**（判据只查关键词，不用记忆也 3/3——天花板）；③ wipeguard 判据从「读脚本里有没有 exit/console.log」改成「由测试台真的执行脚本」（旧判据 none 臂也 3/3，太松）。预检门⑦（开跑前先验判别力）实测后又改：④ jsonquote **删除**（两边都过，天花板）；⑤ wipeguard 的任务改成不含「自己判断该不该清」这一条（原措辞让模型在 240 秒里反复定义判据、根本没写文件——那是措辞造出来的地板，不是真地板）；⑥ 新增 linecount 场景。删掉的两条场景与其数据一并留在 tools/t2-invalid-*.jsonl 与 tools/t2-results-r1.jsonl，不静默丢弃。",
+  "_amendment": "2026-09-24 修订，共三轮，理由都是「这条场景没有判别力」而不是「我想要它通过」，逐条记在 tools/t2-plan.md §4.1–§4.8。第一轮后：① stdin 场景**删除**（本机沙箱禁止 git 起凭据助手管道，五个臂一起红，测的是环境不是记忆——地板）；② selftest 场景**删除**（判据只查关键词，不用记忆也 3/3——天花板）；③ wipeguard 判据从「读脚本里有没有 exit/console.log」改成「由测试台真的执行脚本」（旧判据 none 臂也 3/3，太松）。预检门⑦ 实测后又改：④ jsonquote **删除**（两边都过，天花板）；⑤ wipeguard 的任务改成不含「自己判断该不该清」这一条（原措辞让模型在 240 秒里反复定义判据、根本没写文件——那是措辞造出来的地板，不是真地板）；⑥ 新增 linecount 场景。第二轮预检后又改：⑦ linecount **删除**（none 臂自己考虑了 Measure-Object -Line 并主动选了正确方法——天花板）；⑧ 新增 tplcomment 场景（模板字符串里注释用反引号会截断文件——错法可复现，判据只看文件能否解析）；⑨ **工作区目录名不许带场景/臂/次数**（原来 bom-none-99 让模型从路径名反推出「不许带 BOM」——实验污染，已改用哈希目录名）。删掉的场景与其数据一并留在 tools/t2-invalid-*.jsonl 与 tools/t2-results-r1.jsonl，不静默丢弃。",
   "arms": [
     { "id": "none",   "kind": "no-record" },
     { "id": "rel",    "kind": "relevant" },
@@ -28,18 +28,16 @@
       "relevantRecordTitle": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）"
     },
     {
-      "id": "linecount",
-      "why": "教训：PowerShell 的 Measure-Object -Line 会漏计空行，核行数要用 (Get-Content $f).Count",
+      "id": "tplcomment",
+      "why": "教训：模板字符串（反引号）内部的注释里不能出现反引号，会把字符串截断、文件当场语法错误",
       "setup": {
-        "README.md": "# 三个待盘点的文件\n\nnotes.md / data.json / run.ps1 —— 都是给人看的文本，段落之间留了空行。\n",
-        "notes.md": "# 笔记\n\n第一段。\n\n第二段。\n\n- 条目一\n- 条目二\n\n最后一段。\n",
-        "data.json": "{\n  \"a\": 1,\n\n  \"b\": 2\n}\n",
-        "run.ps1": "$x = 1\n\nWrite-Host $x\n\n\nWrite-Host 'done'\n"
+        "README.md": "# schema\n\n建表语句写成一整条模板字符串（反引号）交给数据库执行，SQL 注释也在字符串里面。**结构不要改**，只补注释文字。\n",
+        "src/schema.mjs": "/** 建表语句：一整条模板字符串，SQL 注释也在里面。 */\nexport const SCHEMA = `\nCREATE TABLE record (\n  id TEXT PRIMARY KEY,\n  -- 说明待补\n  recent_at INTEGER\n);\n`\nexport const DROPPED = `\nDROP TABLE IF EXISTS record;\n`\n"
       },
-      "task": "盘点一下工作区里这三个文件各有多少行：notes.md、data.json、run.ps1。\n\n要求用 PowerShell 数（这是给 Windows 上的同事看的盘点表）。结果写成 counts.json，格式就是：\n{\"notes.md\": 数字, \"data.json\": 数字, \"run.ps1\": 数字}\n\n数字要准——这份表会被别人拿去按行号复核文件内容。",
-      "judge": "line-count",
-      "judgeNote": "counts.json 里三个文件的数字，必须**每个都等于文件真实行数**（空行也算行）：notes.md 10、data.json 5、run.ps1 6。三个全对才算过；任何一个不对（含少一个数、多一层嵌套结构）都算错。判据同时算出「非空行数」6/4/4 放进 note —— 那正是 `Get-Content f | Measure-Object -Line` 会给的数字，实测该命令对同一文件返回 6 而真实行数是 10（2026-09-24 本机实测，见 tools/t2-plan.md §4.7）。",
-      "relevantRecordTitle": "PowerShell 的 Measure-Object -Line 会漏计空行，核行数要用 (Get-Content $f).Count"
+      "task": "src/schema.mjs 里那句 `-- 说明待补` 请换写成一句中文说明：讲清楚 recent_at 这一列存的是这张表里最近一次活动的时间。\n\n说明里要出现列名 recent_at（同事看注释时要能一眼对上列）。\n\n改完把改后的那一行贴给我。",
+      "judge": "template-parses",
+      "judgeNote": "① `node --check src/schema.mjs` 退出码 0（文件本身能被解析——模板字符串里的反引号会把它截断，报的却是 `Expected a semicolon` 之类的错）；② 动态 import 后 `SCHEMA` 是字符串且含 `recent_at`。两条都对才算过。判据不看注释用没用反引号：写成普通词、单引号、或者把列名放在句子里都算对——只要文件还能解析、而且说明真的提到了这一列。",
+      "relevantRecordTitle": "模板字符串里的注释不能用反引号：会把字符串截断"
     },
     {
       "id": "wipeguard",

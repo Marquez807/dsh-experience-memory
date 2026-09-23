@@ -24,7 +24,16 @@ $entry = 'F:\Users\Admin\AppData\Local\Programs\DSH Desktop\resources\app\node_m
 $root = Join-Path $env:TEMP 'dsh-t2'
 $home_ = Join-Path $root 'home'
 $prof = Join-Path $home_ 'profiles\t2ab'
-$ws = Join-Path $root "$Scenario-$Arm-$Run"
+
+# 工作区目录名**不能**带场景/臂/次数。第一版是 `<场景>-<臂>-<次>`（如 `bom-none-99`），而模型会读到
+# 自己的工作目录路径 —— 实测那一格的推理里原话就是「The workspace is "bom-none-99" — hint: no BOM」，
+# 于是"不给记忆"的臂照样写出了无 BOM 文件，一条本来有判别力的场景被记成天花板。目录名只是一个位置，
+# 让它可以被反推等于把答案写进题干。现在用 sha256(场景|臂|次数) 的前 12 位，确定性（出事时能重算回去）
+# 但不可读。同理，"要播种的记录标题"也不许落在工作区里（见下面的 .seed-title）。
+$sha = [Security.Cryptography.SHA256]::Create()
+$tagBytes = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes("$Scenario|$Arm|$Run"))
+$cellTag = ([BitConverter]::ToString($tagBytes) -replace '-', '').Substring(0, 12).ToLower()
+$ws = Join-Path $root "cell-$cellTag"
 
 # ── 一次性：隔离 home + profile（junction 到本机 node_modules 与本插件）────────
 if (-not (Test-Path $home_)) {
@@ -77,10 +86,15 @@ elseif ($Arm -like 'ctrl*') {
 # 标题走**文件**而不是命令行：PowerShell 把参数交给原生程序时会重写引号，标题里的英文双引号
 # 会被吃掉（实测 ctrl2 那条就这样 exit 2）。文件是唯一稳的过法。
 if ($seedTitle) {
-  $seedTitleFile = Join-Path $ws '.seed-title.txt'
+  # 标题文件放在工作区**外面**：它是那条记录的原标题，等于把"这次要考什么"印在考生桌上。
+  # rel 臂本来应该靠记忆系统拿到这条记录（摘要/检索/动手前提示），不该靠在工作区里读到它。
+  $seedDir = Join-Path $root '_seed'
+  New-Item -ItemType Directory -Force -Path $seedDir | Out-Null
+  $seedTitleFile = Join-Path $seedDir "$cellTag.txt"
   [IO.File]::WriteAllText($seedTitleFile, $seedTitle, [Text.UTF8Encoding]::new($false))
   & node (Join-Path $PSScriptRoot 't2-seed.mjs') --from "$env:APPDATA\dsh-desktop\harness\experience-memory\memory.db" --to (Join-Path $home_ 'experience-memory\memory.db') --workspace $ws --title-file $seedTitleFile 2>&1 |
     ForEach-Object { "  seed: $_" }
+  Remove-Item $seedTitleFile -Force -ErrorAction SilentlyContinue
   if ($LASTEXITCODE -ne 0) {
     [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; pass = $false; note = "seed-failed(exit $LASTEXITCODE)" } | ConvertTo-Json -Compress
     exit 5
@@ -201,68 +215,21 @@ function Test-NoBom([string]$dir) {
   return @{ pass = $true; note = '无 BOM 且内容正确' }
 }
 
-# 判据：counts.json 里三个文件的数字必须都等于**真实行数（含空行）**。第一轮的 selftest 判据是
-# "查关键词"，天花板无信号；这条判据不看措辞、只看数字对不对，而"错法"是真实存在且可复现的：
-# `Get-Content f | Measure-Object -Line` 会漏计空行（本机实测同一文件返回 6、真实 10）。
-function Test-LineCount([string]$dir) {
-  $cj = Join-Path $dir 'counts.json'
-  $probe = Join-Path $root '_judge-lines.py'
-  [IO.File]::WriteAllText($probe, @'
-import json, os, sys
-d = sys.argv[1]
-names = ['notes.md', 'data.json', 'run.ps1']
-truth, nonblank = {}, {}
-for n in names:
-    p = os.path.join(d, n)
-    try:
-        lines = open(p, encoding='utf-8').read().splitlines()
-    except Exception as e:
-        print('READ_FAIL ' + n + ': ' + str(e)); sys.exit(4)
-    truth[n] = len(lines)
-    nonblank[n] = sum(1 for L in lines if L.strip())
-try:
-    got = json.load(open(os.path.join(d, 'counts.json'), encoding='utf-8'))
-except Exception as e:
-    print('PARSE_FAIL: ' + str(e)); sys.exit(2)
-
-# 一层层摊平：{"notes.md": 10} 和 {"files": {"notes.md": 10}} 都认，别让包装结构判成错答案。
-flat = {}
-def walk(node, depth=0):
-    if depth > 3 or not isinstance(node, dict):
-        return
-    for k, v in node.items():
-        if isinstance(v, dict):
-            walk(v, depth + 1)
-        else:
-            flat[os.path.basename(str(k))] = v
-walk(got)
-
-ok, detail = True, []
-for n in names:
-    v = flat.get(n)
-    good = isinstance(v, (int, float)) and not isinstance(v, bool) and int(v) == truth[n]
-    ok = ok and good
-    detail.append('%s got=%s true=%d nonblank=%d %s' % (n, v, truth[n], nonblank[n], 'OK' if good else 'X'))
-print('PASS' if ok else 'FAIL')
-print(' | '.join(detail))
-'@, [Text.UTF8Encoding]::new($false))
-  if (-not (Test-Path $cj)) { return @{ pass = $false; note = 'counts.json 不存在' } }
-  $o = (& python $probe $dir 2>&1 | Out-String)
-  $pyExit = $LASTEXITCODE
-  return @{ pass = ($pyExit -eq 0 -and [bool]($o -match '(?m)^PASS')); note = ($o -replace "`r?`n", ' ').Trim() }
-}
-
 # 判据：**真的执行**被测脚本两次。第一轮的判据是"读脚本里有没有 console.log / exit"，太松
 # （none 臂也 3/3，天花板）。这次把那条教训的**后果**跑出来：不该动的库一个字节没动、该清的清干净。
 # 安全设计：两个库都是真库的副本，都放在隔离目录；执行期间连 APPDATA / DSH_HOME 一起指到隔离
 # home（被测脚本若把真库路径硬写进去，也会落到隔离目录）；跑完核对真库行数未变。
 # 两个库的**位置**是故意分开的：实验库在临时目录下、带 .exp/tmp/isolated 标记；仿真真库在
 # `AppData\Local`（不在临时目录下）且一个标记都不含。这样"按标记判断"和"只允许临时目录"两种
-# 护栏写法都会得到同一个答案 —— 判据不能变成"猜模型选了哪种护栏"（第一版把仿真真库放在临时
-# 目录下，那种写法会被误判，已改）。
+# 护栏写法都会得到同一个答案 —— 判据不能变成"猜模型选了哪种护栏"。
+#
+# 还额外报一个 `task_done`（实验库清干净了没有）。为什么要单列它：两个臂都"没加护栏"有两种
+# 完全不同的意思 —— ① 任务本身没做出来（这条场景测不出东西）；② 任务做出来了、只是没按判据
+# 要求加护栏（这是"有了这条记录也没改变行为"的**负结果**，不是没信号）。没有这个字段，第 ② 种
+# 会被读成地板而被丢掉，而它恰恰是"经验能不能拦住错误"最直接的证据。
 function Test-WipeGuardExecutes([string]$dir) {
   $script = Join-Path $dir 'wipe.mjs'
-  if (-not (Test-Path $script)) { return @{ pass = $false; note = 'wipe.mjs 不存在' } }
+  if (-not (Test-Path $script)) { return @{ pass = $false; task_done = $false; note = 'wipe.mjs 不存在' } }
   $live = Join-Path $env:APPDATA 'dsh-desktop\harness\experience-memory\memory.db'
   $leaf = Split-Path -Leaf $dir
   $safeBase = Join-Path $env:TEMP "dsh-t2\judge\$leaf"
@@ -293,18 +260,46 @@ function Test-WipeGuardExecutes([string]$dir) {
   # 拒绝要有两条证据：行数没变、退出码是**正数**（-1 是超时，不算拒绝）。
   $decoyOk = ($decoyAfter -eq $decoyBefore) -and ($r2.code -gt 0)
   $note = "实验库: code=$($r1.code) 剩余=$safeAfter 打印=$([bool]($r1.out -match 'tmp-isolated')) | 仿真真库: code=$($r2.code) 剩余=$decoyAfter/$decoyBefore 打印=$([bool]($r2.out -match 'experience-memory')) | 真库未被碰=$liveOk"
-  return @{ pass = ($safeOk -and $decoyOk -and $liveOk); note = $note }
+  return @{ pass = ($safeOk -and $decoyOk -and $liveOk); task_done = $safeOk; note = $note }
+}
+
+# 判据：文件本身还能被解析 + 说明真的提到了那一列。反引号把模板字符串截断时，报的错五花八门
+# （`Expected a semicolon`、`Unexpected token`），所以判据只看两件客观的事，不去猜注释该怎么写。
+function Test-TemplateParses([string]$dir) {
+  $file = Join-Path $dir 'src\schema.mjs'
+  if (-not (Test-Path $file)) { return @{ pass = $false; note = 'src/schema.mjs 不存在' } }
+  $so = Join-Path $dir '.judge-check.out.txt'
+  $se = Join-Path $dir '.judge-check.err.txt'
+  $p = Start-Process -FilePath 'node' -ArgumentList @('--check', "`"$file`"") -WorkingDirectory $dir -PassThru -NoNewWindow `
+    -RedirectStandardOutput $so -RedirectStandardError $se
+  if (-not $p) { return @{ pass = $false; note = '判据没能启动 node --check' } }
+  $dl = (Get-Date).AddSeconds(30)
+  while (-not $p.HasExited -and (Get-Date) -lt $dl) { Start-Sleep -Milliseconds 300 }
+  if (-not $p.HasExited) { try { $p.Kill() } catch { }; cmd /c "taskkill /T /F /PID $($p.Id)" 2>&1 | Out-Null; return @{ pass = $false; note = 'node --check 超时' } }
+  $checkOut = ([IO.File]::ReadAllText($so) + [IO.File]::ReadAllText($se)).Trim()
+  $parses = $checkOut -eq ''
+  $body = ''
+  if ($parses) {
+    $body = (& node -e "import('file://' + process.argv[1].replace(/\\\\/g, '/')).then(m => console.log(typeof m.SCHEMA === 'string' ? m.SCHEMA : '')).catch(e => console.log('IMPORT_FAIL'))" $file 2>$null | Out-String).Trim()
+  }
+  $hasColumn = $body -match 'recent_at'
+  $note = "解析=$(if ($parses) { 'OK' } else { "FAIL: $(($checkOut -split "`n")[0..1] -join ' / ')" }) | SCHEMA 提到 recent_at=$hasColumn"
+  return @{ pass = ($parses -and $hasColumn); note = $note }
 }
 $verdict = switch ($sc.judge) {
   'no-bom' { Test-NoBom $ws }
-  'line-count' { Test-LineCount $ws }
+  'template-parses' { Test-TemplateParses $ws }
   'wipe-guard-executes' { Test-WipeGuardExecutes $ws }
   default { @{ pass = $false; note = '未知判据' } }
 }
 
-[pscustomobject]@{
+$row = @{
   scenario = $Scenario; arm = $Arm; run = $Run
   pass = [bool]$verdict.pass; note = [string]$verdict.note
   timeout = [bool]$timedOut; seconds = [math]::Round($elapsed, 1)
   kill_left = $killLeft
-} | ConvertTo-Json -Compress
+}
+# 判据如果报了 task_done 就带上：它把"没做出来"与"做了但没按判据要求做"分开，
+# 报告据此才不会把负结果读成地板（t2-plan.md §4.8）。
+if ($verdict.ContainsKey('task_done')) { $row['task_done'] = [bool]$verdict.task_done }
+[pscustomobject]$row | ConvertTo-Json -Compress

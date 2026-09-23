@@ -85,3 +85,13 @@
         # (`node tools/anchor-cost.mjs --write-table`); when it is absent the check fails open.
         anchorCostTable: true
         anchorCostMaxHits: 300
+        # The one number in the score that comes from an experiment instead of from counting: run
+        # the same task with and without a record and subtract the pass rates (`src/effect.ts`).
+        # Both switches below are **off**: `0` records and displays the effect without ranking on it,
+        # and `false` keeps retirement on the age/reuse rules alone. They are meant to be turned on
+        # only if `docs/GROWTH.md` G5's experiment passes — same byte budget, retention by decision
+        # loss beats retention by reuse count by ≥5 points of task accuracy. A ceiling or a floor in
+        # that experiment is not a zero: it is a measurement that could not detect anything, and it
+        # is never written into a record.
+        effectWeight: 0
+        decisionLossRetirement: false

@@ -114,6 +114,18 @@ for (const scenario of scenarios) {
   const ctrlRate = ctrlRan === 0 ? 0 : ctrlPass / ctrlRan
   const rateText = n => `${(n * 100).toFixed(0)}%`
   const noneRate = none.ran === 0 ? 0 : none.pass / none.ran
+  // `task_done` (when the judge reports it) separates "nobody could do the task at all" from
+  // "everybody did the task but nobody did the thing the lesson prescribes". The second is a real
+  // negative result — the record was in the store and changed nothing — and reading it as a floor
+  // (no information) would throw away the one finding that directly answers "can a lesson stop
+  // a mistake". See tools/t2-plan.md §4.8.
+  let taskDone = false
+  for (const arm of ARMS) {
+    for (const run of RUNS) {
+      const row = cells.get(`${scenario}|${arm}|${run}`)
+      if (row !== undefined && row.task_done === true) taskDone = true
+    }
+  }
   // Compare **rates**, never counts: three controls give nine trials against rel's three, and
   // 3/9 is not "as good as" 3/3. Comparing counts would void a scenario that passed.
   //
@@ -123,6 +135,7 @@ for (const scenario of scenarios) {
   // the lesson" are both wrong, and the second would void the whole experiment.
   let verdict
   if (!complete) verdict = '未跑完，不下结论'
+  else if (rel.pass === 0 && none.pass === 0 && taskDone) verdict = `❌ 负结果：四个臂都把任务做出来了（task_done=true），但**判据要求的行为一个都没出现**——记录就在库里、内容含判据需要的规则，却没有改变任何行为。这不是"没信号"，是"有了这条记录也没用"的直接证据`
   else if (rel.pass === 0 && none.pass === 0) verdict = '无信号 · 地板：四个臂都没做出来（多为超时）⇒ 这条场景测不出差别'
   else if (rel.pass === none.pass) verdict = `无信号 · 天花板：不用经验也拿到 ${rateText(noneRate)}（与 rel 打平）⇒ 这条场景测不出差别`
   else if (rel.pass > none.pass && ctrlRate >= relRate) verdict = `❌ 对照 ${rateText(ctrlRate)} 不低于 rel ${rateText(relRate)} ⇒ 按冻结表最后一行，整体作废`

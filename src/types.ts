@@ -86,6 +86,16 @@ export interface MemoryRecord {
   origin: 'model' | 'harvest'
   /** Which detector fired, for harvested records. `null` for everything else. */
   harvestSignal: string | null
+  /**
+   * Measured deletion effect, or `null` when nobody has measured it.
+   *
+   * `with minus without` pass rate of a controlled deletion test: `+1` means the task fails without
+   * this record, `0` that removing it changed nothing measurable, `<0` that having it made the
+   * outcome worse. See `src/effect.ts` for why a ceiling or a floor must never be written down as a
+   * zero, and `docs/GROWTH.md` G5 for what the number is for. Nothing ranks on it and nothing is
+   * retired by it unless the corresponding switch is turned on.
+   */
+  effect: number | null
 }
 
 /** A record plus the ranking facts computed for one retrieval. */

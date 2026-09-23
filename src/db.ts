@@ -16,7 +16,7 @@ import { tokenize } from './tokenize.ts'
 import type { Evidence, Kind, MemoryRecord, Scope, Status } from './types.ts'
 
 /** Bumped whenever a migration below changes the schema. */
-export const SCHEMA_VERSION = 6
+export const SCHEMA_VERSION = 7
 
 /** `$DSH_HOME/experience-memory/memory.db`, with `~/.dsh` as the documented fallback. */
 export function defaultDbPath(): string {
@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS record (
   needs_review        TEXT,
   origin              TEXT NOT NULL DEFAULT 'model',
   harvest_signal      TEXT,
+  effect              REAL,
   embedding           BLOB
 );
 -- Identity is per scope, and the two scopes identify differently. A
@@ -201,6 +202,11 @@ export function migrate(db: DatabaseSync): void {
     last_retrieved_at: 'INTEGER',
     origin: "TEXT NOT NULL DEFAULT 'model'",
     harvest_signal: 'TEXT',
+    // Schema 7. Left NULL on purpose: `NULL` is "nobody measured this", which is a different fact
+    // from `0` ("measured, and removing it changed nothing"). Writing 0 here for existing rows
+    // would have claimed 300-odd measurements that never happened, and the decision-loss rule
+    // would then have been entitled to retire every one of them.
+    effect: 'REAL',
   })
   // Schema 5 added a column to a table that may already exist, for the same reason as above:
   // `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it was. Rows that predate
@@ -272,6 +278,7 @@ interface Row {
   last_retrieved_at: number | null
   origin: string
   harvest_signal: string | null
+  effect: number | null
   distinct_workspaces: number
   created_at: number
   occurred_at: number
@@ -308,6 +315,7 @@ export function toRecord(row: Row): MemoryRecord {
     lastRetrievedAt: row.last_retrieved_at,
     origin: row.origin === 'harvest' ? 'harvest' : 'model',
     harvestSignal: row.harvest_signal,
+    effect: row.effect ?? null,
     distinctWorkspaces: row.distinct_workspaces,
     createdAt: row.created_at,
     occurredAt: row.occurred_at,
@@ -337,8 +345,8 @@ export function upsert(db: DatabaseSync, record: MemoryRecord): void {
       retrieve_count, last_retrieved_at,
       created_at, occurred_at, updated_at, last_used_at, review_after, expires_at,
       content_fingerprint, superseded_by, needs_review
-      , origin, harvest_signal
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      , origin, harvest_signal, effect
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       workspace_id=excluded.workspace_id, domain=excluded.domain, scope=excluded.scope,
       kind=excluded.kind, status=excluded.status, evidence=excluded.evidence,
@@ -352,7 +360,7 @@ export function upsert(db: DatabaseSync, record: MemoryRecord): void {
       review_after=excluded.review_after, expires_at=excluded.expires_at,
       content_fingerprint=excluded.content_fingerprint, superseded_by=excluded.superseded_by,
       needs_review=excluded.needs_review,
-      origin=excluded.origin, harvest_signal=excluded.harvest_signal
+      origin=excluded.origin, harvest_signal=excluded.harvest_signal, effect=excluded.effect
   `).run(
     record.id, record.workspaceId, record.domain, record.scope, record.kind, record.status, record.evidence,
     record.title, record.body, record.trigger, record.failureMode, record.lesson, record.sourceRef,
@@ -363,7 +371,7 @@ export function upsert(db: DatabaseSync, record: MemoryRecord): void {
     record.retrieveCount ?? 0, record.lastRetrievedAt ?? null,
     record.createdAt, record.occurredAt, record.updatedAt, record.lastUsedAt, record.reviewAfter, record.expiresAt,
     record.contentFingerprint, record.supersededBy, record.needsReview,
-    record.origin ?? 'model', record.harvestSignal ?? null,
+    record.origin ?? 'model', record.harvestSignal ?? null, record.effect ?? null,
   )
   db.prepare('DELETE FROM record_fts WHERE id = ?').run(record.id)
   db.prepare('INSERT INTO record_fts VALUES (?,?,?,?,?,?)').run(record.id, ...indexRow(record))

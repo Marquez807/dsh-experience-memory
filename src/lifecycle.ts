@@ -30,6 +30,7 @@ import type { HarvestCandidate } from './harvest.ts'
 import { gradeEvidence, type EvidenceRoute } from './evidence.ts'
 import { joinTrigger } from './anchors.ts'
 import { importance, RESIDENT_EVIDENCE, RETIRE_FLOOR } from './rank.ts'
+import { decisionLossReason } from './effect.ts'
 import type { AgentLike, Evidence, Kind, MemoryRecord, Scope } from './types.ts'
 
 const DAY = 86_400_000
@@ -676,6 +677,12 @@ export interface MaintainResult {
 /** Why one record should leave the resident pool, or `undefined` to keep it. */
 export function retirementReason(record: MemoryRecord, now: number): string | undefined {
   if (record.expiresAt !== null && record.expiresAt <= now) return 'expired'
+  // Decision-loss retirement, off unless `decisionLossRetirement` is on: a record a deletion test
+  // measured as not changing the outcome is a distinction that does not affect decisions, which is
+  // the thing G5 says to forget. It is checked *before* the age rules because it is the only reason
+  // here that came from an experiment; the age rules only ever fire on never-reused records anyway.
+  const noEffect = decisionLossReason(record)
+  if (noEffect !== undefined) return noEffect
   if (record.reviewAfter !== null
     && now - record.reviewAfter > REVIEW_GRACE_DAYS * DAY
     && record.reuseCount === 0
@@ -695,6 +702,7 @@ export function retirementReason(record: MemoryRecord, now: number): string | un
       lastUsedAt: record.lastUsedAt,
       reviewAfter: record.reviewAfter,
       now,
+      effect: record.effect,
     })
     if (score < RETIRE_FLOOR) return 'never reused and below the retire floor'
   }

@@ -106,6 +106,24 @@ export interface Config {
   anchorCostTable?: boolean
   /** Hits above which an anchor is treated as too common. Defaults to 300, the per-record gate. */
   anchorCostMaxHits?: number
+  /**
+   * How much a measured deletion effect moves importance.
+   *
+   * Defaults to `0`, which leaves ranking byte-for-byte as it was. The number is meant to be set
+   * only if `docs/GROWTH.md` G5's experiment passes ("same byte budget, decision-loss retention
+   * beats reuse-count retention by ≥5 points of task accuracy"): until then the effect is recorded
+   * and shown, and does not rank anything. A non-zero weight changes which records reach the model,
+   * so it is a behaviour change and is documented as one.
+   */
+  effectWeight?: number
+  /**
+   * Retire a record that a deletion test measured as not changing the outcome.
+   *
+   * Off by default, and gated on the same experiment as `effectWeight`. Only a *measured* record
+   * can be retired this way: `effect` is `null` for everything nobody measured, and `null` is not
+   * evidence of uselessness.
+   */
+  decisionLossRetirement?: boolean
 }
 
 /** Schemastery validation. Invalid values fail plugin load rather than degrade. */
@@ -132,6 +150,8 @@ export const Config: z<Config> = z.object({
   disabledPresets: z.array(z.string()),
   anchorCostTable: z.boolean(),
   anchorCostMaxHits: z.number(),
+  effectWeight: z.number(),
+  decisionLossRetirement: z.boolean(),
 })
 
 /** Fully resolved configuration, with defaults applied and bounds enforced. */
@@ -158,6 +178,8 @@ export interface ResolvedConfig {
   disabledPresets: string[]
   anchorCostTable: boolean
   anchorCostMaxHits: number
+  effectWeight: number
+  decisionLossRetirement: boolean
 }
 
 /**
@@ -175,6 +197,14 @@ export function resolveConfig(config: Config): ResolvedConfig {
   }
   const positive = (value: number | undefined, fallback: number, name: string): number =>
     integer(value, fallback, name, 1)
+  // Unlike every limit above, a weight may be zero or negative: it is a coefficient, not a count.
+  const finite = (value: number | undefined, fallback: number, name: string): number => {
+    const resolved = value ?? fallback
+    if (typeof resolved !== 'number' || !Number.isFinite(resolved)) {
+      throw new TypeError(`experience-memory: ${name} must be a finite number, got ${String(value)}`)
+    }
+    return resolved
+  }
   return {
     enabled: config.enabled ?? true,
     dbPath: config.dbPath === '' ? undefined : config.dbPath,
@@ -204,5 +234,10 @@ export function resolveConfig(config: Config): ResolvedConfig {
     anchorCostTable: config.anchorCostTable ?? true,
     // Same 300 as the pre-registered per-record gate: one number, two places that must agree.
     anchorCostMaxHits: positive(config.anchorCostMaxHits, 300, 'anchorCostMaxHits'),
+    // 0 is meaningful here and is the default: it means a measured effect is recorded and shown but
+    // does not move the ranking. A negative weight is allowed on purpose — with the retirement rule
+    // gated off, an operator may want a measured-harmful record pushed down without being retired.
+    effectWeight: finite(config.effectWeight, 0, 'effectWeight'),
+    decisionLossRetirement: config.decisionLossRetirement ?? false,
   }
 }

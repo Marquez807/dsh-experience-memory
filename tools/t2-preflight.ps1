@@ -105,32 +105,46 @@ $capSecs = [math]::Round($sw.Elapsed.TotalSeconds, 1)
 $probeOut = [IO.File]::ReadAllText((Join-Path $scratch 'cap.out.txt'))
 Chk ($capFired -and $capSecs -lt 15 -and $probeOut -notmatch 'probe-done') '⑥ 超时上限真的会掐断（轮询机制）' "上限设 5 秒、探针要跑 20 秒：$capSecs 秒被掐断（应 <15 秒，且探针没跑完）"
 
-# ⑦ 场景的**判别力**：开跑前先各跑一格 —— none×1（不给记忆）与 rel×1（给对口记忆）。
-#    两边都过 = 天花板（不用记忆也能过，没信号）；两边都不过 = 地板（记忆也救不了，没信号）；
-#    rel 过 / none 不过 = 有判别力，这条场景才值得跑满 15 格。
+# ⑦ 场景的**判别力**：开跑前每个臂跑 **2 格**（none×2 与 rel×2），2/2 才算数。
+#    为什么是 2 而不是 1：单格判"天花板"太脆 —— 只有一次采样时，一次走运的通过就会把一条本来
+#    有判别力的场景枪毙掉（实测：bom 第一轮 0/3 全失败，单格探针却抽到一次通过）。要判红就得
+#    同一个结论出现两次。
+#    判红只有三种情形：① 有一侧没跑满 2 格（没跑起来，不是结论）；② 不给记录的臂 2/2 全过（天花板）；
+#    ③ 给记录的臂 2/2 全不过（记忆没起作用，或判据/任务有问题）。其余情形放行，但在报告里留下读数。
 #    第一轮就是没做这一步：60 格跑完才发现 3/4 条场景是天花板或地板，一整晚白跑（t2-plan.md §一）。
 #    ⚠️ 探针的单格上限**必须与正式扫一致**（用默认 480 秒，不许调小）：第一版探针写死 240 秒，
-#    结果 wipeguard 两个臂都"没写出文件"，被读成"地板"——其实那是**探针自己的上限**造出来的假地板
-#    （事后看那个工作区：模型在 240 秒里一直在推敲判据、一个字都还没写）。探针量的是"有没有判别力"，
-#    不是"跑得快不快"。
+#    结果 wipeguard 两个臂都"没写出文件"，被读成"地板"——其实那是**探针自己的上限**造出来的假地板。
 if (-not $SkipDiscrimination) {
   $disc = if ($ScenarioFilter -eq '') { $spec.scenarios } else { @($spec.scenarios | Where-Object { $_.id -eq $ScenarioFilter }) }
   foreach ($sc in $disc) {
-    $probeRes = @{}
+    $tally = @{ none = @{ pass = 0; ran = 0 }; rel = @{ pass = 0; ran = 0 } }
+    $notes = @()
     foreach ($arm in @('none', 'rel')) {
-      $line = ''
-      $raw = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 't2-run.ps1') -Scenario $sc.id -Arm $arm -Run 99 2>&1 | Out-String
-      $line = ($raw -split "`n" | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
-      $probeRes[$arm] = if ($line) { try { $line.Trim() | ConvertFrom-Json } catch { $null } } else { $null }
+      foreach ($run in @(91, 92)) {
+        $raw = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 't2-run.ps1') -Scenario $sc.id -Arm $arm -Run $run 2>&1 | Out-String
+        $line = ($raw -split "`n" | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+        $parsed = if ($line) { try { $line.Trim() | ConvertFrom-Json } catch { $null } } else { $null }
+        if ($null -eq $parsed) { $notes += "$arm/$run=没有结果" ; continue }
+        $tally[$arm].ran += 1
+        if ($parsed.pass) { $tally[$arm].pass += 1 }
+        $notes += "$arm/$run=$(if ($parsed.pass) { '过' } else { '不过' })"
+      }
     }
-    $nPass = ($probeRes['none'] -and $probeRes['none'].pass)
-    $rPass = ($probeRes['rel'] -and $probeRes['rel'].pass)
-    $verdictTxt = if ($rPass -and -not $nPass) { '有判别力' } elseif ($nPass -and $rPass) { '天花板（两边都过）' } elseif (-not $nPass -and -not $rPass) { '地板（两边都不过）' } else { '反向（rel 不过、none 过）' }
-    $detail = "none.pass=$nPass rel.pass=$rPass ⇒ $verdictTxt；none: $($probeRes['none'].note)；rel: $($probeRes['rel'].note)"
-    if ($rPass -and -not $nPass) { Chk $true "⑦ 场景 $($sc.id) 有判别力" $detail }
-    else {
-      Chk $false "⑦ 场景 $($sc.id) 没有判别力 ⇒ **先改场景/判据，别跑满 15 格**" $detail
-      Write-Host '       判断"地板"时先分清三件事：① 是这条任务真的不需要那条记忆；② 还是判据本身坏了（note 里有判据两侧的明细）；③ 还是这一格就没跑完（note 里的 timeout / code=-1）。第 ③ 种最会骗人，所以探针的上限与正式扫一致。'
+    $nP = $tally['none'].pass; $nR = $tally['none'].ran
+    $rP = $tally['rel'].pass; $rR = $tally['rel'].ran
+    $detail = "$($notes -join '  ')（不给记录 $nP/$nR，给记录 $rP/$rR）"
+    if ($nR -lt 2 -or $rR -lt 2) {
+      Chk $false "⑦ 场景 $($sc.id)：有臂没跑满 2 格 ⇒ 这不是结论，先查为什么没跑完" $detail
+      Write-Host '       （没跑完的三种常见原因：上限掐断、判据报 code=-1、播种失败——note 里能看到是哪一种。）'
+    } elseif ($nP -eq $nR) {
+      Chk $false "⑦ 场景 $($sc.id) 是天花板：不给记录也 $nP/$nR 全过 ⇒ 先改场景/判据，别跑满 15 格" $detail
+    } elseif ($rP -eq 0) {
+      Chk $false "⑦ 场景 $($sc.id)：给记录也 2 格全不过 ⇒ 记忆没起作用，或判据/任务有问题，先查清再跑" $detail
+    } elseif ($nP -gt 0) {
+      Write-Host "  [黄] ⑦ 场景 $($sc.id) 判别力弱（不给记录也过了 $nP/$nR）—— 放行，但要靠正式扫的 3 次聚合定论" 
+      Write-Host "       $detail"
+    } else {
+      Chk $true "⑦ 场景 $($sc.id) 有判别力（不给记录 0/$nR，给记录 $rP/$rR）" $detail
     }
   }
 } else {

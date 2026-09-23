@@ -13,6 +13,12 @@
  *
  * Everything else travels with the record unchanged: the grade, the anchors and `recall_for`, so
  * the arm sees the record as it actually is in the live store and not a re-graded imitation.
+ *
+ * The destination is opened with `openDb`, not a bare `DatabaseSync`: the copy of the live store is
+ * at whatever schema the *desktop* last migrated it to, and `upsert` writes every column the current
+ * build knows about. A raw handle therefore throws "table record has no column named effect" the day
+ * a column is added — which is exactly what happened (exit 1, every rel arm reported seed-failed).
+ * `openDb` runs the migration first, so a new column cannot silently break seeding.
  */
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -26,7 +32,7 @@ const { DatabaseSync } = require('node:sqlite')
 // 正是 wipe.mjs 出过事故的那种脆弱（2026-09-23 实测：从工作区根调用就直接 ERR_MODULE_NOT_FOUND）。
 const here = fileURLToPath(new URL('.', import.meta.url))
 const lib = name => pathToFileURL(join(here, '..', 'lib', name)).href
-const { upsert, toRecord } = await import(lib('db.js'))
+const { openDb, upsert, toRecord } = await import(lib('db.js'))
 const { resolveWorkspace } = await import(lib('domain.js'))
 
 const argv = process.argv.slice(2)
@@ -65,7 +71,7 @@ if (wsRoot !== undefined && record.scope === 'workspace') {
   record.domain = ws.domain
 }
 
-const dst = new DatabaseSync(to)
+const dst = openDb(to)
 upsert(dst, record)
 dst.close()
 console.log(`已播种：${record.id} [${record.status}/${record.evidence}] ws=${record.workspaceId} ${record.title.slice(0, 40)}`)

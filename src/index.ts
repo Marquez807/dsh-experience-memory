@@ -34,6 +34,7 @@ import { Config, resolveConfig, type Config as ExperienceConfig } from './config
 import { buildIdentity } from './build-id.ts'
 import { suggestAnchors } from './anchors.ts'
 import { explainRefusals, guardAnchors } from './anchor-cost.ts'
+import { configureEffect } from './effect.ts'
 import { commandDefinitions } from './commands.ts'
 import { openDb, noteRetrieval, countCandidates, noteDelivery } from './db.ts'
 import { noteFailures } from './failure.ts'
@@ -227,6 +228,14 @@ function jsonRender(_args: unknown, value: unknown): { type: 'text'; text: strin
 export function apply(ctx: Context, config: ExperienceConfig): void {
   const resolved = resolveConfig(config)
   if (!resolved.enabled) return
+  // The deletion-effect vocabulary is configured once, here, from resolved config: its two consumers
+  // (`rank.ts` scoring, `lifecycle.ts` retirement) are called from a dozen places that have no
+  // business knowing about configuration. Both switches default to off, so this call is a no-op on
+  // a default store — see `src/effect.ts` for why they ship off.
+  configureEffect({
+    weight: resolved.effectWeight,
+    decisionLossRetirement: resolved.decisionLossRetirement,
+  })
 
   let db: DatabaseSync
   try {
