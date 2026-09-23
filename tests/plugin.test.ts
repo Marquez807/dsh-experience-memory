@@ -18,6 +18,7 @@ import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as experienceMemory from '../src/index.ts'
 import { recentQueryText } from '../src/index.ts'
 import { buildIdentity } from '../src/build-id.ts'
+import { ANCHOR_COST_TABLE } from '../src/anchor-cost-table.ts'
 import { openDb } from '../src/db.ts'
 import { assert, eq } from './assert.ts'
 import type { DatabaseSync } from 'node:sqlite'
@@ -446,6 +447,40 @@ export async function run(): Promise<void> {
     eq(afterForget.outcome, 'still-retired', 're-reporting a forgotten record says so instead of "corroborated"')
     eq(afterForget.revived, false, 'and nothing was revived')
     eq(afterForget.status, 'retired', 'the record stays retired behind the explicit decision')
+
+    // ── The write-time cost guard: a broad anchor is dropped, and said so ───
+    // Measured in `docs/DELIVERY-GAPS.md` §25 — `tool:pwsh` matched 5,936 of 15,896 real calls and
+    // that one record owned 94.8% of every hint delivered. The anchor is refused; the record is
+    // not, because it still reaches the digest and `memory_recall` without one.
+    const triggerOf = (id: string): string => {
+      const side = openDb(dbPath)
+      try {
+        return String((side.prepare('SELECT trigger FROM record WHERE id = ?').get(id) as { trigger: string }).trigger)
+      } finally {
+        side.close()
+      }
+    }
+    const guarded = await call<{ id: string; anchors_refused: string[] }>(
+      'memory_remember',
+      {
+        kind: 'experience', title: '锚点代价护栏',
+        body: '太宽的锚点在写入时被丢掉并告知调用方，记录照写',
+        quote: '太宽的锚点在写入时被丢掉并告知调用方，记录照写',
+        recall_for: ['tool:pwsh', 'path:src/db.ts'],
+      },
+      agentFor([userMessage('太宽的锚点在写入时被丢掉并告知调用方，记录照写')]),
+    )
+    eq(guarded.anchors_refused.length, 1, 'exactly the too-common anchor is reported')
+    assert(guarded.anchors_refused[0]?.includes('tool:pwsh'), 'and named')
+    assert(/\d+ of \d+/.test(guarded.anchors_refused[0] ?? ''), 'with the measurement that dropped it')
+    const guardedTrigger = triggerOf(guarded.id)
+    assert(!guardedTrigger.includes('tool:pwsh'), 'the broad anchor is not in the stored trigger')
+    assert(guardedTrigger.includes('path:src/db.ts'), 'the narrow one is')
+    const tableTokens = Object.keys(ANCHOR_COST_TABLE.tokens)
+    assert(
+      proposed.recall_for_suggestions.every(anchor => !tableTokens.includes(anchor)),
+      'no proposal names an anchor the cost table would refuse',
+    )
 
     let refused = false
     try {

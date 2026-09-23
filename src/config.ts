@@ -94,6 +94,18 @@ export interface Config {
    * accumulated experience. Empty by default: nothing is disabled unless asked for.
    */
   disabledPresets?: string[]
+  /**
+   * Check a declared anchor against what it would cost, before it is written.
+   *
+   * A record's anchor decides how often it interrupts: `path:node_modules` matched 702 of 15,896
+   * real calls and `tool:pwsh` matched 5,936, and the second record alone owned 94.8% of every hint
+   * the store delivered (`docs/DELIVERY-GAPS.md` §25). An anchor like that is dropped, and the
+   * caller is told — the record is still written and still reaches the digest and `memory_recall`.
+   * On by default; the measurement is a snapshot, so the check fails **open** when it is absent.
+   */
+  anchorCostTable?: boolean
+  /** Hits above which an anchor is treated as too common. Defaults to 300, the per-record gate. */
+  anchorCostMaxHits?: number
 }
 
 /** Schemastery validation. Invalid values fail plugin load rather than degrade. */
@@ -118,6 +130,8 @@ export const Config: z<Config> = z.object({
   failureTracking: z.boolean(),
   failureShapeLimit: z.number(),
   disabledPresets: z.array(z.string()),
+  anchorCostTable: z.boolean(),
+  anchorCostMaxHits: z.number(),
 })
 
 /** Fully resolved configuration, with defaults applied and bounds enforced. */
@@ -142,6 +156,8 @@ export interface ResolvedConfig {
   failureTracking: boolean
   failureShapeLimit: number
   disabledPresets: string[]
+  anchorCostTable: boolean
+  anchorCostMaxHits: number
 }
 
 /**
@@ -185,5 +201,8 @@ export function resolveConfig(config: Config): ResolvedConfig {
     failureShapeLimit: positive(config.failureShapeLimit, 200, 'failureShapeLimit'),
     // Ids are compared literally, so they are trimmed once here rather than at every turn.
     disabledPresets: (config.disabledPresets ?? []).map(id => id.trim()).filter(id => id !== ''),
+    anchorCostTable: config.anchorCostTable ?? true,
+    // Same 300 as the pre-registered per-record gate: one number, two places that must agree.
+    anchorCostMaxHits: positive(config.anchorCostMaxHits, 300, 'anchorCostMaxHits'),
   }
 }

@@ -23,6 +23,8 @@ import {
   suggestAnchors,
 } from '../src/anchors.ts'
 import { resolveWorkspace } from '../src/domain.ts'
+import { explainRefusals, guardAnchors } from '../src/anchor-cost.ts'
+import { ANCHOR_COST_TABLE } from '../src/anchor-cost-table.ts'
 import { assert, eq } from './assert.ts'
 
 export async function run(): Promise<void> {
@@ -113,6 +115,44 @@ export async function run(): Promise<void> {
     ['tool:read'],
     'a report file is not proposed as a location; the tool anchor still is',
   )
+
+  // ── The write-time cost guard, measured anchors only ─────────────────────
+  // `docs/DELIVERY-GAPS.md` §25: `path:node_modules` matched 702 of 15,896 calls and `tool:pwsh`
+  // matched 5,936, and the second record owned 94.8% of every hint delivered. A guard that only
+  // runs after the fact is a post-mortem; this one runs where the anchor is chosen.
+  const synthetic = {
+    generatedAt: '2026-09-24T00:00:00.000Z',
+    corpus: 'tools/calls.jsonl',
+    calls: 100,
+    thresholdHits: 300,
+    tokens: { 'tool:pwsh': 600 },
+  }
+  const guard = guardAnchors(['tool:pwsh', 'path:src/db.ts'], { table: synthetic })
+  eq(guard.kept, ['path:src/db.ts'], 'an anchor over the gate is dropped and the narrow one kept')
+  eq(guard.refused.length, 1, 'and the drop is reported once')
+  eq(guard.refused[0]?.reason, 'too-common', 'with a reason a reader can act on')
+  eq(guard.refused[0]?.hits, 600, 'and the measurement itself')
+  assert(explainRefusals(guard)[0]?.includes('600'), 'the message carries the number that dropped it')
+  eq(
+    guardAnchors(['tool:pwsh'], { table: { ...synthetic, tokens: {} } }).kept,
+    ['tool:pwsh'],
+    'an empty table fails open rather than blocking every write',
+  )
+  eq(
+    guardAnchors(['tool:pwsh'], { table: synthetic, enabled: false }).kept,
+    ['tool:pwsh'],
+    'turning the check off keeps whatever the caller declared',
+  )
+  eq(
+    guardAnchors(['NOTICE-masterdata.md'], { table: synthetic }).refused[0]?.reason,
+    'unparseable',
+    'an anchor no reader could use is reported instead of stored to do nothing',
+  )
+  const mostExpensive = Object.entries(ANCHOR_COST_TABLE.tokens).sort((a, b) => b[1] - a[1])[0]
+  assert(mostExpensive !== undefined, 'the shipped cost table has at least one entry')
+  if (mostExpensive !== undefined) {
+    eq(guardAnchors([mostExpensive[0]]).kept, [], 'the shipped table refuses its own most expensive token')
+  }
 
   // ── End to end on a store ────────────────────────────────────────────────
   const dir = mkdtempSync(join(tmpdir(), 'expmem-anchors-'))

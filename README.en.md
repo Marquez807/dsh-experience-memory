@@ -345,6 +345,8 @@ Why auditing and importing are not given to the model: they scan arbitrary direc
 | `failureTracking` | `true` | count repeated tool failures in this workspace (**counting only**: no injection, no records) |
 | `failureShapeLimit` | `200` | failure shapes kept per workspace; the rarest and oldest are evicted past it |
 | `disabledPresets` | `[]` | **which modes have no memory at all** (by preset id). A listed preset gets no injection, no hints, no harvesting and no counting, and its tool calls are refused |
+| `anchorCostTable` | `true` | check a declared anchor against what it would cost **before storing it**: an anchor that matches too many real calls is dropped and the caller is told (the record is still written; digest and recall are unchanged) |
+| `anchorCostMaxHits` | `300` | hits above which an anchor counts as too common. Defaults to the pre-registered per-record gate (`<300`), so one number governs both |
 
 An invalid value raises **at load time** and refuses to start the plugin instead of degrading silently. Exactly two limits may be `0`: `coreMaxRecords` (0 = core layer off) and `harvestMaxPerTurn` (0 = stop harvesting). For every other limit, 0 is indistinguishable from "off", so the minimum is 1.
 

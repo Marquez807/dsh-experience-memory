@@ -76,3 +76,12 @@
         # hint, no just-in-time hints, no harvesting, no failure counting, and the memory tools
         # refuse with the reason. Empty by default: every mode has memory unless named here.
         disabledPresets: []
+        # Declared anchors are checked against what they would cost before they are stored. One
+        # record that declares `tool:pwsh` matched 5,936 of 15,896 recorded calls and owned 94.8% of
+        # every hint the store delivered; `path:node_modules` matched 702. Such an anchor is dropped
+        # and the caller is told — the record is still written, and still reaches the digest and
+        # `memory_recall`. `anchorCostMaxHits` is the same 300 as the pre-registered per-record
+        # gate, so one number governs both. The table is a snapshot
+        # (`node tools/anchor-cost.mjs --write-table`); when it is absent the check fails open.
+        anchorCostTable: true
+        anchorCostMaxHits: 300
