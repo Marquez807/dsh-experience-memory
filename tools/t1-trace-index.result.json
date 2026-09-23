@@ -1,0 +1,1281 @@
+{
+ "window": 8,
+ "records": 159,
+ "withWriteTurn": 159,
+ "traceNamesIt": 107,
+ "controlNamed": 0,
+ "rows": [
+  {
+   "id": "8ccc64204de82eb0ccdd",
+   "rel": "repos/dsh-marketdata/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/academic/__pycache__/smb.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "DSH：新增 bundle 必须重启；HMR 只能重载已加载 bundle 的模块"
+  },
+  {
+   "id": "8a3de2df51e82c04d282",
+   "rel": "repos/dsh-marketdata/readme.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/backtest/loaders/__pycache__/wallex.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "常驻 Python worker 必须接代码指纹，否则「改对了却看到旧结果」"
+  },
+  {
+   "id": "388155257741f987ddae",
+   "rel": "repos/dsh-marketdata/docs/contract.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/backtest/loaders/finnhub_loader.py",
+   "controlNamed": false,
+   "title": "数据源独立性纪律：分组必须登记，同组不得互相印证"
+  },
+  {
+   "id": "546692bfe06e769b8988",
+   "rel": "repos/bigfat-investment-framework/docs/ai_usage_guide.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/klow2.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "bigfat 是价值投资取向，量化是量化——两个项目不合并"
+  },
+  {
+   "id": "e01e4fd6edc3b513818d",
+   "rel": "交接-给bigfat-数据源契约.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/delisting-reasons/603056.csv",
+   "controlNamed": false,
+   "title": "跨会话协作靠工作区根目录的交接文件（会话之间不能直接发消息）"
+  },
+  {
+   "id": "4f4139c1e827ace4a292",
+   "rel": "交接-给另一个对话.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/otc-measurement/calibration.json",
+   "controlNamed": false,
+   "title": "会话间无法直接对话；要投递需走 session/prompt over /api/remote.mux（GUI 通道）"
+  },
+  {
+   "id": "2f21654cfb3235321dfc",
+   "rel": "repos/dsh-marketdata/tests/loader_test.mjs",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/live/runtime/sweep_latch.py",
+   "controlNamed": false,
+   "title": "门禁只禁单一字面量会被一字符差异绕过：按语义类别列举 + 强制指向唯一真源"
+  },
+  {
+   "id": "17c96a8447befd8e8c73",
+   "rel": "repos/dsh-quant/lib/worker.js",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-1/e2e/run/artifacts/rebalance_notes.json",
+   "controlNamed": false,
+   "title": "dsh-quant worker 默认解释器按 KNOWN_PYTHONS 优先取 codex runtime 3.12"
+  },
+  {
+   "id": "6325dbfe12e3a01b091c",
+   "rel": "repos/dsh-quant/lib/worker.js",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/license.md",
+   "controlNamed": false,
+   "title": "dsh-quant 解释器探测自带候选列表，不依赖系统 PATH"
+  },
+  {
+   "id": "3609a98d553542bb51cf",
+   "rel": "交接-给记忆框架-缺陷工单.md",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-2/b-copy/runtime/smoke-20260827t181422483772z.sqlite3",
+   "controlNamed": false,
+   "title": "记忆出处的判据：工作区相对路径 + 逐字引文 + 写入后核对 confirmed"
+  },
+  {
+   "id": "b7d5220db6893b91ec18",
+   "rel": "交接-给记忆框架-缺陷工单.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/__pycache__/alpha_097.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "跨会话提工单/回执的固定格式与两条硬性纪律"
+  },
+  {
+   "id": "7bcef6a9dd3782edb360",
+   "rel": "回执-记忆框架给量化项目会话-缺陷工单.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-clone/decisions/adr-0001-rule-and-adapter-separation.md",
+   "controlNamed": false,
+   "title": "在编译产物里查 TypeScript 类型名必然假阴：类型被擦除，要查字面量；负结果须先做阳性对照"
+  },
+  {
+   "id": "ab2f5d75cd4f8e792b36",
+   "rel": "dsh-experience-memory/src/build-id.ts",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/providers/content_filter.py",
+   "controlNamed": false,
+   "title": "证明 DSH 进程跑哪一版插件要用「激活时自算的构建标识」，磁盘哈希在 link: 下无效"
+  },
+  {
+   "id": "74956a62c2ee2f67c5d4",
+   "rel": "回执-记忆框架给游戏创作模式会话-安装方式工单.md",
+   "traceNamesIt": false,
+   "control": "audit/raw/delisting-reasons/000611.csv",
+   "controlNamed": false,
+   "title": "常驻资格线 6.0：写入瞬间越线、此后年龄扣分掉线，长期常驻只能靠真实复用加分"
+  },
+  {
+   "id": "80a96bc9809080ed96ce",
+   "rel": "回执-记忆框架给游戏创作模式会话-安装方式工单.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-1/probe3_tamper.json",
+   "controlNamed": false,
+   "title": "引用工具输出作记忆出处必须填 call id（verified-tool 9.0）；id 只能从失败 reason 里取"
+  },
+  {
+   "id": "20cb0f6f459e1da3b4ac",
+   "rel": "dsh-experience-memory/src/index.ts",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/rsv10.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "模型侧看不到工具 call id，除非工具自己把它印在输出里"
+  },
+  {
+   "id": "0d2b6398987c2e687088",
+   "rel": "dsh-experience-memory/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/probes/audit_candidate_sources.py",
+   "controlNamed": false,
+   "title": "harness.log 里没有 Cordis 插件的 logger 输出"
+  },
+  {
+   "id": "aba19aeb25f993b12a90",
+   "rel": "repos/dsh-bigfat/design/行业基准分层口径-实证.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/memory/__pycache__/__init__.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "行业基准分层按商业模式（子行业），不按上市板块"
+  },
+  {
+   "id": "7765db62309ed12b3c7f",
+   "rel": "repos/dsh-bigfat/design/行业基准分层口径-实证.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/alpha_050.py",
+   "controlNamed": false,
+   "title": "比率型指标的适用性看分母分布，不看有没有数据"
+  },
+  {
+   "id": "9cfb4fab66828e3c375d",
+   "rel": "repos/dsh-bigfat/design/行业基准分层口径-实证.md",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-2/b-copy/evidence/audit_events_20260827t114049127529z.jsonl",
+   "controlNamed": false,
+   "title": "写分档前先验值域：不可达分支与\"看起来像\"的假象"
+  },
+  {
+   "id": "170543712a52bb9c5b34",
+   "rel": "repos/dsh-bigfat/design/行业基准分层口径-实证.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/channels/config.py",
+   "controlNamed": false,
+   "title": "\"求不出值\"必须与\"值不是数字\"分开（present vs value is None）"
+  },
+  {
+   "id": "e0c6b66a2087de72e0dc",
+   "rel": "repos/dsh-bigfat/design/行业基准分层口径-实证.md",
+   "traceNamesIt": false,
+   "control": "audit/scripts/w2_1_probe1.py",
+   "controlNamed": false,
+   "title": "改了数据结构语义后，要全局搜出所有按老假设硬取字段的地方"
+  },
+  {
+   "id": "4168081e313352ae6356",
+   "rel": "repos/dsh-bigfat/design/行业基准分层口径-实证.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/skills/smc/example_signal_engine.py",
+   "controlNamed": false,
+   "title": "\"数据缺失\"必须查过才敢断言，不能从摘要推断"
+  },
+  {
+   "id": "84feae93f4dba1b9a91d",
+   "rel": "交接-给另一个对话.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/runtime/smoke-20260904t151947275843z.sqlite3",
+   "controlNamed": false,
+   "title": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）"
+  },
+  {
+   "id": "b15f8166cf2568639a05",
+   "rel": "回执-bigfat给marketdata-hmr实测定论与q041复核.md",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-2/b-copy/runtime/smoke-20260827t173918219404z.sqlite3",
+   "controlNamed": false,
+   "title": "DSH 离线校验合成配置的正确命令：经 harness-node-entry.mjs + web --patch（web"
+  },
+  {
+   "id": "b42857866d5cbe2bdcfa",
+   "rel": "audit/probes/verify_q041_bigfat_claims.py",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-2/b-copy/docs/architecture/adr-008-console-data-lineage-read-model.md",
+   "controlNamed": false,
+   "title": "双独立字段各算一遍再比集合是否相同：比单字段计数强得多的内部一致性证据"
+  },
+  {
+   "id": "632faa5aab0015732ca7",
+   "rel": "回执-bigfat给marketdata-hmr实测定论与q041复核.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/backtest/__pycache__/models.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "命令行程探测会匹配到探测命令自身：探针自证式假阳性"
+  },
+  {
+   "id": "b02cb5c02eebfe090beb",
+   "rel": "dsh-experience-memory/src/db.ts",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-copy/templates/research-task.md",
+   "controlNamed": false,
+   "title": "删除以内容为键的记录时必须清理其派生行，否则门禁会被静默满足"
+  },
+  {
+   "id": "bf40f1663e1f5cace67e",
+   "rel": "dsh-experience-memory/src/db.ts",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/alpha_094.py",
+   "controlNamed": false,
+   "title": "WAL 模式下主文件不是库本身，只拷 .db 会静默拿到过期数据"
+  },
+  {
+   "id": "84a06f492341bf376bef",
+   "rel": "repos/dsh-bigfat/design/阻塞-半导体池疑似分页截断.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/.gitignore",
+   "controlNamed": false,
+   "title": "声称\"全量\"的获取必须与源自报的 total 对账（整数整齐 ≠ 数据完整）"
+  },
+  {
+   "id": "2aa0f00e46da08010074",
+   "rel": "repos/dsh-quant/scripts/collect_delisted_history.py",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/__pycache__/alpha_034.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "取数返回 0 行先怀疑查询条件，不要先怀疑\"没有数据\"（窗口必须覆盖存在期）"
+  },
+  {
+   "id": "a1e5fe8d999cdac53cd7",
+   "rel": "repos/dsh-quant/core/quant/cli.py",
+   "traceNamesIt": false,
+   "control": "audit/raw/ths-otc/400132.json",
+   "controlNamed": false,
+   "title": "兼容别名模块的前提是目标 API 齐全：否则把\"结构化未实现\"变成\"崩溃\"，比原来更坏"
+  },
+  {
+   "id": "82f1b4078a48d257f73f",
+   "rel": "repos/dsh-quant/scripts/verify_design.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/__pycache__/alpha_039.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "文档里的计数与进度必须由脚本生成：手写快照必然过期且会骗人"
+  },
+  {
+   "id": "75bce85d6ac553470a42",
+   "rel": "repos/dsh-bigfat/design/阻塞-半导体池疑似分页截断.md",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-3/d-copy/packages/quant-research-skills/skills/quant-theory/readme.md",
+   "controlNamed": false,
+   "title": "复用的中间产物必须带样本指纹并在复用前校验（旧样本≠当前样本）"
+  },
+  {
+   "id": "1e7a9f060b3304190199",
+   "rel": "repos/dsh-bigfat/design/闸门盲区-清单漏报.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/schemas/security-lifecycle-event.json",
+   "controlNamed": false,
+   "title": "自述清单/声明文件无法自证完整，必须配一个独立第二来源做对账"
+  },
+  {
+   "id": "254c5948dcb9d9fec84c",
+   "rel": "dsh-experience-memory/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_039.py",
+   "controlNamed": false,
+   "title": "自动抽取经验的判据必须用真实日志分别标定精度，不能按事件表推断"
+  },
+  {
+   "id": "045c937751f8b53389b0",
+   "rel": "repos/dsh-quant/cordis.patch.yml",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/backtest/loaders/__pycache__/sec_frames.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "dsh-quant 插件包名已改为 dsh-bigfat-quant；插件 id/工具名/仓库路径刻意未改"
+  },
+  {
+   "id": "4757a2c74bc9547d5357",
+   "rel": "repos/dsh-quant/design/progress.json",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/cli/commands/institutional/__pycache__/earnings.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "P10 的验收判据是机制门禁，可当下用注入时钟测；不必等真实未来数据"
+  },
+  {
+   "id": "97170653654cd71b42d8",
+   "rel": "repos/dsh-quant/tests/test_research_layer.py",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/__pycache__/alpha_053.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "P10 三条判据已有现成反例测试，剩下的是接流程而非造机制"
+  },
+  {
+   "id": "2a6d2f568737b83bf811",
+   "rel": "repos/dsh-quant/core/quant/splits.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/beta10.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "P10 到期闸挂在 claim_holdout，但账本缺窗口字段——第一步是加窗口并核对预注册"
+  },
+  {
+   "id": "3c1395e7f3408b1565b2",
+   "rel": "agents.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-copy/packages/quant-research-skills/readme.md",
+   "controlNamed": false,
+   "title": "用户只会简单 Python/SQL：汇报必须大白话，不靠术语和代码"
+  },
+  {
+   "id": "0f89784030371e6f5df7",
+   "rel": "agents.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/quant_platform/store.py",
+   "controlNamed": false,
+   "title": "汇报讲结果与变化量，不解释代码怎么写的"
+  },
+  {
+   "id": "0a8db1fcd26631bc53b0",
+   "rel": "dsh-experience-memory/src/config.ts",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-2/e_probe14_out.txt",
+   "controlNamed": false,
+   "title": "逐轮配额会饿死它本来要救的那条经验"
+  },
+  {
+   "id": "e032d8e9f22eb677e5e6",
+   "rel": "audit/量化-真实数据接入台账.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_033.py",
+   "controlNamed": false,
+   "title": "退市处理有行业约定：按原因分流 + Shumway 折价（-30%/-55%），不能凭印象答"
+  },
+  {
+   "id": "4a0a10714d66efb9217e",
+   "rel": "回执-创造模式会话给bigfat开发会话-建价值研究模式.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_020.py",
+   "controlNamed": false,
+   "title": "自建 agent preset 要自带技能，必须给 skill-filesystem 加 customSkillDirs"
+  },
+  {
+   "id": "003de386d67c663a20f3",
+   "rel": "回执-创造模式会话给bigfat开发会话-建价值研究模式.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-clone/packages/quant-research-skills/rendered/qrf-oos-research-governance/skill.md",
+   "controlNamed": false,
+   "title": "profile 级插件的工具对所有 agent preset 可见（与 preset 的 composition 无关）"
+  },
+  {
+   "id": "f314426502d552bd8524",
+   "rel": "回执-创造模式会话给bigfat开发会话-建价值研究模式.md",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-2/probe_ewal.py",
+   "controlNamed": false,
+   "title": "bigfat 插件缺陷：expected_artifacts 工具 schema 与实现不一致，op=init 填不上"
+  },
+  {
+   "id": "d3860953191cd2462f8b",
+   "rel": "repos/dsh-quant/registry/external_sources.json",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/channelsui/__pycache__/cli_apps_api.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "JSON 里写中文引用别用英文双引号：会让整个登记表解析失败、12 步验收连环红"
+  },
+  {
+   "id": "f3ec81faac96fab7721e",
+   "rel": "dsh-experience-memory/changelog.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/skills/tushare/references/股票数据/打板专题数据/同花顺app热榜数.md",
+   "controlNamed": false,
+   "title": "反复失败不要自动写成记忆：先量\"错误信息是否已给出做法\""
+  },
+  {
+   "id": "66495560f88f6f875287",
+   "rel": "repos/dsh-quant/notice-signals.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/api/channels_routes.py",
+   "controlNamed": false,
+   "title": "result_hash 含 code_commit：跨提交比哈希无意义，判\"不回归\"要用同版本重跑"
+  },
+  {
+   "id": "2efc444667cccdcd1917",
+   "rel": "repos/dsh-bigfat/core/bigfat/coverage.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/rsqr20.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "dsh-bigfat 验收的盲区：检查从\"已登记项\"出发，漏掉\"从没登记过\"的能力"
+  },
+  {
+   "id": "b44e5a33cdd3fdc9c623",
+   "rel": "repos/dsh-bigfat/delivery.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/__pycache__/alpha_052.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "验收要换座位：在会话入口上跑真实用例，开发脚本跑通不算"
+  },
+  {
+   "id": "829162717af988f2038d",
+   "rel": "repos/dsh-bigfat/lib/tools.js",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/schemas/security-lifecycle-context.json",
+   "controlNamed": false,
+   "title": "lib/tools.js 里\"改这个文件不需要重启\"的说明在本机（junction 安装）不成立"
+  },
+  {
+   "id": "5c411a00a50e7466e89f",
+   "rel": "repos/dsh-bigfat/tools/capability_audit.py",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/schemas/tool-contract.json",
+   "controlNamed": false,
+   "title": "闸门里\"检查不出来\"必须与\"没问题\"分开报，且先做阳性对照"
+  },
+  {
+   "id": "ea05071e9a9b173e2dd2",
+   "rel": "agents.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-1/probe_mkdir.json",
+   "controlNamed": false,
+   "title": "用户硬要求：一切决定要有依据，没有调研就没有发言权（已写进 AGENTS.md 第五节）"
+  },
+  {
+   "id": "385e693b25ba9a3ad668",
+   "rel": "repos/dsh-marketdata/registry/independence_groups.json",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/rsqr10.py",
+   "controlNamed": false,
+   "title": "同花顺历史行情：hs_=沪深、sb_=老三板；全量要按年取 YYYY.js"
+  },
+  {
+   "id": "55c73ccd6fb60052b070",
+   "rel": "audit/量化-真实数据接入台账.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-1/probe1b_rc.json",
+   "controlNamed": false,
+   "title": "判「这家数据源没有」必须过三关：阳性对照、看内容、分状态码"
+  },
+  {
+   "id": "38ebafd8e4a510cf4c3f",
+   "rel": "audit/dsr_test_vectors.csv",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/skills/okx-market/references/合约行情/限价.md",
+   "controlNamed": false,
+   "title": "DSR 公式量纲：必须用每期夏普，V[SR] 不年化（否则结果全错）"
+  },
+  {
+   "id": "1cdafe03b9bdc88fdb06",
+   "rel": "repos/dsh-bigfat/core/bigfat/provenance.py",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/api/connection_routes.py",
+   "controlNamed": false,
+   "title": "新增数据源必须同时登记三处，否则被静默拒收或拿自家接口\"互证\""
+  },
+  {
+   "id": "1e1c6f2049ad40b37a80",
+   "rel": "repos/dsh-bigfat/tools/wiring_audit.py",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-3/g_repro.txt",
+   "controlNamed": false,
+   "title": "接线审计只认函数体内的引用：模块级字典里的分派会被判成\"够不着\""
+  },
+  {
+   "id": "c5c1a253648e6b8969be",
+   "rel": "repos/dsh-bigfat/core/bigfat/research.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/__pycache__/alpha_078.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "有后果的统计口径只能有一个算法：交付表必须调框架函数，不许手算第二遍"
+  },
+  {
+   "id": "10b0abdc985c2d59ae6c",
+   "rel": "repos/dsh-bigfat/core/bigfat/quality.py",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/quant_platform/evidence_registry.py",
+   "controlNamed": false,
+   "title": "银行算 F-Score 缺\"流动比率/毛利率\"是结构性不适用，不是缺数据"
+  },
+  {
+   "id": "7f3f16e8ed2bddff996e",
+   "rel": "repos/dsh-bigfat/core/bigfat/sources.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/ma10.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "新增数据源只登记了取数注册表、漏了\"给模型看的视图\"，规则会瞎"
+  },
+  {
+   "id": "d9d1cd30075a9c111cf9",
+   "rel": "repos/dsh-bigfat/core/bigfat/intel.py",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-1/e2e/run/artifacts/positions.csv",
+   "controlNamed": false,
+   "title": "东财个股资讯：市场号给错不报错，只会静默返回无关新闻"
+  },
+  {
+   "id": "5ef2946ad8b05e96113d",
+   "rel": "repos/dsh-bigfat/design/onepage.json",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/agent/__pycache__/grounding.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "用户可见的承诺要三件套：清单进仓库 + 表格生成 + 端到端真跑"
+  },
+  {
+   "id": "cd00af77c16a2074bb79",
+   "rel": "repos/dsh-bigfat/tests/tool_surface_test.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_063.py",
+   "controlNamed": false,
+   "title": "工具自述是模型唯一读到的能力说明：漏写动作=能力不存在"
+  },
+  {
+   "id": "336ed1cb9fd90ea5f27a",
+   "rel": "repos/dsh-bigfat/tests/run_all.ps1",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/scheduled_research/service.py",
+   "controlNamed": false,
+   "title": "截断 run_all.ps1 的输出流会造成假红（退出码 1、其实全过）"
+  },
+  {
+   "id": "80cbb971b581ed5c881c",
+   "rel": "repos/dsh-bigfat/tools/requirements_audit.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/vsumn5.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "需求满足度要能一条命令核出来：26 项自动 + 7 条如实标\"需人工\""
+  },
+  {
+   "id": "9625f2800c77f0e5199e",
+   "rel": "repos/dsh-bigfat/lib/tools.js",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-2/b-copy/quant_platform/store.py",
+   "controlNamed": false,
+   "title": "数组参数的 enum 必须挂在 items 里：写错会让整个工具注册失败、五套验收连红"
+  },
+  {
+   "id": "88a90381db8de84722a1",
+   "rel": "repos/dsh-bigfat/core/bigfat/cli.py",
+   "traceNamesIt": true,
+   "control": "audit/scripts/w3_1_git2.py",
+   "controlNamed": false,
+   "title": "kinds 混着给时 intel 分支会把其它类别短路掉：看着成功、其实只采了一部分"
+  },
+  {
+   "id": "55521b755cef2a1b4b48",
+   "rel": "repos/dsh-bigfat/tools/requirements_audit.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/__pycache__/alpha_117.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "文档一致性判据要配两半反例：真问题抓得到 + 历史叙述不误报"
+  },
+  {
+   "id": "2df867e35eec8cfa0b54",
+   "rel": "repos/dsh-quant/core/quant/signals.py",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-clone/packages/quant-research-skills/skills/quant-backtest-execution/readme.md",
+   "controlNamed": false,
+   "title": "Python 循环变量泄漏：跨阶段复用会静默算错（不报错）"
+  },
+  {
+   "id": "91e3ba452ba49ac8c7f8",
+   "rel": "repos/dsh-quant/core/quant/bars.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/live/mandate/__pycache__/model.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "价格取整别用 floor(v*100+0.5)/100：半格会被浮点舍下去"
+  },
+  {
+   "id": "503bd3b1a580ba24af73",
+   "rel": "repos/dsh-bigfat/tools/render-delivery-71.py",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b_pending.txt",
+   "controlNamed": false,
+   "title": "\"生成\"的文档节里数字仍是手写的：改文档会被生成器覆盖，要改生成器"
+  },
+  {
+   "id": "6780b63e3971eab784e5",
+   "rel": "无为修仙传-调研记录-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_009.py",
+   "controlNamed": false,
+   "title": "本机取境外网页：web_fetch 与 .NET 都不行，curl.exe 直连可用"
+  },
+  {
+   "id": "633a416a88e0bd80f205",
+   "rel": "无为修仙传-调研记录-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/skills/tushare/references/美股数据/美股交易日历.md",
+   "controlNamed": false,
+   "title": "查 Steam 游戏的一手数据用两个官方接口（无需 key）"
+  },
+  {
+   "id": "271ac52ddf2c7d323642",
+   "rel": "无为修仙传复刻/无为修仙传-怎么做的-复刻可行性-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-copy/packages/quant-research-skills/skills/quant-research-audit/readme.md",
+   "controlNamed": false,
+   "title": "AI 做游戏：代码一次成型，数值必须用模拟脚本自检"
+  },
+  {
+   "id": "0680a365f458ac7fbca3",
+   "rel": "无为修仙传复刻/无为修仙传-怎么做的-复刻可行性-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/__pycache__/alpha_108.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "匿名 steamcmd 下不了 Steam Demo（No subscription）；判引擎要用户装一次"
+  },
+  {
+   "id": "640b516ade4a31d8150f",
+   "rel": "repos/dsh-quant/core/quant/mining.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_130.py",
+   "controlNamed": false,
+   "title": "边界错误映射别把已知门禁降级成 INTERNAL_ERROR（原因会被吞掉）"
+  },
+  {
+   "id": "7108ba4b916075f8bc84",
+   "rel": "无为修仙传复刻/素材管道/readme.md",
+   "traceNamesIt": true,
+   "control": ".dsh/skills/context-hygiene/skill.md",
+   "controlNamed": false,
+   "title": "本机接生图 AI：网络通、只有 DeepSeek key、ComfyUI 无模型"
+  },
+  {
+   "id": "149ae77e54ecd1ec8f8d",
+   "rel": "无为修仙传复刻/素材管道/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/schemas/release-limit-spec.json",
+   "controlNamed": false,
+   "title": "素材管道：供应商无关 + 假接口自检 + manifest.js 绕开 file:// CORS"
+  },
+  {
+   "id": "8568351257ed685294d9",
+   "rel": "audit/量化框架-第三方能力对照-vibe-trading.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/vstd10.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "审计第三方项目能力：别用自猜关键词否定对方（本轮实测假阴性）"
+  },
+  {
+   "id": "91c6f6df61ffb48373ec",
+   "rel": "repos/dsh-bigfat/design/通宵进度日志.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/schemas/portfolio-oos-replay.json",
+   "controlNamed": false,
+   "title": "单次命令上限 10 分钟且超时后无输出：长任务必须后台跑 + 落日志"
+  },
+  {
+   "id": "e2c1cf3e1c6f41273a74",
+   "rel": "audit/vibe-0.1.15-因子层盘点.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/backtest/__pycache__/binance_tolerance_calibration.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "元数据扫描：key 出现次数 ≠ 值生效次数（requres_sector 201 vs 19）"
+  },
+  {
+   "id": "6556a063d087c5d11030",
+   "rel": "audit/vibe-trading-0.1.15/src/factors/base.py",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/rsv60.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "Tushare A 股单位口径的一手约定与探针写法（amount 千元 / vol 手）"
+  },
+  {
+   "id": "6dd43f3db03fd804c662",
+   "rel": "audit/vibe-trading-0.1.15/src/factors/bench_runner_strict.py",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-1/e2e/run2/environment.json",
+   "controlNamed": false,
+   "title": "Vibe-Trading 严格评测档：同池随机对照 + OOS 四档分类（因子层最值得借的资产）"
+  },
+  {
+   "id": "f723c6539a87d160c680",
+   "rel": "审计报告-sessionmemory子代理给主代理-src-session与src-memory只读审计.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-copy/packages/quant-research-skills/rendered/qrf-strategy-direction-design/skill.md",
+   "controlNamed": false,
+   "title": "审计前先用实测行数核对任务书：行数不符会让所有引用行号错位"
+  },
+  {
+   "id": "0aac41a1e50b943609b3",
+   "rel": "audit/vibe-0.1.15-评估与治理层盘点.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/schemas/module-responsibility-profile.json",
+   "controlNamed": false,
+   "title": "PowerShell 的 Measure-Object -Line 会漏计空行，核行数要用 (Get-Content $"
+  },
+  {
+   "id": "9fa882b0986cccb002a6",
+   "rel": "audit/vibe-0.1.15-评估与治理层盘点.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/evidence/audit_events_20260827t154135699260z.jsonl",
+   "controlNamed": false,
+   "title": "Vibe-Trading 0.1.15 的多重检验与统计验证资产在 src/quantlib 与 src/strateg"
+  },
+  {
+   "id": "d776c277956957c0d672",
+   "rel": "audit/vibe-trading-0.1.15/src/governance/ledger.py",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-copy/knowledge/readme.md",
+   "controlNamed": false,
+   "title": "vibe-trading 0.1.15 账本轮转只能用一次（verify_chain 永远从 seq=1 起走）"
+  },
+  {
+   "id": "7e63f54323ab8e9d6bb6",
+   "rel": "audit/_scratch_vt0115/probe3.py",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/evidence/audit_events_20260827t091138032413z.jsonl",
+   "controlNamed": false,
+   "title": "审计探针：共享连接上的未提交写会让后续报错变成假发现"
+  },
+  {
+   "id": "ad3b0b8a3131ae7f8226",
+   "rel": "无为修仙传复刻/localgen/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/backtest/loaders/__pycache__/fmp_loader.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "AMD RX 7800 XT 用 sd.cpp Vulkan 即可生图（GPU 比 CPU 快 25 倍），画质瓶颈是模"
+  },
+  {
+   "id": "c13827b45be585ea3277",
+   "rel": "无为修仙传复刻/localgen/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/alpha_068.py",
+   "controlNamed": false,
+   "title": "本机生图速度基准：SD1.5 10.5 秒/张、SD-Turbo 3.4 秒/张、下载 15~20 MB/s"
+  },
+  {
+   "id": "f3a403c244dc1213afc4",
+   "rel": "无为修仙传复刻/素材管道/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/evidence/backtest_performance_20260827t181639610516z.json",
+   "controlNamed": false,
+   "title": "SD-Turbo 商用门槛：年收入低于 100 万美元免费（Stability 社区许可）；SD1.5 是 OpenRA"
+  },
+  {
+   "id": "35b814fd6f959c358ab9",
+   "rel": "repos/dsh-bigfat/core/bigfat/research.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/quantlib/volatility.py",
+   "controlNamed": false,
+   "title": "声明的产物必须真有生产者：AN 只写 MD、GATE_A 只收 JSON，链在此静默断开"
+  },
+  {
+   "id": "e106a7f78d93335aaa6c",
+   "rel": "无为修仙传复刻/素材管道/assets-plan.json",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/alpha_066.py",
+   "controlNamed": false,
+   "title": "出图提示词：主体词必须放最前；Turbo 在 cfg=1 下不听反向提示词"
+  },
+  {
+   "id": "9d0f16fcbc03fff03c99",
+   "rel": "无为修仙传复刻/localgen/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/delisting-reasons/300064.csv",
+   "controlNamed": false,
+   "title": "SDXL-Turbo：fp16 6.46GB，许可与 SD-Turbo 相同（年收入<100万美元可免费商用）"
+  },
+  {
+   "id": "301405330765b7095f8d",
+   "rel": "repos/dsh-bigfat/core/bigfat/provenance.py",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/__pycache__/alpha_117.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "可用性口径两套打架：单源股本被当成取不到，导致三情景永远为空"
+  },
+  {
+   "id": "8ee617920f148529376a",
+   "rel": "repos/dsh-bigfat/design/通宵进度日志.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/evidence/audit_events_20260827t033451352985z.jsonl",
+   "controlNamed": false,
+   "title": "并发跑两套 run_all 会造成成片假红（反向自证会临时改仓库文件）"
+  },
+  {
+   "id": "ea15578432a82f8f6a9e",
+   "rel": "repos/dsh-bigfat/core/bigfat/rebalance.py",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/quantlib/valuation/comps.py",
+   "controlNamed": false,
+   "title": "产物路径差一层 .bigfat/：审计按工作区根读、产物按库目录给，链卡在 §D"
+  },
+  {
+   "id": "283147181b70fc2eb268",
+   "rel": "repos/dsh-bigfat/core/bigfat/store.py",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-1/e2e/replay/local_sources.json",
+   "controlNamed": false,
+   "title": "取数两个入口别混用：latest_facts 会把多来源压成一条，交叉验证要用 latest_facts_by_sour"
+  },
+  {
+   "id": "3b84814f4f76dd0a078e",
+   "rel": "repos/dsh-bigfat/design/通宵进度日志.md",
+   "traceNamesIt": false,
+   "control": "audit/probe_raw.py",
+   "controlNamed": false,
+   "title": "advice propose 三处契约：入参=研究报告 payload、返回无 ok（看 advice_id/red_l"
+  },
+  {
+   "id": "4df2be2e895f09f6f4b5",
+   "rel": "repos/dsh-bigfat/design/通宵进度日志.md",
+   "traceNamesIt": false,
+   "control": "audit/probes/probe_truncation_cliff_control.py",
+   "controlNamed": false,
+   "title": "同花顺主指标是四舍五入到百万的近似值：能印证量级，不能用来算同比"
+  },
+  {
+   "id": "a43cabb2e0402c689982",
+   "rel": "repos/dsh-bigfat/design/通宵进度日志.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/skills/qveris/skill.md",
+   "controlNamed": false,
+   "title": "筛选产物：结论字段是 screen_status（无 picks/candidates），results 顺序不是排名"
+  },
+  {
+   "id": "cf87a3b86a22447dc1d3",
+   "rel": "无为修仙传复刻/素材管道/providers.json",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-clone/docs/readme.md",
+   "controlNamed": false,
+   "title": "Z-Image-Turbo 是本机最优解：Apache-2.0、10 秒/张、中文提示词、共 6.2GB"
+  },
+  {
+   "id": "a9f6e21da180e0a352f5",
+   "rel": "repos/dsh-bigfat/design/通宵进度日志.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/backtest/loaders/tushare_fundamentals.py",
+   "controlNamed": false,
+   "title": "改了输入但交付产物逐字节没变：结论是内容根本没渲染，而非缓存"
+  },
+  {
+   "id": "25cc0a73da0cd72e81cc",
+   "rel": "repos/dsh-quant/notice-signals.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_129.py",
+   "controlNamed": false,
+   "title": "判据方向反了，零假设校准查不出来 —— 必须跟独立实现对照"
+  },
+  {
+   "id": "8bd54945fb1d326ed18d",
+   "rel": "repos/dsh-quant/notice-signals.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/rank10.py",
+   "controlNamed": false,
+   "title": "spec_from_file_location 加载单文件模块必须先登记 sys.modules（dataclass 报"
+  },
+  {
+   "id": "9bf1684eeb8d36846444",
+   "rel": "repos/dsh-bigfat/design/通宵进度日志.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/resi30.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "给工具加参数必须同时改 lib/tools.js，否则会话调不到（Python 单测全绿也发现不了）"
+  },
+  {
+   "id": "3c9b9db0570d59137f2a",
+   "rel": "repos/dsh-quant/notice-signals.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/backtest/binance_tolerance_calibration.py",
+   "controlNamed": false,
+   "title": "对照若在数学上不可能分歧，这一档就等于没测 —— 必须覆盖会分叉的边界"
+  },
+  {
+   "id": "765a30c77927af9663ff",
+   "rel": "repos/dsh-bigfat/design/通宵进度日志.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/__pycache__/alpha_014.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "PE 参考带的瓶颈是月线长度，不是 EPS 双源口径（实测 7 只全部 OK，故不改）"
+  },
+  {
+   "id": "2fde2ced5a073c2f9e06",
+   "rel": "repos/dsh-bigfat/design/通宵进度日志.md",
+   "traceNamesIt": true,
+   "control": ".cleanup-backup-dsh-mimo-20260922-192117/sessions/mimo测试区/session-ce689d53-240f-4242-a4b4-69839934fabf/session.v3.jsonl.zstd",
+   "controlNamed": false,
+   "title": "# CALIBER: 标记必须紧贴被解释的代码行（检查器按回看窗口找它）"
+  },
+  {
+   "id": "7965affdce67f33687a8",
+   "rel": "无为修仙传复刻/素材管道/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-clone/decisions/adr-0004-results-outside-framework.md",
+   "controlNamed": false,
+   "title": "Z-Image-Turbo 参考生图：强度 0.92 最佳；它不支持 CFG 所以不听反向提示词"
+  },
+  {
+   "id": "0e68be69d0e09b643ef3",
+   "rel": "无为修仙传复刻/素材管道/国内生图平台-官网与价格-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/schemas/typed-evidence-ref.json",
+   "controlNamed": false,
+   "title": "国内生图 API 价格（2026-09）：阿里 qwen-image-3.0 约 0.18 元/张、火山 Seedrea"
+  },
+  {
+   "id": "caf94975e1bb832884be",
+   "rel": "repos/dsh-quant/tests/test_signals.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/__pycache__/rsqr30.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "改了对外契约面后，只跑新增测试类会漏掉同文件里的形状测试"
+  },
+  {
+   "id": "0b7b67b112de9b765259",
+   "rel": "repos/dsh-quant/core/quant/clock.py",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-3/d-copy/docs/glossary.md",
+   "controlNamed": false,
+   "title": "日历每次查询都重校验全部会话 ⇒ O(意图数×会话数) 的平方级慢，单条候选从 >600 秒降到 85 秒"
+  },
+  {
+   "id": "22a4de5bd2033f308ccc",
+   "rel": "audit/量化-真实数据接入台账.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/__pycache__/alpha_050.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "两个统计量量的不是同一个问题时，要求它们一致是范畴错误"
+  },
+  {
+   "id": "55d4b201c68ddfd76f11",
+   "rel": "dsh-experience-memory/src/db.ts",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-3/d-clone/packages/quant-research-skills/adapters/hermes/render-map.yaml",
+   "controlNamed": false,
+   "title": "模板字符串里的注释不能用反引号：会把字符串截断"
+  },
+  {
+   "id": "22f979df609e14378cd4",
+   "rel": "contract-review/fetch2.py",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/alpha_071.py",
+   "controlNamed": false,
+   "title": "抓 .gov.cn 网页必须解码 HTTP chunked，否则正文被塞进十六进制长度标记"
+  },
+  {
+   "id": "586a23c5ca80a9c69127",
+   "rel": "contract-review/证据-广东最低工资.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b_pending.txt",
+   "controlNamed": false,
+   "title": "广东现行最低工资：粤府函〔2026〕188号，2026-09-01 起，阳江/阳春为三类 2040 元/月"
+  },
+  {
+   "id": "018d9c2c9e1faf72aba0",
+   "rel": "contract-review/fetch3.py",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/__pycache__/alpha_067.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "HTTP 分块编码残留会污染抓取的原文，且可能劈开汉字导致引文失真"
+  },
+  {
+   "id": "0c51e4b5be637bd22f47",
+   "rel": "contract-review/reg_gov.txt",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-2/b-copy/runtime/smoke-20260904t110515339615z.sqlite3",
+   "controlNamed": false,
+   "title": "退休返聘在2026年7月1日后已不是\"纯劳务关系\"：工伤保险成为强制义务"
+  },
+  {
+   "id": "12f0590e61c10b33ad5c",
+   "rel": "contract-review/gd_special.txt",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/__pycache__/alpha_013.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "广东允许超龄人员（含已领养老金者）单项参加工伤保险，现行文号粤人社规〔2024〕6号，全省可线上办"
+  },
+  {
+   "id": "ba9fb68b9353304f9f91",
+   "rel": "contract-review/证据-超龄工伤保障.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/entities/__init__.py",
+   "controlNamed": false,
+   "title": "广东工伤行业基准费率：轴承制造属第四类0.8%，不是第三类0.6%"
+  },
+  {
+   "id": "32f15948c099fa681eac",
+   "rel": "contract-review/fetch_ck.py",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-3/d-clone/policies/release_reproducibility_001.md",
+   "controlNamed": false,
+   "title": "抓人社部官网 www.mohrss.gov.cn 需带反爬 cookie，否则只回 988 字节空壳"
+  },
+  {
+   "id": "bf0c2fd7dbcf750a05d5",
+   "rel": "contract-review/抓取工具链备注.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_151.py",
+   "controlNamed": false,
+   "title": "pwsh 里给 python 加 2>&1 会吞掉全部输出；别用 Write-Host 报进度"
+  },
+  {
+   "id": "e5f7d28c2be2fddbae42",
+   "rel": "contract-review/抓取工具链备注.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-1/e2e/run2/artifacts/risk_xray.json",
+   "controlNamed": false,
+   "title": "本机抓不到网页时的三条排查顺序：换 http 端口 / 跟随 301 / 中文路径发原始 UTF-8"
+  },
+  {
+   "id": "45bca2d8e9094f904fb3",
+   "rel": "contract-review/ins-iachina-lvzhu.txt",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/evidence/audit_events_20260904t120035156877z.jsonl",
+   "controlNamed": false,
+   "title": "\"猝死不赔\"要按险种分开讲：团意险不赔，雇主责任险主险保，超龄才被摘除"
+  },
+  {
+   "id": "4e681fc314e752ac3a74",
+   "rel": "dsh-experience-memory/docs/delivery-gaps.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/evidence/audit_events_20260904t102008082670z.jsonl",
+   "controlNamed": false,
+   "title": "经验要在动手前送出去，必须由记录自己声明\"适用哪次调用\"（锚点），不能靠猜"
+  },
+  {
+   "id": "d137cbd766e2216612ff",
+   "rel": "repos/dsh-bigfat/tests/repro_scripts_test.py",
+   "traceNamesIt": false,
+   "control": "audit/raw/delisting-rules-src/hengoo-002808-ann.txt",
+   "controlNamed": false,
+   "title": "dsh-bigfat 全仓扫描禁用 rglob：node_modules 是联接，会走进 29 万条出不来"
+  },
+  {
+   "id": "e485e58c8408f0f77b02",
+   "rel": "repos/dsh-bigfat/.sandbox/probe_sci_gate.py",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/skills/tushare/references/债券专题/可转债发行.md",
+   "controlNamed": false,
+   "title": "探针要跑「脚本式」测试文件时：import 会在导入期退出，得自己 exec 源码"
+  },
+  {
+   "id": "df654f9171c70876f286",
+   "rel": "repos/dsh-quant/notice-realtime.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/__pycache__/alpha_111.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "因子库 pre_close/pct_chg 是官方口径；但项目自算收益率仍含除权跳空"
+  },
+  {
+   "id": "15da5912614289fe56fd",
+   "rel": ".dsh/memory.yml",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/rank30.py",
+   "controlNamed": false,
+   "title": "报 bug 前先写会失败的复现：测试一写就绿，往往是我读错了"
+  },
+  {
+   "id": "b0fde97f62179d00a213",
+   "rel": "dsh-experience-memory/tests/docs.test.ts",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/sumd30.py",
+   "controlNamed": false,
+   "title": "被测试钉住的 README 重排：先集中锚点常量，镜像语言版只共享层级结构"
+  },
+  {
+   "id": "d6fa1725659d12e8b369",
+   "rel": "交接-bigfat开发会话给bigfat研究员-收口完成与使用说明.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/skills/chanlun/__pycache__/example_signal_engine.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "跨会话交接要投到对方工作区根；对方是独立子工作区时放自己根目录对方读不到"
+  },
+  {
+   "id": "8325010a58bab158807d",
+   "rel": "repos/dsh-quant/notice-signals.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/memory/__pycache__/lifecycle.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "退市股开关是三态且默认开启；C3 只在退市股真进面板时才声明"
+  },
+  {
+   "id": "944723d736a4393d6ca4",
+   "rel": "repos/dsh-quant/notice-masterdata.md",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/scheduled_research/playbooks/premarket-brief.md",
+   "controlNamed": false,
+   "title": "因子库 174 只\"2020-12-31 集体停更\"全部是建库截断，不是退市"
+  },
+  {
+   "id": "6c73e674472e13065d62",
+   "rel": "交接-bigfat开发会话给bigfat研究员-收口完成与使用说明.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/academic/__pycache__/strev.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "本工作区分工：开发会话只做开发与排错，研究由 bigfat 研究员会话跑"
+  },
+  {
+   "id": "ae23b0b684754d865913",
+   "rel": "dsh-experience-memory-上架记录.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-3/d-copy/docs/audit-baseline.md",
+   "controlNamed": false,
+   "title": "DSH 插件市场上架 = 给 awesome-dsh-plugin 提 PR；核查看 PR/详情页而非 grep 目录快"
+  },
+  {
+   "id": "857999ad0c61f7e8362b",
+   "rel": "audit/量化项目-现状体检报告.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/backtest/__pycache__/perpetual_evidence.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "别在本工作区起 git.exe：沙箱拦进程会让用户看到 git.exe 报错弹窗"
+  },
+  {
+   "id": "bb49d6a97400afc0738a",
+   "rel": "repos/dsh-bigfat/design/upstream/contracts-provenance.json",
+   "traceNamesIt": false,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_150.py",
+   "controlNamed": false,
+   "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件"
+  },
+  {
+   "id": "a6a833bb0794e78411f2",
+   "rel": "清理记录-卸载小米mimo桌面版-20260923.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/alpha_037.py",
+   "controlNamed": false,
+   "title": "小米 MiMo 桌面版的卸载程序会连用户数据一起删，卸载前必须先备份"
+  },
+  {
+   "id": "dd95de58c0e0916e01f0",
+   "rel": "问题类总-开发会话给用户-量化项目目前的问题-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/gtja191/alpha_011.py",
+   "controlNamed": false,
+   "title": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收"
+  },
+  {
+   "id": "95ef174f4dcb66505c03",
+   "rel": "验证记录-写文件编码规矩与记忆链路-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/api/__pycache__/spa.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "查经验记忆用关键词不用长句：短关键词排第 1 的记录，长句问法会掉出前 5"
+  },
+  {
+   "id": "6cb77cc2fcc2fa3a3a90",
+   "rel": "agents.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/channels/__pycache__/feishu.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS"
+  },
+  {
+   "id": "fd7fd9db6589256cc430",
+   "rel": "取证-模型自述不可信-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/backtest/__pycache__/risk_xray.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "preset 里 allow:[] 会把模式自己的工具也挡掉；屏蔽宿主工具只能用显式 deny 名单"
+  },
+  {
+   "id": "ecfd16be008a84f3ce14",
+   "rel": "取证-模型自述不可信-20260922.md",
+   "traceNamesIt": false,
+   "control": "audit/raw/w2-2/b-copy/runtime/smoke-20260904t115920628788z.sqlite3",
+   "controlNamed": false,
+   "title": "mimo 在 DSH 里 0 次工具调用、且编造工具结果；端点本身会用工具（对照 deepseek 174 次）"
+  },
+  {
+   "id": "e80e5cd2cfa8e0ae1392",
+   "rel": "取证-模型自述不可信-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/b-copy/evidence/audit_events_20260828t011001960817z.jsonl",
+   "controlNamed": false,
+   "title": "模型自述不可信：它把自带人设误报成\"上下文里的指令\"，工具名也是现编的"
+  },
+  {
+   "id": "2c6502fc37c43e9dfaf8",
+   "rel": "清理记录-dsh测试区与mimo测试区-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/qlib158/max30.py",
+   "controlNamed": false,
+   "title": "页面开着时改 desktop-storage.json 会被写回，约 20 秒即失效"
+  },
+  {
+   "id": "8171b85018938b2fa2a3",
+   "rel": "dsh-experience-memory/src/domain.ts",
+   "traceNamesIt": false,
+   "control": "audit/probes/measure_delisting_drawdown.py",
+   "controlNamed": false,
+   "title": "记忆库的工作区分区键 = sha256(工作区路径小写) 前 16 位"
+  },
+  {
+   "id": "7d127447f9413581c327",
+   "rel": "清理记录-dsh测试区与mimo测试区-20260922.md",
+   "traceNamesIt": true,
+   "control": "audit/raw/w2-2/e_probe7_compare.py",
+   "controlNamed": false,
+   "title": "DSH 工作区的数据分散在 5 处，清一个工作区不能只删目录"
+  },
+  {
+   "id": "e4b60680ba00410dfac3",
+   "rel": "交接-主工作区模式改造会话给记忆插件会话-模型测试模式改造说明.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/alpha101/__pycache__/alpha_099.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "preset 挂载失败会被加载器缓存：改对内容也没用，要换文件路径"
+  },
+  {
+   "id": "30410496980ba041d3cc",
+   "rel": "交接-主工作区模式改造会话给记忆插件会话-模型测试模式改造说明.md",
+   "traceNamesIt": true,
+   "control": "audit/tmp/deliverable_manifest.json",
+   "controlNamed": false,
+   "title": "tools.restrict 只认宿主全局工具名：preset 自己的工具名会抛错挂掉整个模式"
+  },
+  {
+   "id": "714b2797cddd9603d570",
+   "rel": "事故与恢复-记忆库清空-20260923.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/backtest/binance_shadow_evidence.py",
+   "controlNamed": false,
+   "title": "清库脚本必须先核对目标路径：一次实验把用户真库清空了（271→0）"
+  },
+  {
+   "id": "e81c492af7c1bd8183df",
+   "rel": "repos/dsh-quant/notice-otc-mapping.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/cli/components/__pycache__/__init__.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "ACTIVE_TO_OTC 按保守档结算（用户已拍板，别改回）"
+  },
+  {
+   "id": "2af684be688404385e76",
+   "rel": "dsh-experience-memory/tools/verified-user-ab/readme.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/factors/zoo/fundamental/__init__.py",
+   "controlNamed": false,
+   "title": "评判决不能只枚举预期位置：会把\"做在别处\"误报成\"没做\""
+  },
+  {
+   "id": "5d259d4ff39e4a3d752f",
+   "rel": "repos/dsh-bigfat/docs/研究纪律-求真与发散.md",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/skills/eastmoney/skill.md",
+   "controlNamed": false,
+   "title": "本机能抓网页（2026-09-23 实测）：web_fetch 已恢复；被挡的站换 curl+pypdf 或镜像"
+  },
+  {
+   "id": "ff31f085392603ae2f7e",
+   "rel": "audit/pr-awesome-dsh-plugin/发布release.ps1",
+   "traceNamesIt": true,
+   "control": "audit/vibe-trading-0.1.15/src/memory/__pycache__/__init__.cpython-311.pyc",
+   "controlNamed": false,
+   "title": "PowerShell 管道送不进原生程序 stdin：用 cmd 重定向 + 临时文件"
+  },
+  {
+   "id": "43095e0de413ed4cdc65",
+   "rel": "dsh-experience-memory/docs/growth.md",
+   "traceNamesIt": false,
+   "control": ".cleanup-backup-dsh-mimo-20260922-192117/workspace.json.before",
+   "controlNamed": false,
+   "title": "成长型记忆五条问题收敛到\"受控删除测试\"这一个地基"
+  }
+ ]
+}
