@@ -10,7 +10,9 @@
 param(
   [Parameter(Mandatory = $true)][string]$Scenario,
   [Parameter(Mandatory = $true)][ValidateSet('none', 'rel', 'ctrl1', 'ctrl2', 'ctrl3')][string]$Arm,
-  [Parameter(Mandatory = $true)][int]$Run
+  [Parameter(Mandatory = $true)][int]$Run,
+  # 单格上限。默认 480 秒；参数化是为了能用一个小值**实测"上限真的会杀进程"**（见 -TimeoutSec 20 的探针）。
+  [int]$TimeoutSec = 480
 )
 $ErrorActionPreference = 'Continue'
 $repo = Split-Path -Parent $PSScriptRoot                       # dsh-experience-memory
@@ -104,7 +106,7 @@ $env:GIT_CONFIG_NOSYSTEM = '1'
 # 单次硬超时，先声明：480 秒（bom 那轮实测每次 20~60 秒）。没有超时的那版被一个挂住的回合
 # 拖死了整轮（2026-09-23 20:17 的 stdin-none-1 就没跑完）。超时照样按产物判定，但会在结果里
 # 记 timeout=true，供事后分辨"真失败"与"没跑完"。
-$timeoutSec = 480
+$timeoutSec = $TimeoutSec
 $sw = [Diagnostics.Stopwatch]::StartNew()
 $prompt = '照工作区里 TASK.md 的要求做。'
 Push-Location $ws
@@ -120,12 +122,24 @@ if (-not $proc) {
 $deadline = (Get-Date).AddSeconds($timeoutSec)
 while (-not $proc.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
 $timedOut = -not $proc.HasExited
+$killLeft = 0
 if ($timedOut) {
   try { $proc.Kill() } catch { }
   # 只杀父进程会留孤儿：无头 harness 会派生子进程（实测留下过跑了 26 分钟的孤儿 node）。
   # 所以再对进程树兜底：/T 连子进程，/F 强制。
   cmd /c "taskkill /T /F /PID $($proc.Id)" 2>&1 | Out-Null
-  Start-Sleep -Seconds 2
+  # 这一步以前"写了就当生效"：实测超时之后智能体还活着 20~34 分钟（每一格的 ask.ps1 都是在上限
+  # 之后才出现的），于是 3~4 个格子同时跑、还共用同一个隔离库 —— 数据被污染，而且没人看得出来。
+  # 现在按进程名清干净，并且**验证是否真的清干净**，结果写进结果行（kill_left）。
+  for ($attempt = 0; $attempt -lt 6; $attempt++) {
+    $left = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+      Where-Object { $_.CommandLine -match 'bin\.js' -and $_.CommandLine -match '--profile t2ab' -and $_.CommandLine -notmatch 'subprocess-local' })
+    if ($left.Count -eq 0) { break }
+    $killLeft = $left.Count
+    foreach ($p in $left) { cmd /c "taskkill /T /F /PID $($p.ProcessId)" 2>&1 | Out-Null }
+    Start-Sleep -Seconds 2
+  }
+  Start-Sleep -Seconds 1
 }
 $sw.Stop()
 $elapsed = $sw.Elapsed.TotalSeconds
@@ -184,4 +198,5 @@ $verdict = switch ($sc.judge) {
   scenario = $Scenario; arm = $Arm; run = $Run
   pass = [bool]$verdict.pass; note = [string]$verdict.note
   timeout = [bool]$timedOut; seconds = [math]::Round($elapsed, 1)
+  kill_left = $killLeft
 } | ConvertTo-Json -Compress

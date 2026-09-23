@@ -108,17 +108,21 @@ for (const scenario of scenarios) {
   const relRate = rel.ran === 0 ? 0 : rel.pass / rel.ran
   const ctrlRate = ctrlRan === 0 ? 0 : ctrlPass / ctrlRan
   const rateText = n => `${(n * 100).toFixed(0)}%`
-  const direction = relRate > (none.ran === 0 ? 0 : none.pass / none.ran)
+  const noneRate = none.ran === 0 ? 0 : none.pass / none.ran
   // Compare **rates**, never counts: three controls give nine trials against rel's three, and
-  // 3/9 is not "as good as" 3/3. Comparing counts here would void a scenario that passed.
-  const controlsFlat = ctrlRan > 0 && ctrlRate >= relRate
-  const verdict = !complete
-    ? '未跑完，不下结论'
-    : controlsFlat
-      ? `❌ 对照 ${rateText(ctrlRate)} 不低于 rel ${rateText(relRate)} ⇒ 按冻结表最后一行，整体作废`
-      : direction
-        ? `✅ rel ${rateText(relRate)} 优于 none ${rateText(none.ran === 0 ? 0 : none.pass / none.ran)}，对照 ${rateText(ctrlRate)} 更低`
-        : `✗ rel ${rateText(relRate)} 未优于 none`
+  // 3/9 is not "as good as" 3/3. Comparing counts would void a scenario that passed.
+  //
+  // Five outcomes, and the two "no signal" ones matter. A scenario where nobody passes (a floor)
+  // or where nobody needs the lesson (a ceiling) says nothing about whether the lesson works:
+  // reading a floor as "the lesson failed" and a ceiling as "the controls were as necessary as
+  // the lesson" are both wrong, and the second would void the whole experiment.
+  let verdict
+  if (!complete) verdict = '未跑完，不下结论'
+  else if (rel.pass === 0 && none.pass === 0) verdict = '无信号 · 地板：四个臂都没做出来（多为超时）⇒ 这条场景测不出差别'
+  else if (rel.pass === none.pass) verdict = `无信号 · 天花板：不用经验也拿到 ${rateText(noneRate)}（与 rel 打平）⇒ 这条场景测不出差别`
+  else if (rel.pass > none.pass && ctrlRate >= relRate) verdict = `❌ 对照 ${rateText(ctrlRate)} 不低于 rel ${rateText(relRate)} ⇒ 按冻结表最后一行，整体作废`
+  else if (rel.pass > none.pass) verdict = `✅ rel ${rateText(relRate)} 优于 none ${rateText(noneRate)}，对照 ${rateText(ctrlRate)} 更低`
+  else verdict = `✗ rel ${rateText(relRate)} 低于 none ${rateText(noneRate)} ⇒ 不支持`
   say(`- **${scenario}**：rel ${rel.text} vs none ${none.text} vs 对照 ${ctrlPass}/${ctrlRan}（${rateText(ctrlRate)}）⇒ ${verdict}`)
 }
 say('')
