@@ -21,6 +21,30 @@ delivery table, the failure-shape counter, and just-in-time delivery's first ver
 listed under **0.1.0** because that is where they shipped. They are named here so the causal order
 stays visible: measure first, only then replace.
 
+### A retired record comes back only on a checkable passage, and says so when it does not
+
+`memory_remember` re-reporting content that was already in the store answered `corroborated`, and
+that word was misleading in the one case a live session actually hit (2026-09-23): the record had
+been **retired**, so nothing was recorded again — it stayed out of the digest, out of recall and
+out of every hint — while the caller read a success. The tool now decides explicitly:
+
+- a retired record is revived only by a report that carries a **checkable passage**
+  (`verified-file` / `verified-user` / `verified-tool`). The grade already stored on the record is
+  deliberately not enough: it says the claim was checkable once, and retirement is sometimes the
+  store's only defence against a record that kept misleading (two failed outcomes retire one)
+- two retirements survive a re-report, because they are decisions rather than accidents: an
+  explicit `memory_forget` (the latest audit entry's actor is `agent`) and a record that a graded
+  successor replaced
+- everything else answers `still-retired` with the reason and `revived: false`, and leaves the
+  store untouched
+
+The same tool now **proposes** anchors instead of leaving the caller to invent them:
+`recall_for_suggestions` reads the calls the current turn made. The basis is measured (T1, on 159
+records): the file a record cites appears among the turn's own calls in **67.3%** of cases at a
+±8-call window and **90.6%** at ±24, with a random control at **0%** at every window. It proposes
+rather than declares on purpose — 67–90% is a suggestion, and a wrong anchor fires a lesson at the
+wrong moment, which is the whole reason anchors replaced token matching.
+
 ### A second scenario: a placement rule, and the same result in a different shape
 
 The first experiment covered one shape of knowledge — what a config file must *contain*. This one
