@@ -7,40 +7,52 @@
   "sessionCap": 20,
   "turns": 416,
   "sessions": 6,
-  "rawMatches": 6619,
-  "turnsWithHints": 75,
-  "multiHintTurns": 26,
+  "rawMatches": 1198,
+  "turnsWithHints": 60,
+  "multiHintTurns": 28,
   "maxHintsInATurn": 4,
-  "multiShare": 0.3466666666666667,
-  "rawMultiShare": 0.8802992518703242,
+  "multiShare": 0.4666666666666667,
+  "rawMultiShare": 0.7004405286343612,
+  "turnLength": {
+    "median": 14,
+    "p75": 42,
+    "p90": 93,
+    "max": 665
+  },
+  "shortTurnLimit": 20,
+  "shortTurnsWithHints": 12,
+  "shortMultiHintTurns": 0,
+  "shortMultiShare": 0,
+  "hintsPer100Calls": 0.6542526421741319,
   "threshold": 0.1,
   "changeRecommended": true,
+  "ignoreOverbroad": false,
   "distribution": {
-    "1": 49,
-    "2": 16,
-    "3": 5,
-    "4": 5
+    "1": 32,
+    "2": 15,
+    "3": 10,
+    "4": 3
   },
   "topRecords": [
     {
-      "id": "24feb884c4212af90763",
-      "count": 56
+      "id": "c26aea99f3c60a053842",
+      "count": 15
     },
     {
       "id": "d9999332d4c5f0522f31",
-      "count": 13
+      "count": 14
+    },
+    {
+      "id": "ed6e6e66d2dbf929fc64",
+      "count": 10
     },
     {
       "id": "ea05071e9a9b173e2dd2",
       "count": 9
     },
     {
-      "id": "ed6e6e66d2dbf929fc64",
-      "count": 6
-    },
-    {
       "id": "2a164ea1dc18b752c3c1",
-      "count": 5
+      "count": 6
     }
   ]
 }

@@ -239,6 +239,20 @@ if (reportMode === 'hint-density') {
   const THRESHOLD = 0.10
   const change = shown.share >= THRESHOLD
   const ranked = [...perRecord.entries()].sort((a, b) => b[1] - a[1])
+  // ── 轮次长度：为什么"每轮 ≥2 条"这个口径**不成立** ────────────────────────
+  // ICML 那篇讲的是"**同一个上下文里**塞了几条案例"。而这里的"轮次"是一次智能体回合，
+  // 实测从 1 个调用到 665 个调用（中位数 14、90 分位 93）。在 346 个调用的回合里发 4 条
+  // （每条 ≤300 字节），那不是拥挤，是稀疏。所以"每轮 ≥2 条"**测的不是那篇讲的事**。
+  // 下面把长度分布、以及"短回合里的 ≥2 条占比"一并打出来——后者才是可能拥挤的那一格。
+  const SHORT = number('short-turn', 20)
+  const lens = buckets.map(b => b.calls).sort((a, b) => a - b)
+  const quantile = p => (lens.length === 0 ? 0 : lens[Math.min(lens.length - 1, Math.floor(lens.length * p))])
+  const shortTurns = buckets.filter(b => b.calls <= SHORT)
+  const shortWithHints = shortTurns.filter(b => b.delivered.length > 0)
+  const shortMulti = shortWithHints.filter(b => b.delivered.length >= 2)
+  const shortShare = shortWithHints.length === 0 ? 0 : shortMulti.length / shortWithHints.length
+  const deliveredTotal = [...perRecord.values()].reduce((a, b) => a + b, 0)
+  const per100 = calls.length === 0 ? 0 : (deliveredTotal / calls.length) * 100
 
   console.log(`调用日志：${callsPath}（${calls.length} 次调用）`)
   console.log(`库：${storePath}`)
@@ -261,10 +275,19 @@ if (reportMode === 'hint-density') {
   console.log(`| **≥2 条占"有提示的轮次"** | ${(raw.share * 100).toFixed(2)}% | **${(shown.share * 100).toFixed(2)}%** |`)
   console.log('')
   console.log(`**判据用"真的发出"那一列**（预注册说的是"数每一轮发出了几条提示"）。`)
-  console.log(`**预注册规则**（阈值 ${(THRESHOLD * 100).toFixed(0)}%，先写后跑）：`
+  console.log('')
+  console.log(`轮次长度（调用数）：中位数 ${quantile(0.5)} · 75 分位 ${quantile(0.75)} · 90 分位 ${quantile(0.9)} · 最长 ${lens[lens.length - 1] ?? 0}`)
+  console.log(`**这一栏说明上面那个占比测错了东西**：ICML 那篇讲的是"同一个上下文里塞了几条案例"，`)
+  console.log(`而这里的"轮次"是一次智能体回合（最长 ${lens[lens.length - 1] ?? 0} 个调用）。在几百个调用的回合里发 2–4 条`)
+  console.log(`（每条 ≤300 字节），不是拥挤。**可能拥挤的只有短回合**：`)
+  console.log(`  ≤${SHORT} 个调用的轮次：${shortTurns.length} 个，其中有提示的 ${shortWithHints.length} 个，`)
+  console.log(`  其中 ≥2 条的 ${shortMulti.length} 个 ⇒ **${(shortShare * 100).toFixed(2)}%**（这一格才有意义）`)
+  console.log(`  折算成密度：每 100 个调用发出 ${per100.toFixed(2)} 条提示`)
+  console.log('')
+  console.log(`**预注册规则**（阈值 ${(THRESHOLD * 100).toFixed(0)}%，先写后跑，针对"每轮"这个口径）：`
     + (change
-      ? '⇒ ≥ 阈值 ⇒ 判定"我们正在做 ICML 实测会掉分的事"，**改投递层为每轮最多 1 条**（改完要另跑对照，需配额）'
-      : '⇒ < 阈值 ⇒ **不改投递层**，把那条外部证据记成"不适用本系统"'))
+      ? '⇒ ≥ 阈值。**但这个口径已被证明不成立（见上）**，所以这一条读数不构成"该改投递层"的依据'
+      : '⇒ < 阈值 ⇒ **不改投递层**'))
   console.log('')
   console.log('分布（真的发出的、有提示的轮次）：')
   for (const n of [...shown.dist.keys()].sort((a, b) => a - b)) console.log(`  ${String(n).padStart(3)} 条提示：${shown.dist.get(n)} 轮`)
@@ -297,6 +320,12 @@ if (reportMode === 'hint-density') {
     maxHintsInATurn: shown.max,
     multiShare: shown.share,
     rawMultiShare: raw.share,
+    turnLength: { median: quantile(0.5), p75: quantile(0.75), p90: quantile(0.9), max: lens[lens.length - 1] ?? 0 },
+    shortTurnLimit: SHORT,
+    shortTurnsWithHints: shortWithHints.length,
+    shortMultiHintTurns: shortMulti.length,
+    shortMultiShare: shortShare,
+    hintsPer100Calls: per100,
     threshold: THRESHOLD,
     changeRecommended: change,
     ignoreOverbroad,
