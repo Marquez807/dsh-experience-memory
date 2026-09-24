@@ -18,7 +18,11 @@
  *     the declared cap. The frozen reading counts that as "not done" (the judge looks at
  *     artefacts), but it is printed as ⏱ so it can never be read as a wrong answer.
  *
- *   node tools/t2-report.mjs            # the matrix, as markdown
+ *   node tools/t2-report.mjs [跳过的场景id ...]   # the matrix, as markdown
+ *
+ * Scenario ids on the command line were **skipped on purpose** (the preflight gate judged them
+ * incapable of telling the difference). Printing them as "未跑完，不下结论" reads as unfinished
+ * work; printing them as 跳过 says what actually happened, and they drop out of the missing count.
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -27,9 +31,10 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const ARMS = ['none', 'rel', 'ctrl1', 'ctrl2', 'ctrl3']
 const RUNS = [1, 2, 3]
+const skipped = new Set(process.argv.slice(2))
 
 const spec = JSON.parse(readFileSync(join(here, 't2-scenarios.json'), 'utf8'))
-const scenarios = spec.scenarios.map(s => s.id)
+const scenarios = spec.scenarios.map(s => s.id).filter(id => !skipped.has(id))
 
 const rows = readFileSync(join(here, 't2-results.jsonl'), 'utf8')
   .split('\n')
@@ -159,3 +164,4 @@ for (const scenario of scenarios) {
 }
 say(`未测或无效的格子：${missing.length} / ${scenarios.length * ARMS.length * RUNS.length}`)
 if (missing.length > 0 && missing.length <= 20) say(`  ${missing.join('、')}`)
+if (skipped.size > 0) say(`跳过（预检门判定无判别力，未计入上表）：${[...skipped].join('、')}`)

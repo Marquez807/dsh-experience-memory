@@ -93,6 +93,19 @@ export function run(): void {
     assert(!measurable(floor), '地板**不许**当"测出来没用"——它是一次分辨不出差别的测量')
     assert(floor.degenerateWhy.includes('地板'), `地板的理由要写清楚，实际是：${floor.degenerateWhy}`)
 
+    // 同样是两侧 0/3，但**任务做出来了**（taskDone，判据要求的行为只是没出现）：这是测出来的 0，
+    // 不是分辨不出——T2 的 wipeguard 就是这一格（每个臂都把库清对了，只有"加护栏"没人做，
+    // 记录就在库里也没用）。把它当"地板"丢掉，等于丢掉"经验能不能拦住错误"最直接的反面证据。
+    const measuredZero = measureEffect({
+      without: { pass: 0, ran: 3, taskDone: true },
+      withRecord: { pass: 0, ran: 3, taskDone: true },
+    })
+    eq(measuredZero.effect, 0, '两侧 0 但任务做完了 ⇒ 效果仍是 0')
+    assert(measurable(measuredZero), '任务做出来的 0 是**可写**的实测值，不算地板')
+    assert(!measuredZero.degenerate && floor.degenerate, '同为 0/3，只有"任务做出来了"才翻转判读')
+    assert(!describeEffect(measuredZero).includes('分辨不出'),
+      `测出来的 0 的说辞不能是"分辨不出"，实际是：${describeEffect(measuredZero)}`)
+
     const ceiling = measureEffect({ without: { pass: 3, ran: 3 }, withRecord: { pass: 3, ran: 3 } })
     assert(!measurable(ceiling), '天花板（不给记录也全过）同样不许当"测出来没用"')
     assert(ceiling.degenerateWhy.includes('天花板'), `天花板的理由要写清楚，实际是：${ceiling.degenerateWhy}`)

@@ -40,6 +40,18 @@ export const MIN_EFFECT_RUNS = 3
 export interface EffectRun {
   pass: number
   ran: number
+  /**
+   * Did the arm at least complete the *task* the judge measures? Only some judges report it
+   * (`wipe-guard-executes` does: `task_done` means the safe store was cleared, so the agent could
+   * do the job — it just never wrote the guard the judge asks for).
+   *
+   * It exists to tell two floors apart. "Nobody finished anything" means the experiment could not
+   * run and says nothing; "everybody finished the task, but nobody satisfied the judge" is a real
+   * measured zero — the record was present, contained the rule, and changed nothing. Collapsing
+   * the second into the first would throw away the finding that directly answers whether a lesson
+   * can stop a mistake (T2 wipeguard, `tools/t2-plan.md` §4.8.3).
+   */
+  taskDone?: boolean
 }
 
 /** A deletion test's reading, plus whether it was capable of reading anything. */
@@ -75,12 +87,20 @@ export function measureEffect(arms: { without: EffectRun; withRecord: EffectRun 
   const runs = Math.min(arms.without.ran, arms.withRecord.ran)
   const reasons: string[] = []
   if (arms.withRecord.ran <= 0 || arms.without.ran <= 0) reasons.push('有一侧一次都没跑完')
-  // A floor is **both** arms failing: the task could not be done with or without the record, so the
-  // record was never given a chance to matter. `without = 0/n` on its own is the opposite — that is
-  // the strongest reading the experiment can produce (`+1`), and mistaking it for a floor would
-  // throw away the one result worth having. (The first version of this function did exactly that;
-  // the effect suite caught it.)
-  if (arms.without.ran > 0 && arms.without.pass === 0 && arms.withRecord.pass === 0) reasons.push('两侧全失败（地板）')
+  // A floor is **both arms failing to even do the task**: the experiment could not run, so the
+  // record was never given a chance to matter. Two carve-outs, both learned from real rounds:
+  //
+  //   - `without = 0/n` on its own is the opposite of a floor — that is the strongest reading the
+  //     experiment can produce (`+1`), and the first version of this function threw it away
+  //     (the effect suite caught that).
+  //   - both arms at `pass = 0` is a floor **unless they completed the task** (`taskDone`). A
+  //     measured zero is a measurement: T2's wipeguard had every arm clear the store correctly and
+  //     nobody write the guard, record included. That is "the lesson changed nothing", not "the
+  //     experiment broke" — and the second reading would delete the finding.
+  const taskBoth = arms.without.taskDone === true && arms.withRecord.taskDone === true
+  if (arms.without.ran > 0 && arms.without.pass === 0 && arms.withRecord.pass === 0 && !taskBoth) {
+    reasons.push('两侧全失败（地板）')
+  }
   if (arms.without.ran > 0 && arms.without.pass === arms.without.ran) reasons.push('不给记录的那一侧全通过（天花板）')
   return {
     effect: withRate - withoutRate,

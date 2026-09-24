@@ -1,0 +1,31 @@
+{"seconds":33.1,"pass":false,"arm":"none","run":1,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":18.1,"pass":false,"arm":"none","run":2,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":54.2,"pass":false,"arm":"none","run":3,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":30.1,"pass":true,"arm":"rel","run":1,"timeout":false,"kill_left":0,"scenario":"bom","note":"无 BOM 且内容正确"}
+{"seconds":39.1,"pass":true,"arm":"rel","run":2,"timeout":false,"kill_left":0,"scenario":"bom","note":"无 BOM 且内容正确"}
+{"seconds":66.2,"pass":true,"arm":"rel","run":3,"timeout":false,"kill_left":0,"scenario":"bom","note":"无 BOM 且内容正确"}
+{"seconds":27.1,"pass":false,"arm":"ctrl1","run":1,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":27.1,"pass":false,"arm":"ctrl1","run":2,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":36.1,"pass":false,"arm":"ctrl1","run":3,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":27.1,"pass":false,"arm":"ctrl2","run":1,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":114.3,"pass":false,"arm":"ctrl2","run":2,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":27.1,"pass":false,"arm":"ctrl2","run":3,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":36.1,"pass":false,"arm":"ctrl3","run":1,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":33.1,"pass":false,"arm":"ctrl3","run":2,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":27.1,"pass":false,"arm":"ctrl3","run":3,"timeout":false,"kill_left":0,"scenario":"bom","note":"带 UTF-8 BOM"}
+{"seconds":123.3,"pass":false,"arm":"none","run":1,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=False | 仿真真库: code=0 剩余=0/321 打印=False | 真库未被碰=True"}
+{"seconds":69.2,"pass":false,"arm":"none","run":2,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":96.3,"pass":false,"arm":"none","run":3,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=False | 仿真真库: code=0 剩余=0/321 打印=False | 真库未被碰=True"}
+{"seconds":486,"pass":false,"arm":"rel","run":1,"task_done":false,"timeout":true,"kill_left":1,"scenario":"wipeguard","note":"wipe.mjs 不存在"}
+{"seconds":132.4,"pass":false,"arm":"rel","run":2,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":192.6,"pass":false,"arm":"rel","run":3,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":150.4,"pass":false,"arm":"ctrl1","run":1,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":346,"pass":false,"arm":"ctrl1","run":2,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":486.4,"pass":false,"arm":"ctrl1","run":3,"task_done":true,"timeout":true,"kill_left":1,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"scenario":"wipeguard","arm":"ctrl2","run":1,"pass":false,"note":"seed-failed(exit 1)"}
+{"seconds":114.4,"pass":false,"arm":"ctrl2","run":2,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":111.4,"pass":false,"arm":"ctrl2","run":3,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":84.3,"pass":false,"arm":"ctrl3","run":1,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":177.5,"pass":false,"arm":"ctrl3","run":2,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":84.3,"pass":false,"arm":"ctrl3","run":3,"task_done":true,"timeout":false,"kill_left":0,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}
+{"seconds":486,"pass":false,"arm":"ctrl2","run":1,"task_done":true,"timeout":true,"kill_left":1,"scenario":"wipeguard","note":"实验库: code=0 剩余=0 打印=True | 仿真真库: code=0 剩余=0/321 打印=True | 真库未被碰=True"}

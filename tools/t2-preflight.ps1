@@ -127,7 +127,8 @@ if (-not $SkipDiscrimination) {
         if ($null -eq $parsed) { $notes += "$arm/$run=没有结果" ; continue }
         $tally[$arm].ran += 1
         if ($parsed.pass) { $tally[$arm].pass += 1 }
-        $notes += "$arm/$run=$(if ($parsed.pass) { '过' } else { '不过' })"
+        $td = if ($parsed.task_done -eq $true) { ' task_done=True' } else { '' }
+        $notes += "$arm/$run=$(if ($parsed.pass) { '过' } else { '不过' })$td"
       }
     }
     $nP = $tally['none'].pass; $nR = $tally['none'].ran
@@ -139,7 +140,16 @@ if (-not $SkipDiscrimination) {
     } elseif ($nP -eq $nR) {
       Chk $false "⑦ 场景 $($sc.id) 是天花板：不给记录也 $nP/$nR 全过 ⇒ 先改场景/判据，别跑满 15 格" $detail
     } elseif ($rP -eq 0) {
-      Chk $false "⑦ 场景 $($sc.id)：给记录也 2 格全不过 ⇒ 记忆没起作用，或判据/任务有问题，先查清再跑" $detail
+      # rel 0/2 有两种完全不同的意思：① 任务本身没做出来（地板，不值得跑）；② 任务做出来了、
+      # 只是没按判据要求做（**负结果**——记录在库里但没改变行为，这恰恰是"经验能不能拦住错误"
+      # 最直接的证据，必须跑满 15 格把它测实）。用 task_done 区分。
+      $anyDone = $notes -match 'task_done=True'
+      if ($anyDone) {
+        Write-Host "  [黄] ⑦ 场景 $($sc.id)：给记录 2 格全不过，但**任务做出来了**（task_done=true）—— 这是负结果（记录没改变行为），不是地板。放行，跑满 15 格把它测实"
+        Write-Host "       $detail"
+      } else {
+        Chk $false "⑦ 场景 $($sc.id)：给记录也 2 格全不过 ⇒ 记忆没起作用，或判据/任务有问题，先查清再跑" $detail
+      }
     } elseif ($nP -gt 0) {
       Write-Host "  [黄] ⑦ 场景 $($sc.id) 判别力弱（不给记录也过了 $nP/$nR）—— 放行，但要靠正式扫的 3 次聚合定论" 
       Write-Host "       $detail"

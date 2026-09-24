@@ -10,10 +10,12 @@
  *
  * Four rules, and the first two are the ones that keep this honest:
  *
- *   1. **A ceiling or a floor writes nothing.** Both arms passing, or both failing, is a measurement
- *      that could not detect a difference; recording it as `effect = 0` ("measured as redundant")
- *      would be a lie with a number attached. Those scenarios are listed and skipped, with the
- *      reason printed.
+ *   1. **A ceiling or an unrun floor writes nothing.** Both arms passing, or neither arm managing
+ *      to do the task at all, is a measurement that could not detect a difference; recording it as
+ *      `effect = 0` ("measured as redundant") would be a lie with a number attached. But a floor
+ *      where every arm *did* the task and nobody satisfied the judge is a genuine measured zero
+ *      (the record was present and changed nothing) and it **is** written. Each case is printed
+ *      with its reason, so nothing is silently skipped.
  *   2. **Placeholder rows do not count.** `seed-failed` / `no-result` / `watchdog-killed` rows say
  *      the cell did not happen; they leave the denominator alone rather than becoming a failure.
  *   3. **The record is found by the scenario's `relevantRecordTitle`,** exactly — the same match the
@@ -69,12 +71,16 @@ const rows = readFileSync(resultsPath, 'utf8')
   })
   .filter(row => row !== undefined)
 
-/** Per (scenario, arm), count the runs that happened and how many passed. */
+/** Per (scenario, arm), count the runs that happened, how many passed, and whether the arm ever
+ * actually completed the task (`task_done`). The last decides whether a 0/n is a floor (nobody
+ * could do it — no information) or a measured zero (they did the job; the record changed nothing,
+ * which is a real finding — tools/t2-plan.md §4.8.3). */
 function tally(scenarioId, arm) {
   let pass = 0
   let ran = 0
   let placeholders = 0
   let timedOut = 0
+  let taskDone = false
   for (const row of rows) {
     if (String(row.scenario) !== scenarioId || String(row.arm) !== arm) continue
     const run = Number(row.run)
@@ -83,8 +89,9 @@ function tally(scenarioId, arm) {
     ran += 1
     if (row.pass === true) pass += 1
     if (row.timeout === true) timedOut += 1
+    if (row.task_done === true) taskDone = true
   }
-  return { pass, ran, placeholders, timedOut }
+  return { pass, ran, placeholders, timedOut, taskDone }
 }
 
 // A dry run must not change *anything*, and that includes the schema: `openDb` migrates, so opening
@@ -127,7 +134,8 @@ for (const item of planned) {
   if (record === undefined) continue
   const reason = `deletion-test effect=${item.measurement.effect.toFixed(2)} `
     + `(with ${String(item.withRecord.pass)}/${String(item.withRecord.ran)} vs without ${String(item.without.pass)}/${String(item.without.ran)}, `
-    + `scenario ${item.scenario.id}, judge ${item.scenario.judge})`
+    + `scenario ${item.scenario.id}, judge ${item.scenario.judge}`
+    + `${item.without.taskDone && item.withRecord.taskDone ? ', 两侧都做完了任务、只是判据要求的行为没出现（测出来的 0，不是分辨不出）' : ''})`
   if (apply) {
     upsert(db, { ...record, effect: item.measurement.effect, updatedAt: Date.now() })
     noteCorrection(db, item.id, 'deletion-test', reason, Date.now())
