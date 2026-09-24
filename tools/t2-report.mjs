@@ -293,7 +293,15 @@ if (!fingerprint.blocking) for (const scenario of scenarios) {
       return list.filter(row => row.aspects?.[aspect] === true).length / list.length
     }
     const show = v => (v === null ? '—' : `${(v * 100).toFixed(0)}%`)
+    // 天花板告警：`none` 臂在所有分项上全对 ⇒ 这一族记录的效果在这一格**测不出来**。
+    // 这不是"记录没用"，是"任务太容易，模型自己就会"。必须显式说出来，否则 effect=0 会被读成
+    // "这些记录没价值"，而真相是这个场景没有判别力（T2 前几轮删过两个天花板场景，同一个病）。
+    const noneAllPerfect = aspectNames.length > 0 && aspectNames.every(a => rateOf('none', a) === 1)
     say(`- **${scenario}**（G5 一景多测，${probes.length} 条记录各占一个臂）`)
+    if (noneAllPerfect) {
+      say(`  - ⚠️ **天花板：none 臂在所有分项上都 100%**（${aspectNames.join('、')}）⇒ 这一族记录的效果`)
+      say('    在这一格**测不出来**（不是"没用"）。换任务，或者换一族模型自己不会的记录，否则跑多少格都是 0。')
+    }
     say('')
     say('  | 检查点 | none | 一条无关对照 | 各臂（记录） |')
     say('  |---|---|---|---|')
