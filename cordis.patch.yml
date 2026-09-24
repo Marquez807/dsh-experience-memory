@@ -95,3 +95,9 @@
         # is never written into a record.
         effectWeight: 0
         decisionLossRetirement: false
+        # When a record describes an action that cannot be undone, `memory_remember` answers with a
+        # computed line naming the live store's path and the disposable root. It is the half a marker
+        # list can never have: the real store's own path contains "dsh-", so a guard that whitelists
+        # markers protects nothing (docs/DELIVERY-GAPS.md 27). On by default because it writes
+        # nothing — the record's text is stored exactly as written.
+        guardHints: true

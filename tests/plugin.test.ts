@@ -482,6 +482,40 @@ export async function run(): Promise<void> {
       'no proposal names an anchor the cost table would refuse',
     )
 
+    // ── Guard hints: the machine's own facts, offered and not written ───────
+    // `docs/DELIVERY-GAPS.md` §27: a safety lesson phrased with example markers was copied into a
+    // guard that could not protect the live store. The plugin knows where that store is, so it says
+    // so — in the answer only. The record's own text must come back unchanged.
+    const hinted = await call<{ id: string; danger_examples: string[] }>(
+      'memory_remember',
+      {
+        kind: 'experience',
+        title: '清库脚本要小心',
+        body: '清空一个 SQLite 库的全部记录前先想想后果',
+        quote: '清空一个 SQLite 库的全部记录前先想想后果',
+      },
+      agentFor([userMessage('清空一个 SQLite 库的全部记录前先想想后果')]),
+    )
+    eq(hinted.danger_examples.length, 1, 'a destructive record gets exactly one computed line')
+    assert(hinted.danger_examples[0]?.includes('memory.db'), 'and it names the live store file')
+    assert(hinted.danger_examples[0]?.includes('默认拒绝'), 'written as a rule to adopt, not a fact')
+    const hintedRecord = (() => {
+      const side = openDb(dbPath)
+      try {
+        return side.prepare('SELECT body FROM record WHERE id = ?').get(hinted.id) as { body: string }
+      } finally {
+        side.close()
+      }
+    })()
+    eq(hintedRecord.body, '清空一个 SQLite 库的全部记录前先想想后果',
+      'the hint is proposed only — the stored body is exactly what was written')
+    const benign = await call<{ danger_examples: string[] }>(
+      'memory_remember',
+      { kind: 'fact', title: '排版约定', body: '中文标题前后各留一个空行', quote: '中文标题前后各留一个空行' },
+      agentFor([userMessage('中文标题前后各留一个空行')]),
+    )
+    eq(benign.danger_examples.length, 0, 'a record that is not about a destructive action gets none')
+
     let refused = false
     try {
       await call(

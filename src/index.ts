@@ -30,13 +30,15 @@ import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { DatabaseSync } from 'node:sqlite'
+import { tmpdir } from 'node:os'
 import { Config, resolveConfig, type Config as ExperienceConfig } from './config.ts'
 import { buildIdentity } from './build-id.ts'
 import { suggestAnchors } from './anchors.ts'
 import { explainRefusals, guardAnchors } from './anchor-cost.ts'
 import { configureEffect } from './effect.ts'
+import { guardHintFor } from './guard-hints.ts'
 import { commandDefinitions } from './commands.ts'
-import { openDb, noteRetrieval, countCandidates, noteDelivery } from './db.ts'
+import { openDb, noteRetrieval, countCandidates, noteDelivery, defaultDbPath } from './db.ts'
 import { noteFailures } from './failure.ts'
 import { harvestFrom, lastTurn } from './harvest.ts'
 import { recallForCallWithIdentifiers, renderPrecall } from './precall.ts'
@@ -653,6 +655,16 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
               + 'record own the hint budget of the whole workspace, so it is not stored — the record '
               + 'itself is, and it still reaches the digest and `memory_recall`.',
           },
+          danger_examples: {
+            type: 'array',
+            items: { type: 'string' },
+            required: true,
+            description: 'For a record about an action that cannot be undone: one computed line naming '
+              + 'the live store\'s path and the disposable root, so the rule can be written as "refuse by '
+              + 'default, and never touch this file" instead of a marker list that the real store\'s own '
+              + 'path may satisfy. **Proposed, never written** — the record is stored exactly as given. '
+              + 'Empty when the record is not about a destructive action, or already names those facts.',
+          },
         },
       },
       render: jsonRender,
@@ -722,19 +734,33 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         maxHits: resolved.anchorCostMaxHits,
       })
       const refused = explainRefusals(guard)
+      // The environment's own facts, offered when the record describes something that cannot be
+      // undone. The plugin knows where the live store is and where throwaway stores may live; asking
+      // the writer to type those is how a safety lesson ends up phrased as a guessable marker list
+      // (`docs/DELIVERY-GAPS.md` §27). Proposed only — the record is stored exactly as written.
+      const guardHint = resolved.guardHints
+        ? guardHintFor({
+          text: [args.title, args.body, args.lesson, args.failure_mode].filter(part => typeof part === 'string').join('\n'),
+          facts: { realStorePath: resolved.dbPath ?? defaultDbPath(), disposableRoot: tmpdir() },
+        })
+        : undefined
+      const dangerExamples = guardHint !== undefined && !guardHint.covered ? [guardHint.line] : []
+      const notes = [
+        ...refused,
+        ...(dangerExamples.length === 0 ? [] : ['this record describes a destructive action — see danger_examples']),
+      ]
       return {
         outcome: result.outcome,
         id: result.record.id,
         status: result.record.status,
         evidence: result.grade,
         route: result.route,
-        reason: refused.length === 0
-          ? result.reason
-          : `${result.reason}（${refused.length} anchor(s) dropped as too common — see anchors_refused）`,
+        reason: notes.length === 0 ? result.reason : `${result.reason}（${notes.join('；')}）`,
         corroborations: result.corroborations,
         revived: result.revived,
         recall_for_suggestions: proposed.kept,
         anchors_refused: refused,
+        danger_examples: dangerExamples,
       }
     },
   }))

@@ -124,6 +124,17 @@ export interface Config {
    * evidence of uselessness.
    */
   decisionLossRetirement?: boolean
+  /**
+   * Offer the machine's own facts when a record is about a destructive action.
+   *
+   * On by default, because it **writes nothing**: `memory_remember` answers with a computed line
+   * naming the live store's path and the disposable root, and the record's own text is stored
+   * exactly as written. The measured reason it exists is in `docs/DELIVERY-GAPS.md` §27 — a safety
+   * lesson phrased with *example* markers was copied into guards that could not protect the real
+   * store, and the facts that make such a guard work (where the real store is, where throwaway
+   * stores may live) are things the plugin already knows and should not ask a writer to type.
+   */
+  guardHints?: boolean
 }
 
 /** Schemastery validation. Invalid values fail plugin load rather than degrade. */
@@ -152,6 +163,7 @@ export const Config: z<Config> = z.object({
   anchorCostMaxHits: z.number(),
   effectWeight: z.number(),
   decisionLossRetirement: z.boolean(),
+  guardHints: z.boolean(),
 })
 
 /** Fully resolved configuration, with defaults applied and bounds enforced. */
@@ -180,6 +192,7 @@ export interface ResolvedConfig {
   anchorCostMaxHits: number
   effectWeight: number
   decisionLossRetirement: boolean
+  guardHints: boolean
 }
 
 /**
@@ -239,5 +252,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     // gated off, an operator may want a measured-harmful record pushed down without being retired.
     effectWeight: finite(config.effectWeight, 0, 'effectWeight'),
     decisionLossRetirement: config.decisionLossRetirement ?? false,
+    // On by default: it only *proposes* a line in the tool's answer and writes nothing to the record.
+    guardHints: config.guardHints ?? true,
   }
 }
