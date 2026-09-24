@@ -100,17 +100,43 @@ function selfCheck() {
     if (!ok) failed += 1
     console.log(`${ok ? '✓' : '✗'} ${name}  → blocking=${got.blocking} reviewable=${got.reviewable}`)
   }
-  console.log(failed === 0 ? `\nselfcheck 全过（${cases.length} 条）` : `\nselfcheck 失败 ${failed} 条`)
+  // 回归：参数解析。这三条锁住的是**真实发生过**的静默 bug（没有 `--results` 时第一个位置参数被吃掉），
+  // 修好不锁住等于没修——下一个改这段的人会原样写回来。
+  const argCases = [
+    ['没有 --results 时，第一个位置参数不许被吃掉（--selfcheck 曾经因此被吞）', ['--selfcheck'], ['--selfcheck']],
+    ['有 --results 时，只摘掉它和它的值', ['tplcomment', '--results', 'x.jsonl'], ['tplcomment']],
+    ['--results 在中间也不许吃掉别的', ['--results', 'x.jsonl', 'a', 'b'], ['a', 'b']],
+    ['多个位置参数全部保留', ['a', 'b', 'c'], ['a', 'b', 'c']],
+  ]
+  for (const [name, input, expect] of argCases) {
+    const got = positionalArgs(input)
+    const ok = got.length === expect.length && got.every((v, i) => v === expect[i])
+    if (!ok) failed += 1
+    console.log(`${ok ? '✓' : '✗'} 参数解析：${name}  → [${got.join(', ')}]`)
+  }
+  const total = cases.length + argCases.length
+  console.log(failed === 0 ? `\nselfcheck 全过（${total} 条）` : `\nselfcheck 失败 ${failed} 条`)
   process.exit(failed === 0 ? 0 : 1)
+}
+
+/**
+ * 从 argv 里挑出"位置参数"，同时把 `--results <文件>` 这一对摘掉。
+ *
+ * **抽成函数是为了能被 `--selfcheck` 断言**：这里曾经有一个静默 bug——
+ * `index !== flagAt && index !== flagAt + 1`，而没有 `--results` 时 `flagAt` 是 `-1`，
+ * 于是 `flagAt + 1 === 0`，**第一个位置参数被吃掉**。实测后果：`--selfcheck` 被吞、
+ * 直接跑成了整张报告；换成场景 id 就会"跳过某个场景"无声失效。
+ */
+function positionalArgs(argv) {
+  const flagAt = argv.indexOf('--results')
+  return argv.filter((arg, index) => flagAt === -1 || (index !== flagAt && index !== flagAt + 1))
 }
 
 const argv = process.argv.slice(2)
 const flagAt = argv.indexOf('--results')
 const resultsArg = flagAt === -1 ? undefined : argv[flagAt + 1]
-// 没有 `--results` 时**一个位置参数都不许丢**。原来写成 `index !== flagAt && index !== flagAt + 1`，
-// 而 flagAt 是 -1 时 `flagAt + 1 === 0`，于是**第一个位置参数被静默吃掉**——实测 `--selfcheck`
-// 因此被吞、直接跑成了整张报告；换成场景 id 也是同样的下场（"跳过 tplcomment"会无声失效）。
-const positional = argv.filter((arg, index) => flagAt === -1 || (index !== flagAt && index !== flagAt + 1))
+// 没有 `--results` 时**一个位置参数都不许丢**（见上面 positionalArgs 的注释：这里踩过）。
+const positional = positionalArgs(argv)
 if (resultsArg !== undefined && (resultsArg === undefined || resultsArg.trim() === '')) {
   console.error('--results 后面要给文件路径')
   process.exit(2)

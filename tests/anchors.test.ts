@@ -23,7 +23,7 @@ import {
   suggestAnchors,
 } from '../src/anchors.ts'
 import { resolveWorkspace } from '../src/domain.ts'
-import { explainRefusals, guardAnchors } from '../src/anchor-cost.ts'
+import { explainRefusals, guardAnchors, overCostAnchors } from '../src/anchor-cost.ts'
 import { ANCHOR_COST_TABLE } from '../src/anchor-cost-table.ts'
 import { assert, eq } from './assert.ts'
 
@@ -152,6 +152,50 @@ export async function run(): Promise<void> {
   assert(mostExpensive !== undefined, 'the shipped cost table has at least one entry')
   if (mostExpensive !== undefined) {
     eq(guardAnchors([mostExpensive[0]]).kept, [], 'the shipped table refuses its own most expensive token')
+  }
+
+  // ── The read side: anchors the gate never saw ────────────────────────────
+  // The gate runs at write time only, so a record written before the table existed keeps its
+  // anchors. The store audit (`tools/anchors.mjs`) reports those; it reported `0` on the live
+  // store, which is only informative if the check can report something at all — so the first
+  // assertion here is the positive control and the second is its negative.
+  const auditTable = {
+    generatedAt: '2026-09-25T00:00:00.000Z',
+    corpus: 'synthetic',
+    calls: 1000,
+    thresholdHits: 300,
+    tokens: { 'tool:pwsh': 400, 'path:src/db.ts': 12 },
+  }
+  const flagged = overCostAnchors(
+    [{ kind: 'tool', token: 'pwsh' }, { kind: 'path', token: 'src/db.ts' }],
+    { table: auditTable },
+  )
+  eq(flagged.length, 1, 'an anchor over the threshold is flagged and a narrow one beside it is not')
+  eq(flagged[0]?.anchor, 'tool:pwsh', 'and it is named as it would be written')
+  eq(flagged[0]?.hits, 400, 'with the measurement behind it')
+  eq(flagged[0]?.share, 0.4, 'and its share of every call')
+  eq(
+    overCostAnchors([{ kind: 'tool', token: 'pwsh' }], { table: auditTable, maxHits: 500 }).length,
+    0,
+    'raising the threshold above the measured hits clears it — the count decides, not the token',
+  )
+  eq(
+    overCostAnchors([{ kind: 'tool', token: 'pwsh' }], { table: { ...auditTable, tokens: {} } }).length,
+    0,
+    'an empty snapshot flags nothing, matching the gate fail-open rule',
+  )
+  eq(
+    overCostAnchors([{ kind: 'tool', token: 'pwsh' }, { kind: 'tool', token: 'pwsh' }], { table: auditTable }).length,
+    1,
+    'the same anchor declared twice is reported once',
+  )
+  if (mostExpensive !== undefined) {
+    const [kind, token] = mostExpensive[0].split(':')
+    eq(
+      overCostAnchors([{ kind: kind ?? '', token: token ?? '' }]).length,
+      1,
+      'the shipped table flags its own most expensive token on the read side too',
+    )
   }
 
   // ── End to end on a store ────────────────────────────────────────────────

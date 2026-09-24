@@ -742,5 +742,5 @@ node tools/preview.mjs --db <库路径> --cwd <项目根> --query "继续" --que
 
 - **README 里的数字是机器核对的，不是手抄的。** `tests/docs.test.ts` 逐格比对配置表的默认值、注册的工具与命令名单、摘要行数上限（2+5=7）、测试套件数、审计产出清单，以及那一行提示的字节数；对不上测试就红。改文档和改代码是同一件事。
 - **测试按标题逐字定位。** 被钉住的标题是 `## Known Limitations and Deferred Work`、`## 配置`、`## 模型的体验（Model Experience）`、`### 它挂了四个表面`、`#### Token effect`——重命名它们要同时改测试，否则整套检查会找不到锚点而失败（失败，不是静默跳过）。细节见 `docs/DEVELOPING.md` 的「文档与代码对齐」。
-- **一共 20 个套件**，一条命令跑完全部：`pnpm verify`。各套件覆盖什么，见 [`docs/DEVELOPING.md`](docs/DEVELOPING.md) 的「测试」。
+- **一共 21 个套件**，一条命令跑完全部：`pnpm verify`。各套件覆盖什么，见 [`docs/DEVELOPING.md`](docs/DEVELOPING.md) 的「测试」。
 - **构建、打包、启动验收、测试清单与开发环境**在 [`docs/DEVELOPING.md`](docs/DEVELOPING.md)。

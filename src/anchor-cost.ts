@@ -106,6 +106,50 @@ export function guardAnchors(
   return { kept, refused, table }
 }
 
+export interface OverCostAnchor {
+  /** As it would be written: `tool:pwsh`. */
+  anchor: string
+  /** Measured hits in the corpus the table was built from. */
+  hits: number
+  /** `hits / calls`, so a reader can see how much of every turn this anchor costs. */
+  share: number
+}
+
+/**
+ * Which of an already-stored record's declared anchors the write gate would refuse today.
+ *
+ * `guardAnchors` runs only when an anchor is being written, so a record written **before** the
+ * table existed keeps its anchors forever — the gate has no retroactive arm. That is not
+ * hypothetical: an audit of the live store on 2026-09-25 found four records still holding
+ * `tool:pwsh` (5,936 hits, 37.3% of all calls) long after the gate was in place. Nothing was
+ * broken; the gate simply had never seen them.
+ *
+ * This is the read side of the same rule — same table, same threshold, same comparison — so
+ * "what would the gate say about this record now" has one implementation instead of a second
+ * one in whichever script happens to be auditing. A snapshot with no tokens returns nothing
+ * rather than everything, matching the gate's fail-open rule.
+ */
+export function overCostAnchors(
+  anchors: readonly { kind: string; token: string }[],
+  options: { maxHits?: number; table?: AnchorCostTable } = {},
+): OverCostAnchor[] {
+  const source = options.table ?? ANCHOR_COST_TABLE
+  const counts = source.tokens
+  if (Object.keys(counts).length === 0) return []
+  const maxHits = options.maxHits ?? source.thresholdHits
+  const found: OverCostAnchor[] = []
+  const seen = new Set<string>()
+  for (const anchor of anchors) {
+    const key = `${anchor.kind}:${anchor.token}`.toLowerCase()
+    if (seen.has(key)) continue
+    const hits = counts[key]
+    if (hits === undefined || hits < maxHits) continue
+    seen.add(key)
+    found.push({ anchor: key, hits, share: source.calls === 0 ? 0 : hits / source.calls })
+  }
+  return found
+}
+
 /** One line per refused anchor, written for the caller rather than for a log. */
 export function explainRefusals(result: AnchorGuardResult): string[] {
   return result.refused.map(item => {

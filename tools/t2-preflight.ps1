@@ -34,9 +34,20 @@ $scratch = Join-Path $env:TEMP 't2-preflight-seed'
 if (Test-Path $scratch) { Remove-Item $scratch -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $scratch | Out-Null
 Copy-Item $liveDb (Join-Path $scratch 'seed.db') -Force
+# 标题要从**场景自己声明的每一种形状**里收：单条（relevantRecordTitle）、一族（familyRecordTitles）、
+# 一景多测（probeArms[].title）。2026-09-25 踩过：新场景只声明了 probeArms，而这里只会读
+# relevantRecordTitle ⇒ 收到空标题、播种 exit 2、门①变红（而且还因为对 $null 调 .Substring 抛了异常）。
+# 门自己红了是好事（它拦住了"开跑才发现"），但它得认得所有形状，否则下次会被人当成假红关掉。
 $titles = @()
-foreach ($sc in $spec.scenarios) { if ($ScenarioFilter -eq '' -or $sc.id -eq $ScenarioFilter) { $titles += $sc.relevantRecordTitle } }
+foreach ($sc in $spec.scenarios) {
+  if ($ScenarioFilter -ne '' -and $sc.id -ne $ScenarioFilter) { continue }
+  $names = $sc.PSObject.Properties.Name
+  if ($names -contains 'relevantRecordTitle') { $titles += [string]$sc.relevantRecordTitle }
+  if ($names -contains 'familyRecordTitles') { $titles += @($sc.familyRecordTitles | ForEach-Object { [string]$_ }) }
+  if ($names -contains 'probeArms') { $titles += @($sc.probeArms | ForEach-Object { [string]$_.title }) }
+}
 if ($ScenarioFilter -eq '') { $titles += $spec.controlPool }
+$titles = @($titles | Where-Object { $_ -ne $null -and "$_".Trim() -ne '' })
 $bad = @()
 $i = 0
 foreach ($t in $titles) {
@@ -44,9 +55,9 @@ foreach ($t in $titles) {
   $tf = Join-Path $scratch "t$i.txt"
   [IO.File]::WriteAllText($tf, [string]$t, [Text.UTF8Encoding]::new($false))
   $null = & node (Join-Path $PSScriptRoot 't2-seed.mjs') --from $liveDb --to (Join-Path $scratch 'seed.db') --workspace $scratch --title-file $tf 2>&1
-  if ($LASTEXITCODE -ne 0) { $bad += "$($t.Substring(0, [Math]::Min(28, $t.Length)))…(exit $LASTEXITCODE)" }
+  if ($LASTEXITCODE -ne 0) { $bad += "$([string]$t)".Substring(0, [Math]::Min(28, "$([string]$t)".Length)) + "…(exit $LASTEXITCODE)" }
 }
-Chk ($bad.Count -eq 0) '① 要播种的记录都播得进去' $(if ($bad.Count -eq 0) { "$($titles.Count) 条全部成功（含带引号的那条）" } else { "失败：$($bad -join '；')" })
+Chk ($bad.Count -eq 0) '① 要播种的记录都播得进去（含单条/一族/多测三种形状）' $(if ($bad.Count -eq 0) { "$($titles.Count) 条全部成功" } else { "失败：$($bad -join '；')" })
 
 # ② 护栏的**两个方向**都验：真库必须被拒、临时库必须放行
 #    （只验一个方向的话，"永远拒绝"和"永远放行"都会看起来正常）
@@ -74,6 +85,14 @@ $got = @((Get-Content $out -Raw -Encoding UTF8 -ErrorAction SilentlyContinue).Tr
 # process.argv.slice(1) 的第 0 个是脚本路径本身，真正的参数从第 1 个开始 —— 第一版判据把序号
 # 数错，报了个假红（假红比漏报更坏：会让人开始不信整套预检）。所以这里连字段数一起断言。
 Chk ($got.Count -eq 5 -and $got[1] -eq $entry -and $got[4] -eq $prompt) '③ 启动参数不被空格拆开' "收到 $($got.Count) 个字段（脚本+4 参数）；入口路径完整：$($got[1] -eq $entry)；任务正文完整：$($got[4] -eq $prompt)"
+
+# ③b 阴性对照：同一条判据在"**按系统代码页读**"时**必须读不对**。
+# 为什么要有它（2026-09-25 加）：③ 曾经因为读法错而**恒红**（假红，久了没人信这套预检）。
+# 反过来也有风险：如果有人为了让它转绿而放松比较（只数字段数、或把中文提示词换成 ASCII），
+# ③ 就成了一条**永远为真**的空判据。这一条把"这个比较是有意义的"钉住：
+# 读错编码时判不对、读对编码时才判对。没有它，③ 变绿本身说明不了任何问题。
+$ansi = @((Get-Content $out -Raw -ErrorAction SilentlyContinue).Trim() -split '\|')
+Chk ($ansi.Count -eq 5 -and $ansi[4] -ne $prompt) '③b 阴性对照：按系统代码页读会读错（证明 ③ 不是空判据）' "按 ANSI 读到的第 5 个字段 = [$($ansi[4])]"
 
 # ④ 判据依赖 python 的两条场景（linecount / wipeguard 的库行数）**环境**确实可用
 #    stdin 场景已删除（本机沙箱地板），对应的 git 环境检查一并撤掉。
