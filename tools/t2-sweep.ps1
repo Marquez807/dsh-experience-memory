@@ -1,7 +1,10 @@
-# T2 全量：4 场景 × 5 臂 × 3 次，逐个跑、逐行落 JSONL。已完成的用 -Skip 跳过。
+﻿# T2 全量：4 场景 × 5 臂 × 3 次，逐个跑、逐行落 JSONL。已完成的用 -Skip 跳过。
 #   powershell -ExecutionPolicy Bypass -File t2-sweep.ps1 [-Runs 3] [-Skip bom] [-Out tools/t2-results.jsonl]
 param([int]$Runs = 3, [string[]]$Skip = @(), [string]$Out = 'tools/t2-results.jsonl')
 $ErrorActionPreference = 'Continue'
+# `-Skip a,b` 在 -File 下是**一个**元素（数组语法不生效），"跳过多条"会只跳第一条 —— 实测踩过
+# （`-Skip @('tplcomment','wipeguard')` 里 wipeguard 照样跑了）。统一按逗号拆开，两种传法都对。
+$Skip = @($Skip | ForEach-Object { $_ -split ',' } | Where-Object { $_.Trim() -ne '' } | ForEach-Object { $_.Trim() })
 $spec = Get-Content (Join-Path $PSScriptRoot 't2-scenarios.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $outPath = Join-Path (Split-Path -Parent $PSScriptRoot) $Out
 # Append, never truncate: a run that stops half way must not throw away what it already measured.
@@ -48,7 +51,7 @@ foreach ($sc in $spec.scenarios) {
             ForEach-Object { cmd /c "taskkill /T /F /PID $($_.ProcessId)" 2>&1 | Out-Null }
           Start-Sleep -Seconds 2
         }
-        $line = Get-Content $cellLog -ErrorAction SilentlyContinue |
+        $line = Get-Content $cellLog -Encoding UTF8 -ErrorAction SilentlyContinue |
           Where-Object { "$_" -match '^\{' } | Select-Object -Last 1
       }
       if ($line) {

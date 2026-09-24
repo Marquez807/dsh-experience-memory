@@ -1,4 +1,4 @@
-# 读一个 DSH settings.yaml 里选的模型（provider/model）。给 T2 的 run 与 preflight 共用一份，
+﻿# 读一个 DSH settings.yaml 里选的模型（provider/model）。给 T2 的 run 与 preflight 共用一份，
 # 免得两处各写一份解析、慢慢漂移。
 #
 # 为什么值得单独一个文件（2026-09-24 夜实测）：隔离 home 里的 settings.yaml 是**第一次建环境时

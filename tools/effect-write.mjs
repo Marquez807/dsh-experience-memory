@@ -48,6 +48,10 @@ const apply = args.includes('--apply')
 const resultsPath = join(here, '..', flag('results') ?? 'tools/t2-results.jsonl')
 const storePath = flag('db') ?? defaultDbPath()
 const runsPerArm = Number(flag('runs') ?? 3)
+// `--only <场景[,场景]>`：只给这些场景写。为什么要这个开关：一条记录只能存一个 effect，而同一场景
+// 在不同模型上测出来的值不同（bom 在 mimo 上 +1.00、在 deepseek 上 +0.67）。没有这个开关，跑一次
+// 新模型的结果就会**悄悄覆盖**旧模型的实测值；有了它，写哪一条是自己的决定，不是副作用。
+const only = String(flag('only') ?? '').split(',').map(s => s.trim()).filter(s => s !== '')
 
 // Habit from the 271-record incident: say which store is about to change before anything else.
 console.log(`store  : ${storePath}`)
@@ -81,6 +85,7 @@ function tally(scenarioId, arm) {
   let placeholders = 0
   let timedOut = 0
   let taskDone = false
+  const models = new Set()
   for (const row of rows) {
     if (String(row.scenario) !== scenarioId || String(row.arm) !== arm) continue
     const run = Number(row.run)
@@ -90,8 +95,9 @@ function tally(scenarioId, arm) {
     if (row.pass === true) pass += 1
     if (row.timeout === true) timedOut += 1
     if (row.task_done === true) taskDone = true
+    if (typeof row.model === 'string' && row.model !== '') models.add(row.model)
   }
-  return { pass, ran, placeholders, timedOut, taskDone }
+  return { pass, ran, placeholders, timedOut, taskDone, models: [...models] }
 }
 
 // A dry run must not change *anything*, and that includes the schema: `openDb` migrates, so opening
@@ -108,16 +114,21 @@ for (const scenario of spec.scenarios) {
   const measurement = measureEffect({ without, withRecord })
   const node = db.prepare('SELECT id FROM record WHERE title = ? AND status = \'confirmed\' ORDER BY created_at DESC').get(scenario.relevantRecordTitle)
   const id = node === undefined ? undefined : String(node.id)
+  // 这一轮跑的是哪个模型（结果行里有 `model` 字段）。它进审计行，因为同一个场景在不同模型上测出来的
+  // 值不同，而记录里只能存一个数：事后必须能看出这个数是哪台模型测的。
+  const models = [...new Set([...without.models, ...withRecord.models])]
 
   let action
-  if (runsPerArm > 0 && (without.ran < runsPerArm || withRecord.ran < runsPerArm)) {
+  if (only.length > 0 && !only.includes(scenario.id)) {
+    action = '不在 --only 名单里 ⇒ 不写（不动它已经有的实测值）'
+  } else if (runsPerArm > 0 && (without.ran < runsPerArm || withRecord.ran < runsPerArm)) {
     action = `未跑完（${String(without.ran)}/${String(withRecord.ran)} 格）⇒ 不写`
   } else if (!measurable(measurement)) {
     action = `没判别力（${measurement.degenerateWhy || '次数不够'}）⇒ 不写`
   } else if (id === undefined) {
     action = '库里找不到这条记录（按标题精确匹配）⇒ 不写'
   } else {
-    planned.push({ scenario, id, measurement, without, withRecord })
+    planned.push({ scenario, id, measurement, without, withRecord, models })
     action = `${apply ? '写入' : '将写入'} ${id}  effect = ${measurement.effect > 0 ? '+' : ''}${measurement.effect.toFixed(2)}`
   }
   console.log(`| ${scenario.id} | ${String(without.pass)}/${String(without.ran)} | ${String(withRecord.pass)}/${String(withRecord.ran)} | ${describeEffect(measurement)} | ${action} |`)
@@ -135,7 +146,10 @@ for (const item of planned) {
   const reason = `deletion-test effect=${item.measurement.effect.toFixed(2)} `
     + `(with ${String(item.withRecord.pass)}/${String(item.withRecord.ran)} vs without ${String(item.without.pass)}/${String(item.without.ran)}, `
     + `scenario ${item.scenario.id}, judge ${item.scenario.judge}`
-    + `${item.without.taskDone && item.withRecord.taskDone ? ', 两侧都做完了任务、只是判据要求的行为没出现（测出来的 0，不是分辨不出）' : ''})`
+    + `${item.models.length > 0 ? `, model ${item.models.join('+')}` : ''}`
+    // 这句话只在**真的测出 0**时才写。第一次写成"两侧都做完任务"就加，于是 effect=+1.00 的审计行
+    // 末尾挂着"测出来的 0"——解释和数字打架，靠读的人自己分辨是错的。
+    + `${item.without.taskDone && item.withRecord.taskDone && Math.abs(item.measurement.effect) < 1e-9 ? ', 两侧都做完了任务、只是判据要求的行为没出现（测出来的 0，不是分辨不出）' : ''})`
   if (apply) {
     upsert(db, { ...record, effect: item.measurement.effect, updatedAt: Date.now() })
     noteCorrection(db, item.id, 'deletion-test', reason, Date.now())

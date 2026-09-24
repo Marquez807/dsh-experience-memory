@@ -1,4 +1,4 @@
-# T2 预检门 —— 跑任何扫之前先跑这一条：把"会不会白跑"回答掉。
+﻿# T2 预检门 —— 跑任何扫之前先跑这一条：把"会不会白跑"回答掉。
 #
 # 为什么要有它（2026-09-23 教训）：那条"PowerShell 管道送不进原生程序 stdin"的教训早就在
 # 经验库里了，但它只是**知识**，没变成流程里必跑的一步 —— 于是 T2 的 stdin 场景依赖
@@ -97,6 +97,25 @@ if ($liveModel -ne $isoModel) {
   Write-Host '       含义：本轮读数按这个模型记账，**不与换模型之前的轮次直接可比**。'
 }
 Chk ($isoModel -ne 'unknown' -and $isoModel -eq $liveModel) '⑤ 环境版本与模型（存档用）' "node $nodeV；PowerShell $($PSVersionTable.PSVersion)；模型 $isoModel；隔离 home $home_"
+
+# ⑤b 测试台自己的脚本必须**此刻就能被 Windows PowerShell 5.1 解析**。这条是 2026-09-25 凌晨那次
+# 事故（9 个格子"无结果"）的护栏：带中文的 .ps1 若没有 UTF-8 BOM，5.1 会按系统代码页解码、把字符串
+# 引号吃掉、整脚本解析失败——而且**时好时坏**（取决于调用进程的代码页），跑过一晚也不代表没问题。
+# 更阴的一点：编辑工具每次改写 .ps1 都会把 BOM 抹掉，"加过一次"不等于"一直有"。所以每次开跑都验，
+# 验不过就别跑（红了还跑＝白跑一整批）。
+$scriptProblems = @()
+foreach ($f in (Get-ChildItem (Join-Path $repo 'tools') -Filter '*.ps1')) {
+  $bytes = [IO.File]::ReadAllBytes($f.FullName)
+  $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+  $nonAscii = $false
+  foreach ($x in $bytes) { if ($x -ge 0x80) { $nonAscii = $true; break } }
+  if ($nonAscii -and -not $hasBom) { $scriptProblems += "$($f.Name)(无 BOM)"; continue }
+  $perr = $null
+  [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$perr)
+  if ($perr -and $perr.Count) { $scriptProblems += "$($f.Name)(解析失败 $($perr.Count) 处)" }
+}
+$scriptCount = @(Get-ChildItem (Join-Path $repo 'tools') -Filter '*.ps1').Count
+Chk ($scriptProblems.Count -eq 0) '⑤b 测试台脚本可被 5.1 解析（含中文的必须有 BOM）' $(if ($scriptProblems.Count -eq 0) { "$scriptCount 个脚本全部通过" } else { "有问题：$($scriptProblems -join '；')（用 [IO.File]::WriteAllText + UTF8Encoding($true) 补 BOM）" })
 
 # ⑥ 上限自证：**声明了上限，就要证明它真的会掐断 —— 而且要验生产里用的那套机制**。
 #    实测踩过两次：①声明 480 秒上限，扫里一格跑了 26 分钟没停；②换成 Wait-Job -Timeout 加一层，

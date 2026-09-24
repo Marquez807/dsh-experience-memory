@@ -1,4 +1,4 @@
-# T2 扫描进度条 —— 读 tools/t2-results.jsonl，渲染"跑了几格 / 还剩多久"。
+﻿# T2 扫描进度条 —— 读 tools/t2-results.jsonl，渲染"跑了几格 / 还剩多久"。
 #
 #   powershell -ExecutionPolicy Bypass -File tools\t2-progress.ps1 [-Skip tplcomment]
 #
@@ -6,6 +6,10 @@
 # 是"按这个速度继续"的直线外推，不是承诺；某格卡住时它会跟着变大（这正是它有用的时刻）。
 param([string[]]$Skip = @('tplcomment'), [string]$Out = 'tools/t2-results.jsonl')
 $ErrorActionPreference = 'Continue'
+# `powershell -File x.ps1 -Skip a,b` 会把 "a,b" 当成**一个**元素（数组参数在 -File 下不走 PowerShell
+# 的数组语法），于是"跳过多条"只会跳过第一条 —— 实测踩过（`-Skip @('tplcomment','wipeguard')` 里
+# wipeguard 照样跑了）。这里统一按逗号拆开，两种传法都对。
+$Skip = @($Skip | ForEach-Object { $_ -split ',' } | Where-Object { $_.Trim() -ne '' } | ForEach-Object { $_.Trim() })
 $here = $PSScriptRoot
 $repo = Split-Path -Parent $here
 $spec = Get-Content (Join-Path $here 't2-scenarios.json') -Raw -Encoding UTF8 | ConvertFrom-Json
