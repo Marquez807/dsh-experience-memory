@@ -166,6 +166,18 @@ if ($timedOut) {
 $sw.Stop()
 $elapsed = $sw.Elapsed.TotalSeconds
 
+# ── 智能体压根没起来（配额/网络）：必须与"做错了"分开 ────────────────────────
+# 实测（2026-09-24 夜）：模型配额用尽时无头 harness 只回一行 `dsh: QUOTA: 429 ... quota exhausted`
+# 然后立刻退出，于是每一格的产物都缺失、每格只花 3 秒。产物缺失与"模型做错了"在产物上**一模一样**，
+# 30 格会被读成"所有臂都失败"。所以这里先看 stderr，命中就记成占位行（no-result 前缀）：
+# 报告不计入、续跑会重跑。
+$agentErr = if (Test-Path (Join-Path $ws '.agent.err.txt')) { [IO.File]::ReadAllText((Join-Path $ws '.agent.err.txt')) } else { '' }
+if ($agentErr -match 'dsh:\s*QUOTA|quota exhausted|429|ECONNREFUSED|fetch failed|ETIMEDOUT') {
+  $why = ($agentErr -split "`n" | Where-Object { $_ -match 'QUOTA|quota|429|ECONNREFUSED|fetch failed|ETIMEDOUT' } | Select-Object -First 1)
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; pass = $false; note = "no-result: 智能体没起来（$($why.Trim())）" } | ConvertTo-Json -Compress
+  exit 8
+}
+
 # ── 判定用的两个小工具（都不碰真库）──────────────────────────────────────────
 # 数一个库里 record 表有几行。走**文件**而不是 `node -e`：脚本正文里有双引号，PowerShell 5.1
 # 把参数交给原生程序时会重写引号（同一个坑在播种标题上踩过，见 t2-seed.mjs 的 --title-file）。
