@@ -1,0 +1,111 @@
+{
+  "note": "对外讲过的硬话，一条一行，附凭证。status=measured 必须有仓库里能跑的检查或产物；not-run / readme-only 一律不许带凭证——把「没跑」写进机器可读字段，而不是在 README 里含糊过去（做法来自 dsh-akn-plugin 的 aen-mvp-0.1.json:41）。规则由 tests/claims.test.ts 强制，喂进去的合成数据就是它的正反对照。",
+  "statuses": {
+    "measured": "仓库里有能复跑的检查或产物",
+    "not-run": "打算做/该做，但还没做，也没有数字",
+    "readme-only": "对外讲过，但仓库里没有可复跑的凭证（如实登记；这不是合格状态）",
+    "design": "设计决定，凭证是写这份设计的文档"
+  },
+  "claims": [
+    {
+      "id": "digest.hint-line-bytes",
+      "claim": "那行经验提示每轮固定出现，占 204 字节",
+      "status": "measured",
+      "evidence": ["tests/docs.test.ts"],
+      "note": "字节数被测试逐字钉住；改文案要同时改测试，否则这一套变红。"
+    },
+    {
+      "id": "digest.line-ceiling",
+      "claim": "常驻摘要最多 7 条：核心层 2 条 + 查询层 5 条",
+      "status": "measured",
+      "evidence": ["tests/docs.test.ts"],
+      "note": "README 里写的是同一个算式 2+5=7，测试比对的是配置里的真实上限。"
+    },
+    {
+      "id": "runtime.zero-third-party-deps",
+      "claim": "运行时零第三方依赖，只用 Node 内置能力",
+      "status": "measured",
+      "evidence": ["package.json", "tests/claims.test.ts"],
+      "note": "本清单的测试直接读 package.json：声明了 dependencies 就报错。"
+    },
+    {
+      "id": "anchors.write-gate",
+      "claim": "写入时把命中过宽的锚点丢掉并写明理由，而不是拒绝整条记录",
+      "status": "measured",
+      "evidence": ["tests/anchors.test.ts"],
+      "note": "含阳性对照（超限锚点被丢）与阴性对照（空表/关闸时保留）。"
+    },
+    {
+      "id": "anchors.store-audit",
+      "claim": "写入闸门管不到的存量锚点，由只读审计报出来并给出修法",
+      "status": "measured",
+      "evidence": ["tools/anchors.mjs", "tests/anchors.test.ts"],
+      "note": "2026-09-25 实测：真实库 0 条；拿真实库副本塞一条 tool:pwsh 后报 1 条（命中 5936、占全部调用 37.3%）。"
+    },
+    {
+      "id": "delivery.one-per-call",
+      "claim": "一次工具调用最多送 1 条记录",
+      "status": "measured",
+      "evidence": ["tests/delivery.test.ts"],
+      "note": "同一调用有多条候选时只出一条，这条是投递层的硬约束。"
+    },
+    {
+      "id": "delivery.multi-hint-not-worth-changing",
+      "claim": "短回合（≤20 次调用）里 12 次有提示、0 次有 2 条以上 ⇒ 不为了「多条」改投递层",
+      "status": "measured",
+      "evidence": ["tools/replay.mjs", "tools/hint-density.json"],
+      "note": "产物里 shortTurnsWithHints=12、shortMultiHintTurns=0；这是「先别改」这个决定的依据，不是「改得好」。"
+    },
+    {
+      "id": "t2.wipeguard",
+      "claim": "「别把文件清空」场景：有相关记录 3/3，空库 0/3，无关记录 0/9",
+      "status": "measured",
+      "evidence": ["tools/t2-results.jsonl", "tools/t2-scenarios.json"],
+      "note": "每格 3 次运行；判定只看产物，不看模型自述。"
+    },
+    {
+      "id": "t2.handoff-merge",
+      "claim": "三条经验合一 vs 三条分开：平局（3/3 vs 2/3）⇒ 没有采纳自动合并",
+      "status": "measured",
+      "evidence": ["tools/t2-results-t4.jsonl", "docs/g4-handoff-report.md"],
+      "note": "G4 的门槛要求「合一明显更好」才算过，实测没过——所以「合并」这条功能到现在没建。"
+    },
+    {
+      "id": "t2.psencoding-ceiling",
+      "claim": "PowerShell 中文编码场景是天花板：空库也能过，因此测不出记录的效果",
+      "status": "measured",
+      "evidence": ["tools/t2-results-g5.jsonl", "docs/g5-psencoding-report.md"],
+      "note": "天花板不是「记录有效」，是「这个场景没区分度」——按这可测性规则筛掉。"
+    },
+    {
+      "id": "hygiene.no-bare-empty-catch",
+      "claim": "src 里没有「捕获了异常却什么都不做、也不写理由」的空 catch",
+      "status": "measured",
+      "evidence": ["tests/hygiene.test.ts"],
+      "note": "按花括号深度扫全部 src/*.ts；该测试自带反例，证明它真能报出来。"
+    },
+    {
+      "id": "g5.measured-records-bar",
+      "claim": "G5 预注册的门槛：攒够 30 条「效果测得出」的记录",
+      "status": "not-run",
+      "evidence": [],
+      "how": "先用空库臂筛掉天花板场景（空库也能过的不算），再逐条跑对照",
+      "note": "当前只有 2 条；已筛过的两个族（psencoding 5 条、multiskill 2 条）全是天花板。这是「说了要做、还没做到」的如实登记。"
+    },
+    {
+      "id": "adoption.remembers-never-called",
+      "claim": "五个真实会话、约 5,900 次工具调用里，memory_remember 一次都没被调用过",
+      "status": "readme-only",
+      "evidence": [],
+      "how": "python tools/session-calls.py --out tools/calls.jsonl，再统计 memory_remember 的出现次数",
+      "note": "当时的统计没有落成仓库里的产物——README、CHANGELOG 与源码注释都引用了它，但凭证不在库里。现在能重跑同类统计（当前语料 15,896 次调用），那是**另一批**会话，不能当成这句话的凭证。"
+    },
+    {
+      "id": "g5.testability-rule",
+      "claim": "一条记录「测得出效果」的前提是：模型的默认做法是错的",
+      "status": "design",
+      "evidence": ["docs/GROWTH.md"],
+      "note": "由实测归纳：凡是「只要小心就能做对」的场景，空库臂也是满分，记录的效果就无从体现。这是筛场景的规则，不是对外承诺的数字。"
+    }
+  ]
+}

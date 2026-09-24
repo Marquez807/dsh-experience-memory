@@ -27,6 +27,7 @@ import { run as commands } from './commands.test.ts'
 import { run as plugin } from './plugin.test.ts'
 import { run as docs } from './docs.test.ts'
 import { run as hygiene } from './hygiene.test.ts'
+import { run as claims } from './claims.test.ts'
 import { assertions } from './assert.ts'
 
 const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
@@ -51,6 +52,7 @@ const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
   ['plugin', plugin],
   ['docs', docs],
   ['hygiene', hygiene],
+  ['claims', claims],
 ]
 
 let failed = 0
