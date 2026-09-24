@@ -23,6 +23,10 @@
  *   node tools/backfill-anchors.mjs --cwd <workspace>           # propose + measure
  *   node tools/backfill-anchors.mjs --cwd <workspace> --apply   # write into the store
  *
+ * `--include-declared` also proposes for records that already declared an anchor, reading only the
+ * prose half of their trigger so the proposal cannot copy the answer. That is what G1 compares
+ * (`docs/GROWTH.md`); `--apply` still refuses to touch a record that already has a marker.
+ *
  * The measurement is the same replay judge the rest of the work uses, run with the proposed
  * anchors in memory, so the cost side is visible before anything is written.
  */
@@ -33,6 +37,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { defaultDbPath } from '../lib/db.js'
 import { resolveWorkspace } from '../lib/domain.js'
 import { recordAnchors } from '../lib/criteria.js'
+import { splitTrigger } from '../lib/anchors.js'
 
 const args = process.argv.slice(2)
 const flag = name => {
@@ -45,6 +50,10 @@ const cwd = flag('cwd') ?? process.cwd()
 const callsPath = flag('calls') ?? join(process.cwd(), 'tools', 'calls.jsonl')
 const outPath = flag('out') ?? join(process.cwd(), 'tools', 'proposed-anchors.json')
 const apply = has('apply')
+// 默认只给"从没声明过锚点"的记录提议（历史行为）。`--include-declared` 是给 G1 用的：
+// 要问"机器提的锚点跟人写的一不一致"，就得让机器**在人写过锚点的那些记录上也提一遍**——
+// 否则两边的交集按构造就是空的（`docs/GROWTH.md` G1）。
+const includeDeclared = has('include-declared')
 
 if (!existsSync(dbPath)) {
   console.error(`没有这个库：${dbPath}`)
@@ -118,8 +127,12 @@ for (const row of rows) {
     trigger: String(row.trigger ?? ''),
     sourceRef: String(row.source_ref ?? ''),
   }
-  if (recordAnchors(record, { derived: true }).anchors.length > 0) continue
-  const declared = `${row.title}\n${row.trigger ?? ''}\n${row.failure_mode ?? ''}\n${row.lesson ?? ''}`
+  // 提议只许看 trigger 的**散文那一半**（`--- anchors ---` 之前）。对默认路径没有影响（那些记录
+  // 本来就没有标记），但 `--include-declared` 下这一步是必须的：否则提议会从 trigger 里读到人写的
+  // `path:wipe.mjs`，然后"提议"出同一个锚点——那不是一致，那是把答案抄进题干。
+  const prose = splitTrigger(record.trigger).prose
+  if (!includeDeclared && recordAnchors(record, { derived: true }).anchors.length > 0) continue
+  const declared = `${row.title}\n${prose}\n${row.failure_mode ?? ''}\n${row.lesson ?? ''}`
   const named = new Set()
   for (const match of declared.matchAll(FILE_RUN)) {
     const name = match[0].toLowerCase()
@@ -134,7 +147,8 @@ for (const row of rows) {
   //      applies, so a file named there is the strongest signal available;
   //   2. not an incidental artefact path;
   //   3. the longest name, so `NOTICE-signals.md` beats a bare `signals.md`.
-  const trigger = String(row.trigger ?? '').toLowerCase()
+  // 同上：给"触发词里点名了这个文件"加分时，也只能看散文那一半。
+  const trigger = prose.toLowerCase()
   const score = rel => {
     const base = rel.split('/').pop() ?? rel
     return (trigger.includes(base) ? 4 : 0) + (INCIDENTAL.test(rel) ? 0 : 2) + (base.length >= 8 ? 1 : 0)
@@ -151,7 +165,7 @@ for (const row of rows) {
   })
 }
 
-console.log(`\n候选记录（没有锚点、但声明字段里提到了工作区真实存在的文件）：${proposals.length}`)
+console.log(`\n候选记录（${includeDeclared ? '全部记录（含已声明锚点的）' : '没有锚点、但声明字段里提到了工作区真实存在的文件'}）：${proposals.length}`)
 for (const p of proposals.slice(0, 40)) {
   const flags = `${p.inTrigger ? '触发词' : '      '} ${p.incidental ? '一次产物!' : '        '}`
   console.log(`  ${p.id}  ${p.anchor.padEnd(38)} ${flags}  ${p.title}`)

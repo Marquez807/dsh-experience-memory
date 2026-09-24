@@ -1,0 +1,249 @@
+[
+  {
+    "id": "0e1dd71244a9998d258c",
+    "title": "screener 要显式 write=true + output_path，否则契约通过也不落盘",
+    "anchor": "path:repos/dsh-bigfat/.sandbox/chain-20260922/screener_result.json",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "repos/dsh-bigfat/.sandbox/chain-20260922/screener_result.json"
+    ]
+  },
+  {
+    "id": "c26aea99f3c60a053842",
+    "title": "PowerShell 5.1 按系统 GBK 读无 BOM 的 .ps1：含中文的脚本必须带 UTF-8 BOM",
+    "anchor": "path:repos/dsh-quant/tests/run_all.ps1",
+    "inTrigger": true,
+    "incidental": true,
+    "named": [
+      "repos/dsh-quant/tests/run_all.ps1"
+    ]
+  },
+  {
+    "id": "ed6e6e66d2dbf929fc64",
+    "title": "quant worker 是常驻进程：Python 改动同样要重启 DSH 才生效",
+    "anchor": "path:audit/dev-t2-result/recon/cli.py",
+    "inTrigger": false,
+    "incidental": true,
+    "named": [
+      "audit/dev-t2-result/recon/cli.py"
+    ]
+  },
+  {
+    "id": "281e38c8bd7c9670fdab",
+    "title": "写锚点前先量它在真实调用里命中多少次：≥300 次的锚点等于\"每次都触发\"，必须丢弃",
+    "anchor": "path:dsh-experience-memory/tools/anchor-cost.mjs",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "dsh-experience-memory/tools/anchor-cost.mjs"
+    ]
+  },
+  {
+    "id": "5fbfe48feae5449935cd",
+    "title": "路径锚点别用\"到处都是\"的裸名字：一条记录因此占掉 78.8% 的提示、投递率被推到 5.58%",
+    "anchor": "path:repos/dsh-quant/lib/tools.js",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "repos/dsh-quant/lib/tools.js"
+    ]
+  },
+  {
+    "id": "5f66d0b2622ff16aac9b",
+    "title": "插件按包名装会装到同名他人包：判身份看仓库地址，出错后必须清 desired.json（不会自愈）",
+    "anchor": "path:dsh-plugin-identity-guard.ps1",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "dsh-plugin-identity-guard.ps1"
+    ]
+  },
+  {
+    "id": "bb49d6a97400afc0738a",
+    "title": "dsh-bigfat 的 roles/ 与 docs/AI_USAGE_GUIDE.md 是搬运件：本地说明要另建文件",
+    "anchor": "path:repos/dsh-bigfat/docs/ai_usage_guide.md",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "repos/dsh-bigfat/docs/ai_usage_guide.md"
+    ]
+  },
+  {
+    "id": "dd95de58c0e0916e01f0",
+    "title": "dsh-quant 阶段台账/NOTICE 会落后于实物，判\"做没做\"先跑一键验收",
+    "anchor": "path:repos/dsh-quant/design/progress.json",
+    "inTrigger": true,
+    "incidental": false,
+    "named": [
+      "repos/dsh-quant/design/progress.json",
+      "repos/dsh-quant/tests/run_all.ps1"
+    ]
+  },
+  {
+    "id": "6cb77cc2fcc2fa3a3a90",
+    "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）",
+    "anchor": "path:dsh-bom-guard.ps1",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "agents.md",
+      "dsh-bom-guard.ps1"
+    ]
+  },
+  {
+    "id": "c9b8e7d6a1ea4b6c9256",
+    "title": "改 DSH 的 settings.yaml 不用重启，实测改动即时可用",
+    "anchor": "path:repos/dsh-quant/cordis.patch.yml",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "repos/dsh-quant/cordis.patch.yml"
+    ]
+  },
+  {
+    "id": "caf94975e1bb832884be",
+    "title": "改了对外契约面后，只跑新增测试类会漏掉同文件里的形状测试",
+    "anchor": "path:repos/dsh-quant/tests/run_all.ps1",
+    "inTrigger": false,
+    "incidental": true,
+    "named": [
+      "repos/dsh-quant/tests/run_all.ps1"
+    ]
+  },
+  {
+    "id": "9bf1684eeb8d36846444",
+    "title": "给工具加参数必须同时改 lib/tools.js，否则会话调不到（Python 单测全绿也发现不了）",
+    "anchor": "path:repos/dsh-quant/lib/tools.js",
+    "inTrigger": true,
+    "incidental": false,
+    "named": [
+      "repos/dsh-quant/lib/tools.js",
+      "audit/dev-t2-result/recon/cli.py"
+    ]
+  },
+  {
+    "id": "149ae77e54ecd1ec8f8d",
+    "title": "素材管道：供应商无关 + 假接口自检 + manifest.js 绕开 file:// CORS",
+    "anchor": "path:无为修仙传复刻/素材管道/st_0.7/manifest.js",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "无为修仙传复刻/素材管道/st_0.7/manifest.js"
+    ]
+  },
+  {
+    "id": "9625f2800c77f0e5199e",
+    "title": "数组参数的 enum 必须挂在 items 里：写错会让整个工具注册失败、五套验收连红",
+    "anchor": "path:repos/dsh-quant/lib/tools.js",
+    "inTrigger": true,
+    "incidental": false,
+    "named": [
+      "repos/dsh-quant/lib/tools.js",
+      "repos/dsh-bigfat/tests/seat_smoke.mjs"
+    ]
+  },
+  {
+    "id": "80cbb971b581ed5c881c",
+    "title": "需求满足度要能一条命令核出来：26 项自动 + 7 条如实标\"需人工\"",
+    "anchor": "path:repos/dsh-bigfat/tools/requirements_audit.py",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "repos/dsh-bigfat/tools/requirements_audit.py"
+    ]
+  },
+  {
+    "id": "336ed1cb9fd90ea5f27a",
+    "title": "截断 run_all.ps1 的输出流会造成假红（退出码 1、其实全过）",
+    "anchor": "path:repos/dsh-quant/tests/run_all.ps1",
+    "inTrigger": false,
+    "incidental": true,
+    "named": [
+      "repos/dsh-quant/tests/run_all.ps1"
+    ]
+  },
+  {
+    "id": "cd00af77c16a2074bb79",
+    "title": "工具自述是模型唯一读到的能力说明：漏写动作=能力不存在",
+    "anchor": "path:repos/dsh-bigfat/tests/tool_surface_test.py",
+    "inTrigger": false,
+    "incidental": true,
+    "named": [
+      "repos/dsh-bigfat/tests/tool_surface_test.py"
+    ]
+  },
+  {
+    "id": "90e846adc3de13050adc",
+    "title": "本工作区只有 AGENTS.md 每轮自动进上下文；.dsh/skills 下 SKILL.md 只自动给一行描述",
+    "anchor": "path:.dsh/skills/quant-lessons/skill.md",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "agents.md",
+      ".dsh/skills/quant-lessons/skill.md"
+    ]
+  },
+  {
+    "id": "c5c1a253648e6b8969be",
+    "title": "有后果的统计口径只能有一个算法：交付表必须调框架函数，不许手算第二遍",
+    "anchor": "path:repos/dsh-bigfat/tests/caliber_buckets_test.py",
+    "inTrigger": false,
+    "incidental": true,
+    "named": [
+      "repos/dsh-bigfat/tests/caliber_buckets_test.py",
+      "repos/dsh-quant/tests/run_all.ps1"
+    ]
+  },
+  {
+    "id": "1e1c6f2049ad40b37a80",
+    "title": "接线审计只认函数体内的引用：模块级字典里的分派会被判成\"够不着\"",
+    "anchor": "path:repos/dsh-bigfat/design/unreachable_functions.json",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "repos/dsh-bigfat/design/unreachable_functions.json",
+      "repos/dsh-bigfat/tools/capability_audit.py"
+    ]
+  },
+  {
+    "id": "ea05071e9a9b173e2dd2",
+    "title": "用户硬要求：一切决定要有依据，没有调研就没有发言权（已写进 AGENTS.md 第五节）",
+    "anchor": "path:agents.md",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "agents.md"
+    ]
+  },
+  {
+    "id": "829162717af988f2038d",
+    "title": "lib/tools.js 里\"改这个文件不需要重启\"的说明在本机（junction 安装）不成立",
+    "anchor": "path:repos/dsh-quant/lib/tools.js",
+    "inTrigger": false,
+    "incidental": false,
+    "named": [
+      "repos/dsh-quant/lib/tools.js"
+    ]
+  },
+  {
+    "id": "4a0a10714d66efb9217e",
+    "title": "自建 agent preset 要自带技能，必须给 skill-filesystem 加 customSkillDirs 指向 baseUr",
+    "anchor": "path:.dsh/skills/quant-lessons/skill.md",
+    "inTrigger": true,
+    "incidental": false,
+    "named": [
+      ".dsh/skills/quant-lessons/skill.md"
+    ]
+  },
+  {
+    "id": "84feae93f4dba1b9a91d",
+    "title": "junction 安装的插件，lib/*.js 改动不会被 HMR 热重载（配置正确也没用）",
+    "anchor": "path:repos/dsh-quant/lib/tools.js",
+    "inTrigger": true,
+    "incidental": false,
+    "named": [
+      "repos/dsh-quant/lib/tools.js"
+    ]
+  }
+]
