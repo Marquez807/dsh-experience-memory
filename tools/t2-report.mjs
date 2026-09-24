@@ -39,10 +39,68 @@ const here = dirname(fileURLToPath(import.meta.url))
 const ARMS = ['none', 'rel', 'ctrl1', 'ctrl2', 'ctrl3']
 const RUNS = [1, 2, 3]
 
+/**
+ * 底板指纹的一致性判定（`t2-plan.md` §4.17）。
+ *
+ * 一轮里的所有格子必须来自**同一份冻结底板**：删除测试的全部意义是"两臂只差那一条记录"，
+ * 底板一变，差值就不再只归因于那条记录。指纹由 `t2-run.ps1` 写进每一行结果。
+ *
+ * 旧结果行没有这个字段，所以缺字段**如实计数**，不假装它一致；指纹多于一个取值才是硬拦
+ * （跨格不可比），只有一个取值但有行缺字段则降级成"不可完整核对"的警告。
+ *
+ * @param {Array<object>} rows
+ * @returns {{values: string[], blocking: boolean, reviewable: boolean, missing: number, text: string}}
+ */
+function fingerprintVerdict(rows) {
+  const values = []
+  let missing = 0
+  for (const row of rows) {
+    const value = row.base_sha256
+    if (typeof value !== 'string' || value.trim() === '' || value.trim() === 'unknown') missing += 1
+    else values.push(value.trim())
+  }
+  const distinct = [...new Set(values)]
+  const blocking = distinct.length > 1
+  const reviewable = !blocking && missing === 0 && distinct.length === 1
+  const text = distinct.length === 0
+    ? `无（${missing} 行没有指纹字段）`
+    : `${distinct.join(' / ')}（${distinct.length} 个取值，${values.length} 行有指纹，${missing} 行无）`
+  return { values: distinct, blocking, reviewable, missing, text }
+}
+
+/**
+ * `--selfcheck`：零配额的验收。
+ *
+ * 只验**新增的那部分判定逻辑**（不是整张报告）：指纹一致时允许出结论，指纹不唯一时必须拦住。
+ * 断言写在代码里而不是另建夹具文件，是因为这两条就是全部新增行为，单独跑它不需要模型、不需要库。
+ */
+function selfCheck() {
+  const row = (base, extra = {}) => ({ scenario: 's', arm: 'rel', run: 1, pass: true, base_sha256: base, ...extra })
+  const cases = [
+    ['指纹一致 ⇒ 允许出结论', [row('aaaa11112222'), row('aaaa11112222'), row('aaaa11112222')], { blocking: false, reviewable: true }],
+    ['指纹不唯一 ⇒ 必须拦住', [row('aaaa11112222'), row('bbbb33334444')], { blocking: true, reviewable: false }],
+    ['完全没有指纹（旧结果）⇒ 不拦但不可复核', [row(undefined), row(undefined)], { blocking: false, reviewable: false }],
+    ['一个指纹 + 缺字段 ⇒ 不拦但不可复核', [row('aaaa11112222'), row(undefined)], { blocking: false, reviewable: false }],
+    ['unknown 记成缺字段，不是一种指纹', [row('aaaa11112222'), row('unknown')], { blocking: false, reviewable: false }],
+  ]
+  let failed = 0
+  for (const [name, rows, expect] of cases) {
+    const got = fingerprintVerdict(rows)
+    const ok = got.blocking === expect.blocking && got.reviewable === expect.reviewable
+    if (!ok) failed += 1
+    console.log(`${ok ? '✓' : '✗'} ${name}  → blocking=${got.blocking} reviewable=${got.reviewable}`)
+  }
+  console.log(failed === 0 ? `\nselfcheck 全过（${cases.length} 条）` : `\nselfcheck 失败 ${failed} 条`)
+  process.exit(failed === 0 ? 0 : 1)
+}
+
 const argv = process.argv.slice(2)
 const flagAt = argv.indexOf('--results')
 const resultsArg = flagAt === -1 ? undefined : argv[flagAt + 1]
-const positional = argv.filter((arg, index) => index !== flagAt && index !== flagAt + 1)
+// 没有 `--results` 时**一个位置参数都不许丢**。原来写成 `index !== flagAt && index !== flagAt + 1`，
+// 而 flagAt 是 -1 时 `flagAt + 1 === 0`，于是**第一个位置参数被静默吃掉**——实测 `--selfcheck`
+// 因此被吞、直接跑成了整张报告；换成场景 id 也是同样的下场（"跳过 tplcomment"会无声失效）。
+const positional = argv.filter((arg, index) => flagAt === -1 || (index !== flagAt && index !== flagAt + 1))
 if (resultsArg !== undefined && (resultsArg === undefined || resultsArg.trim() === '')) {
   console.error('--results 后面要给文件路径')
   process.exit(2)
@@ -55,6 +113,7 @@ if (stray !== undefined) {
   process.exit(2)
 }
 const skipped = new Set(positional)
+if (positional.includes('--selfcheck')) selfCheck()
 const resultsPath = resultsArg === undefined
   ? join(here, 't2-results.jsonl')
   : (isAbsolute(resultsArg) ? resultsArg : join(here, '..', resultsArg))
@@ -88,6 +147,9 @@ for (const row of rows) {
   }
   cells.set(`${row.scenario}|${row.arm}|${row.run}`, row)
 }
+// 指纹算在**所有**参与这一轮的行走上（含占位行）：占位行同样是从某份底板起的，漏掉它就会
+// 把"底板换过"这件事看漏。
+const fingerprint = fingerprintVerdict([...cells.values(), ...placeholders])
 
 const mark = row => {
   if (row === undefined) return '·'
@@ -116,6 +178,15 @@ const say = line => {
 
 say(`## T2 结果（读 ${relative(join(here, '..'), resultsPath).replace(/\\/g, '/')}；每格取最后一条有效行）`)
 say('')
+say(`- **底板指纹**：${fingerprint.text}`)
+if (fingerprint.blocking) {
+  say('- ⛔ **底板不唯一 ⇒ 跨格不可比，本轮不出结论**（明细照打，供定位是哪几格换了底板）。修法见 `tools/t2-plan.md` §4.17。')
+} else if (!fingerprint.reviewable) {
+  say('- ⚠️ 底板不能完整核对（有结果行没有指纹）⇒ 下面的结论只能当"当时的读数"，**不是可复核读数**。')
+} else {
+  say('- ✅ 底板可复核：所有格子来自同一份冻结底板。')
+}
+say('')
 say('| 场景 | 组 | run1 | run2 | run3 | 通过 |')
 say('|---|---|---|---|---|---|')
 for (const scenario of scenarios) {
@@ -136,9 +207,18 @@ for (const scenario of scenarios) {
   say(`| ${scenario} | ${none.text} | ${rel.text} | ${ctrls[0].text} | ${ctrls[1].text} | ${ctrls[2].text} | ${ctrlPass}/${ctrlRan} |`)
 }
 say('')
-say('### 照冻结读法逐条对（`tools/t2-plan.md` §一）')
-say('')
-for (const scenario of scenarios) {
+if (fingerprint.blocking) {
+  say('### 照冻结读法逐条对：**已拦住**（底板不唯一，不出结论）')
+  say('')
+  say('底板指纹多于一个取值 ⇒ 这一轮里有的格子不是从同一份底板起的。删除测试的全部意义是')
+  say('"两臂只差那一条记录"，底板一变差值就不再只归因于那条记录，所以这里**不出通过/不通过的结论**。')
+  say('修法：按 `tools/t2-plan.md` §4.17 先冻结底板，再重跑受影响的格子。')
+  say('')
+} else {
+  say('### 照冻结读法逐条对（`tools/t2-plan.md` §一）')
+  say('')
+}
+if (!fingerprint.blocking) for (const scenario of scenarios) {
   const none = rate(scenario, 'none')
   const rel = rate(scenario, 'rel')
   const ctrlRates = ['ctrl1', 'ctrl2', 'ctrl3'].map(a => rate(scenario, a))

@@ -24,6 +24,17 @@ $spec = Get-Content (Join-Path $PSScriptRoot 't2-scenarios.json') -Raw -Encoding
 $sc = $spec.scenarios | Where-Object { $_.id -eq $Scenario }
 if (-not $sc) { Write-Host "未知场景 $Scenario"; exit 2 }
 
+# ── 底板指纹（t2-plan.md §4.17）──────────────────────────────────────────────
+# 这一格是**从整轮冻结的那份底板**拷的（不是当时的活库），指纹写进每一行结果，好让"所有格子
+# 同一底板"从声称变成可核对。指纹文件由 t2-sweep.ps1 冻结时写下；单独手跑这一格而没有底板时，
+# 记 unknown 并照跑（旧行为），但绝不悄悄回到读活库。
+$frozenDir = Join-Path $repo '_frozen'
+$frozenDb = Join-Path $frozenDir 'base.db'
+$baseSha = 'unknown'
+$shaFile = Join-Path $frozenDir 'base.db.sha256'
+if (Test-Path $shaFile) { $baseSha = ([IO.File]::ReadAllText($shaFile)).Trim() }
+elseif (Test-Path $frozenDb) { $baseSha = (Get-FileHash $frozenDb -Algorithm SHA256).Hash.Substring(0, 12).ToLower() }
+
 $entry = 'F:\Users\Admin\AppData\Local\Programs\DSH Desktop\resources\app\node_modules\@deepseek-ai\dsh\lib\bin.js'
 $root = Join-Path $env:TEMP 'dsh-t2'
 $home_ = Join-Path $root 'home'
@@ -89,16 +100,22 @@ foreach ($suffix in @('memory.db', 'memory.db-wal', 'memory.db-shm')) {
   $stale = Join-Path $isoDir $suffix
   if (Test-Path $stale) { Remove-Item $stale -Force }
 }
-$copyOut = & node (Join-Path $PSScriptRoot 'copy-store.mjs') --from "$env:APPDATA\dsh-desktop\harness\experience-memory\memory.db" --to $isoDb 2>&1 | Out-String
+# 底板不是活库，而是**整轮冻结**的那一份（t2-plan.md §4.17）：活库会在几小时的扫里被改，
+# 每个格子各拷一次就会让前后格子的起点不同，而删除测试的全部意义是"两臂只差那一条记录"。
+if (-not (Test-Path $frozenDb)) {
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; base_sha256 = $baseSha; pass = $false; note = 'frozen-missing: 先跑 t2-sweep.ps1 冻结底板（或手动 copy-store 到 _frozen/base.db）' } | ConvertTo-Json -Compress
+  exit 8
+}
+$copyOut = & node (Join-Path $PSScriptRoot 'copy-store.mjs') --from $frozenDb --to $isoDb 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
-  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = "copy-store-failed: $(($copyOut.Trim() -split "`n")[-1])" } | ConvertTo-Json -Compress
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; base_sha256 = $baseSha; pass = $false; note = "copy-store-failed: $(($copyOut.Trim() -split "`n")[-1])" } | ConvertTo-Json -Compress
   exit 7
 }
 $env:DSH_HOME = $home_
 $w = & node (Join-Path $repo 'tools\verified-user-ab\wipe.mjs') 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
   $why = ($w.Trim() -split "`n" | Where-Object { $_ -match 'REFUSED|Error|error' } | Select-Object -First 1)
-  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = "wipe-failed(exit $LASTEXITCODE): $why" } | ConvertTo-Json -Compress
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; base_sha256 = $baseSha; pass = $false; note = "wipe-failed(exit $LASTEXITCODE): $why" } | ConvertTo-Json -Compress
   exit 4
 }
 $seedTitle = $null
@@ -123,7 +140,7 @@ if ($seedTitle) {
     ForEach-Object { "  seed: $_" }
   Remove-Item $seedTitleFile -Force -ErrorAction SilentlyContinue
   if ($LASTEXITCODE -ne 0) {
-    [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = "seed-failed(exit $LASTEXITCODE)" } | ConvertTo-Json -Compress
+    [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; base_sha256 = $baseSha; pass = $false; note = "seed-failed(exit $LASTEXITCODE)" } | ConvertTo-Json -Compress
     exit 5
   }
 }
@@ -146,7 +163,7 @@ $proc = Start-Process -FilePath 'node' -ArgumentList @("`"$entry`"", '--profile'
   -RedirectStandardOutput (Join-Path $ws '.agent.out.txt') -RedirectStandardError (Join-Path $ws '.agent.err.txt')
 Pop-Location
 if (-not $proc) {
-  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = 'launch-failed' } | ConvertTo-Json -Compress
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; base_sha256 = $baseSha; pass = $false; note = 'launch-failed' } | ConvertTo-Json -Compress
   exit 6
 }
 # 超时用**轮询**实现，不用 Wait-Process -Timeout：实测那个参数在本机这条路里不生效
@@ -186,7 +203,7 @@ $agentErr = if (Test-Path (Join-Path $ws '.agent.err.txt')) { [IO.File]::ReadAll
 # 跑完**的格子误标成"智能体没起来"。这里只认不会误伤的整串：配额原文与网络错误的固定字样。
 if ($agentErr -match 'dsh:\s*QUOTA|quota exhausted|quota exceeded|rate limit|too many requests|ECONNREFUSED|fetch failed|ETIMEDOUT') {
   $why = ($agentErr -split "`n" | Where-Object { $_ -match 'QUOTA|quota|rate limit|too many requests|ECONNREFUSED|fetch failed|ETIMEDOUT' } | Select-Object -First 1)
-  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = "no-result: 智能体没起来（$($why.Trim())）" } | ConvertTo-Json -Compress
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; base_sha256 = $baseSha; pass = $false; note = "no-result: 智能体没起来（$($why.Trim())）" } | ConvertTo-Json -Compress
   exit 8
 }
 
@@ -344,6 +361,7 @@ $verdict = switch ($sc.judge) {
 
 $row = @{
   scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel
+  base_sha256 = $baseSha
   pass = [bool]$verdict.pass; note = [string]$verdict.note
   timeout = [bool]$timedOut; seconds = [math]::Round($elapsed, 1)
   kill_left = $killLeft

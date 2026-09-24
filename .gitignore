@@ -15,6 +15,11 @@ node_modules/
 *.db-journal
 *.db-wal
 
+# The frozen base store a T2 sweep copies every cell from, plus its fingerprint. It is a copy
+# of the live store taken at sweep start, so it is both large and machine-specific — the
+# *mechanism* is committed (tools/t2-sweep.ps1), the data is not. See tools/t2-plan.md §4.17.
+_frozen/
+
 # The extracted call corpus. `tools/session-calls.py` regenerates it from session logs in
 # seconds and it is tens of megabytes, so the *tool* is committed and the data is not — the
 # numbers it produces are pinned in docs/DELIVERY-GAPS.md together with the command.

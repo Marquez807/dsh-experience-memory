@@ -67,7 +67,10 @@ $prompt = '照工作区里 TASK.md 的要求做。'
 $p = Start-Process -FilePath 'node' -ArgumentList @("`"$probe`"", "`"$entry`"", '--profile', 't2ab', "`"$prompt`"") -PassThru -NoNewWindow `
   -RedirectStandardOutput $out -RedirectStandardError (Join-Path $scratch 'argv.err.txt')
 $p | Wait-Process -Timeout 60 -ErrorAction SilentlyContinue
-$got = @((Get-Content $out -Raw -ErrorAction SilentlyContinue).Trim() -split '\|')
+# `-Encoding UTF8` 不是可选项：探针用 node 的 `console.log` 写出 **UTF-8**，而 PowerShell 5.1 不带
+# 这个参数会按系统代码页（本机 GBK）读，中文提示词变成 `鐓у伐浣滃尯...`，于是 `$got[4] -eq $prompt`
+# 永远为假 —— 这是个**假红**（2026-09-25 实测复现）。判据本身没问题，坏的是读法。
+$got = @((Get-Content $out -Raw -Encoding UTF8 -ErrorAction SilentlyContinue).Trim() -split '\|')
 # process.argv.slice(1) 的第 0 个是脚本路径本身，真正的参数从第 1 个开始 —— 第一版判据把序号
 # 数错，报了个假红（假红比漏报更坏：会让人开始不信整套预检）。所以这里连字段数一起断言。
 Chk ($got.Count -eq 5 -and $got[1] -eq $entry -and $got[4] -eq $prompt) '③ 启动参数不被空格拆开' "收到 $($got.Count) 个字段（脚本+4 参数）；入口路径完整：$($got[1] -eq $entry)；任务正文完整：$($got[4] -eq $prompt)"

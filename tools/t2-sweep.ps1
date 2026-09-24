@@ -10,6 +10,27 @@ $outPath = Join-Path (Split-Path -Parent $PSScriptRoot) $Out
 # Append, never truncate: a run that stops half way must not throw away what it already measured.
 if (-not (Test-Path $outPath)) { [IO.File]::WriteAllText($outPath, '', [Text.UTF8Encoding]::new($false)) }
 
+# ── 整轮冻结一份底板（t2-plan.md §4.17）─────────────────────────────────────
+# 原来每个格子各拷一次**当时的活库**：一轮几十格要跑几小时，期间活库被任何东西写过，后面的格子
+# 拿到的底板就和前面不同 —— 而"两臂只差那一条记录"是删除测试的全部意义，底板一变差值就不干净了。
+# 而且结果里没记底板指纹，所以这件事**事后查不出来**。现在：整轮只冻一次，之后所有格子从它拷，
+# 并把指纹写进每一行结果，让"所有格子同一底板"从**声称**变成**可核对**。
+$repo = Split-Path -Parent $PSScriptRoot
+$liveDb = "$env:APPDATA\dsh-desktop\harness\experience-memory\memory.db"
+$frozenDir = Join-Path $repo '_frozen'
+$frozenDb = Join-Path $frozenDir 'base.db'
+New-Item -ItemType Directory -Force -Path $frozenDir | Out-Null
+Remove-Item $frozenDb -Force -ErrorAction SilentlyContinue
+$freezeOut = & node (Join-Path $PSScriptRoot 'copy-store.mjs') --from $liveDb --to $frozenDb 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $frozenDb)) {
+  Write-Host "冻结底板失败，一个格子都不跑。copy-store 原话：$($freezeOut.Trim())"
+  exit 8
+}
+# 指纹在**同一个进程**里算（Get-FileHash 是 cmdlet，不起新进程）——本机对大量短命进程会刷错误弹窗。
+$baseSha = (Get-FileHash $frozenDb -Algorithm SHA256).Hash.Substring(0, 12).ToLower()
+[IO.File]::WriteAllText((Join-Path $frozenDir 'base.db.sha256'), $baseSha, [Text.UTF8Encoding]::new($false))
+Write-Host "底板已冻结：$frozenDb  指纹 $baseSha"
+
 # 断点续跑：已经测出结果的小格不再重跑（一个 8 分钟的超时格子重跑一次就是白等 8 分钟）。
 # 占位行不算结果、必须重跑：note 以 seed-failed / no-result 开头的、以及没有 pass 字段的。
 $done = @{}
@@ -61,11 +82,11 @@ foreach ($sc in $spec.scenarios) {
       } elseif ($watchdog) {
         # 被外层看门狗掐断＝"没跑完"，不是"写错了"：单列 timeout=true，报告里分开算。
         # 续跑时把它当作已完成，避免一个慢格子反复吃掉整晚预算。
-        $row = @{ scenario = $sc.id; arm = $arm; run = $r; pass = $false; note = 'watchdog-killed'; timeout = $true; seconds = $cellSec } | ConvertTo-Json -Compress
+        $row = @{ scenario = $sc.id; arm = $arm; run = $r; pass = $false; note = 'watchdog-killed'; timeout = $true; seconds = $cellSec; base_sha256 = $baseSha } | ConvertTo-Json -Compress
         [IO.File]::AppendAllText($outPath, $row + "`n", [Text.UTF8Encoding]::new($false))
         Write-Host "     (看门狗掐断)"
       } else {
-        [IO.File]::AppendAllText($outPath, (@{ scenario = $sc.id; arm = $arm; run = $r; pass = $false; note = 'no-result' } | ConvertTo-Json -Compress) + "`n", [Text.UTF8Encoding]::new($false))
+        [IO.File]::AppendAllText($outPath, (@{ scenario = $sc.id; arm = $arm; run = $r; pass = $false; note = 'no-result'; base_sha256 = $baseSha } | ConvertTo-Json -Compress) + "`n", [Text.UTF8Encoding]::new($false))
         Write-Host '     (无结果)'
       }
     }
