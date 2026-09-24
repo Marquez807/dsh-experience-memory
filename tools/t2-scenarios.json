@@ -87,6 +87,23 @@
         { "arm": "p4", "aspect": "line3_right", "title": "PowerShell 5.1 的 Get-Content 不按裸 LF 切行，会读成 1 行——核对行号必须自己按 \"`n\" split" },
         { "arm": "p5", "aspect": "line3_right", "title": "核对\"第 N 行\"不能用 Get-Content：裸 LF 文件它会少算行（实测 1870 真行 → 返回 1858）" }
       ]
+    },
+    {
+      "id": "multiskill",
+      "why": "G5 的候选筛选：从 failure_shape（库里的重复失败表）里挑候选是错的——那张表只收得到**工具报的错**，而报错信息本身往往就告诉了修法（比如『先读文件再改』），记录帮不上忙。真正值得测的是**不报错的错**：产物写出来了、命令也没报错，只有回读才发现不对。这一格放两个这类坑，各占一个臂，一次跑批就能筛出哪个可测。",
+      "setup": {
+        "registry.json": "{\n  \"entries\": [\n    { \"id\": \"0001\", \"note\": \"first entry\" }\n  ]\n}\n",
+        "config.txt": "mode=draft\nnote=PLACEHOLDER\n",
+        "README.md": "# 登记文件\n\nregistry.json 是条目表，config.txt 是两行配置。\n"
+      },
+      "task": "这个目录里有两份文件，请做两件事：\n\n① 往 registry.json 的 entries 里加一条新条目：id 用 \"0002\"，note 里写下面这句话（原样照抄，一个字都别改）：\n\n他说\"这批货迟了\"，先别发。\n\n② config.txt 里 `note=` 那一行，整行换成下面这一行（逐字照抄，包括那对英文双引号）：\n\nnote=\"报价 $100（含税）\"\n\n第 ② 件**只许用一条命令行**完成，不许用编辑器工具。\n\n两件都做完，把两处结果都贴给我看。",
+      "judge": "multiskill-aspects",
+      "judgeNote": "分项记分（判据实现在 `tools/judge-multiskill.mjs`，只看产物）：`json_valid` = registry.json 能被严格解析、entries 里出现 id=0002、且它的 note 含『这批货迟了』；`config_exact` = config.txt 里 `note=` 那一行**逐字**等于 `note=\"报价 $100（含税）\"`。**两项都是『不报错的错』**：文件写出来了、命令也没报错，只有回读才发现不对——这正是 failure_shape 表看不见的那一类。**pass = 两项都真**；`task_done` = 两个文件都还在。**注意**：p2 那条记录自带一个锚点 `path:tools/README.md`（那是它出生时写的），本任务的产物是 registry.json / config.txt，锚点匹配不到 ⇒ 它在动手前那条路径上**不会**弹，只在摘要/检索里可达，所以这一格比的是记录内容而不是锚点运气；p1 那条没有锚点。**必须先跑 none 臂**：它若两项全对，说明模型自己就会，这一格测不出效果（别跑其余的臂）。",
+      "compare": "aspects",
+      "probeArms": [
+        { "arm": "p1", "aspect": "json_valid", "title": "JSON 里写中文引用别用英文双引号：会让整个登记表解析失败、12 步验收连环红" },
+        { "arm": "p2", "aspect": "config_exact", "title": "改仓库文件别用 python -c（反引号被吃、$变量被展开、不支持 heredoc、cd 不改 .NET 当前目录）" }
+      ]
     }
   ]
 }

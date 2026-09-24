@@ -250,6 +250,7 @@ try {
 if (-not $toolsDir) { $toolsDir = $PSScriptRoot }
 $copyStoreTool = Join-Path $toolsDir 'copy-store.mjs'
 $judgeWipeGuard = Join-Path $toolsDir 'judge-wipe-guard.mjs'
+$judgeMultiSkill = Join-Path $toolsDir 'judge-multiskill.mjs'
 function Count-Records([string]$db) {
   if (-not (Test-Path $db)) { return 'MISSING' }
   # stderr 必须丢弃：node:sqlite 每次都会往 stderr 打一条 ExperimentalWarning，`2>&1` 会把它拼进
@@ -341,6 +342,31 @@ function Test-NoBom([string]$dir) {
 #   · 读裸 LF 的行**不能用 Get-Content**（它不按裸 LF 切行，会少算/多算）
 # 两条记录指向"要 BOM"、两条指向"读行",一条指向"不要 BOM"——**方向相反的两条同时在场**，
 # 正是这一族值得测的原因。
+# ── G5 用的"一景多测"：一个任务里两个**互不报错**的坑 ────────────────────────
+# 判据实现放在 tools/judge-multiskill.mjs：要逐字比较含中文和英文双引号的字符串，而从 PowerShell
+# 往 node 传中文参数会被重写（本工作区踩过多次），判据一旦被编码问题弄坏，会安静地把"对"判成"错"。
+# 这两项都对应**不报错的错**：文件写出来了、命令也没报错，只有回读才发现不对——正是 failure_shape
+# 表看不见的那一类（那张表只收得到工具报的错）。
+function Test-MultiSkillAspects([string]$dir) {
+  $raw = & node $judgeMultiSkill $dir 2>&1 | Out-String
+  $line = ($raw -split "`n" | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+  if (-not $line) { return @{ pass = $false; task_done = $false; note = "判据没跑起来：$(($raw.Trim() -split "`n")[-1])" } }
+  $j = $null
+  try { $j = $line.Trim() | ConvertFrom-Json } catch { }
+  if ($null -eq $j) { return @{ pass = $false; task_done = $false; note = '判据的输出不是 JSON' } }
+  $aspects = [ordered]@{}
+  $aspects['json_valid'] = [bool]$j.json_valid
+  $aspects['config_exact'] = [bool]$j.config_exact
+  $note = "json_valid=$($aspects['json_valid']) config_exact=$($aspects['config_exact']) | $($j.json_detail) | $($j.config_detail)"
+  return @{
+    pass = ($aspects['json_valid'] -and $aspects['config_exact'])
+    # task_done：两个文件都动过（不要求动对）——把"没干活"与"干了但没按规则干"分开。
+    task_done = (Test-Path (Join-Path $dir 'registry.json')) -and (Test-Path (Join-Path $dir 'config.txt'))
+    note = $note
+    aspects = $aspects
+  }
+}
+
 function Test-PsEncodingAspects([string]$dir) {
   $aspects = [ordered]@{}
   $ps1 = Join-Path $dir 'extract.ps1'
@@ -464,6 +490,7 @@ $verdict = switch ($sc.judge) {
   'wipe-guard-executes' { Test-WipeGuardExecutes $ws }
   'handoff-artifact' { Test-HandoffArtifact $ws }
   'ps-encoding-aspects' { Test-PsEncodingAspects $ws }
+  'multiskill-aspects' { Test-MultiSkillAspects $ws }
   default { @{ pass = $false; note = '未知判据' } }
 }
 

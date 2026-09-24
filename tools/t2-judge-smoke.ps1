@@ -197,5 +197,45 @@ New-Ps1 $d $true
 $r = Test-PsEncodingAspects $d
 Chk ($r.pass -eq $false -and $r.aspects['line3_right'] -eq $false -and $r.aspects['ps1_bom']) '⑧ 编码判据：整个文件被当成第 3 行（Get-Content 裸 LF 的典型错法）—— 判错，且只有 line3_right 翻假' $r.note
 
+# ⑨ 两坑分项判据（G5 multiskill）：好、坏 JSON、坏配置三个方向；每项要能**独立**翻真翻假。
+# 夹具用单引号原样字符串（@' ... '@）写：里面的引号与 $ 一律是字面量，不用转义，也就不会写错
+# （第一版用双引号串转义，`" 写成 ``" 直接把字符串截断、整个自检脚本解析失败）。
+$goodReg = @'
+{
+  "entries": [
+    { "id": "0001", "note": "first" },
+    { "id": "0002", "note": "他说\"这批货迟了\"，先别发。" }
+  ]
+}
+'@
+$goodCfg = @'
+mode=draft
+note="报价 $100（含税）"
+'@
+$d = Join-Path $scratch 'ms-good'; New-Item -ItemType Directory -Force -Path $d | Out-Null
+[IO.File]::WriteAllText((Join-Path $d 'registry.json'), $goodReg, [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $d 'config.txt'), $goodCfg, [Text.UTF8Encoding]::new($false))
+$r = Test-MultiSkillAspects $d
+Chk ($r.pass -eq $true -and $r.aspects['json_valid'] -and $r.aspects['config_exact']) '⑨ 两坑判据：注册表合法 + 配置行逐字对 —— 判对' $r.note
+
+$badReg = @'
+{ "entries": [ { "id": "0002", "note": "他说"迟到"了" } ] }
+'@
+$d = Join-Path $scratch 'ms-badjson'; New-Item -ItemType Directory -Force -Path $d | Out-Null
+[IO.File]::WriteAllText((Join-Path $d 'registry.json'), $badReg, [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $d 'config.txt'), $goodCfg, [Text.UTF8Encoding]::new($false))
+$r = Test-MultiSkillAspects $d
+Chk ($r.pass -eq $false -and $r.aspects['json_valid'] -eq $false -and $r.aspects['config_exact']) '⑨ 两坑判据：中文引用用了英文双引号（整份解析失败）—— 判错，且只有 json_valid 翻假' $r.note
+
+$badCfg = @'
+mode=draft
+note=报价 100含税
+'@
+$d = Join-Path $scratch 'ms-badcfg'; New-Item -ItemType Directory -Force -Path $d | Out-Null
+[IO.File]::WriteAllText((Join-Path $d 'registry.json'), $goodReg, [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $d 'config.txt'), $badCfg, [Text.UTF8Encoding]::new($false))
+$r = Test-MultiSkillAspects $d
+Chk ($r.pass -eq $false -and $r.aspects['config_exact'] -eq $false -and $r.aspects['json_valid']) '⑨ 两坑判据：引号与 $ 被 shell 吃掉 —— 判错，且只有 config_exact 翻假' $r.note
+
 if ($fail -eq 0) { Write-Host '=== 判据自检全绿：这套判据能分辨已知的对与错 ===' } else { Write-Host '=== 判据自检有红线：先把判据修对，再谈场景有没有信号 ===' }
 exit $fail
