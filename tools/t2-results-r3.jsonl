@@ -1,0 +1,6 @@
+{"scenario":"bom","arm":"none","run":1,"pass":false,"note":"no-result: 智能体没起来（dsh: QUOTA: 429: {\"code\":\"429\",\"message\":\"quota exhausted\",\"type\":\"limitation\"}）"}
+{"scenario":"bom","arm":"none","run":2,"pass":false,"note":"no-result: 智能体没起来（dsh: QUOTA: 429: {\"code\":\"429\",\"message\":\"quota exhausted\",\"type\":\"limitation\"}）"}
+{"scenario":"bom","arm":"none","run":3,"pass":false,"note":"no-result: 智能体没起来（dsh: QUOTA: 429: {\"code\":\"429\",\"message\":\"quota exhausted\",\"type\":\"limitation\"}）"}
+{"scenario":"bom","arm":"rel","run":1,"pass":false,"note":"no-result: 智能体没起来（dsh: QUOTA: 429: {\"code\":\"429\",\"message\":\"quota exhausted\",\"type\":\"limitation\"}）"}
+{"scenario":"bom","arm":"rel","run":2,"pass":false,"note":"no-result: 智能体没起来（dsh: QUOTA: 429: {\"code\":\"429\",\"message\":\"quota exhausted\",\"type\":\"limitation\"}）"}
+{"scenario":"bom","arm":"rel","run":3,"pass":false,"note":"no-result: 智能体没起来（dsh: QUOTA: 429: {\"code\":\"429\",\"message\":\"quota exhausted\",\"type\":\"limitation\"}）"}

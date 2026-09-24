@@ -20,23 +20,53 @@
  *
  *   node tools/t2-report.mjs [跳过的场景id ...]   # the matrix, as markdown
  *
+ *   node tools/t2-report.mjs [跳过的场景id ...] [--results tools/t2-results.jsonl]   # markdown 表
+ *
  * Scenario ids on the command line were **skipped on purpose** (the preflight gate judged them
  * incapable of telling the difference). Printing them as "未跑完，不下结论" reads as unfinished
  * work; printing them as 跳过 says what actually happened, and they drop out of the missing count.
+ *
+ * ⚠️ 参数只认"场景 id"，结果文件要用 `--results` 给。**踩过**：把 `tools/t2-results-r3.jsonl`
+ * 直接当第二个位置参数传进来，它被当成"要跳过的场景名"，于是工具安静地读了**旧的结果文件**、
+ * 打印出一张看起来正常的旧表（"读的哪个文件"当时也不在输出里）。所以现在：位置参数里只要出现
+ * 像路径的东西（含 / 或 \ 或以 .jsonl 结尾）就直接报错退出，并且表头一定写清读的是哪个文件。
  */
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, isAbsolute, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ARMS = ['none', 'rel', 'ctrl1', 'ctrl2', 'ctrl3']
 const RUNS = [1, 2, 3]
-const skipped = new Set(process.argv.slice(2))
+
+const argv = process.argv.slice(2)
+const flagAt = argv.indexOf('--results')
+const resultsArg = flagAt === -1 ? undefined : argv[flagAt + 1]
+const positional = argv.filter((arg, index) => index !== flagAt && index !== flagAt + 1)
+if (resultsArg !== undefined && (resultsArg === undefined || resultsArg.trim() === '')) {
+  console.error('--results 后面要给文件路径')
+  process.exit(2)
+}
+const looksLikePath = arg => /[\\/]/.test(arg) || /\.jsonl$/i.test(arg)
+const stray = positional.find(looksLikePath)
+if (stray !== undefined) {
+  console.error(`位置参数只放"要跳过的场景 id"，而「${stray}」看起来是文件路径。`)
+  console.error('结果文件请用 --results 指定，例如：node tools/t2-report.mjs tplcomment --results tools/t2-results-r3.jsonl')
+  process.exit(2)
+}
+const skipped = new Set(positional)
+const resultsPath = resultsArg === undefined
+  ? join(here, 't2-results.jsonl')
+  : (isAbsolute(resultsArg) ? resultsArg : join(here, '..', resultsArg))
+if (!existsSync(resultsPath)) {
+  console.error(`没有这个结果文件：${resultsPath}`)
+  process.exit(2)
+}
 
 const spec = JSON.parse(readFileSync(join(here, 't2-scenarios.json'), 'utf8'))
 const scenarios = spec.scenarios.map(s => s.id).filter(id => !skipped.has(id))
 
-const rows = readFileSync(join(here, 't2-results.jsonl'), 'utf8')
+const rows = readFileSync(resultsPath, 'utf8')
   .split('\n')
   .filter(line => line.trim() !== '')
   .map(line => {
@@ -84,7 +114,7 @@ const say = line => {
   console.log(line)
 }
 
-say('## T2 结果（读 tools/t2-results.jsonl；每格取最后一条有效行）')
+say(`## T2 结果（读 ${relative(join(here, '..'), resultsPath).replace(/\\/g, '/')}；每格取最后一条有效行）`)
 say('')
 say('| 场景 | 组 | run1 | run2 | run3 | 通过 |')
 say('|---|---|---|---|---|---|')

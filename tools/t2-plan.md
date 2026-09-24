@@ -367,7 +367,7 @@ wipeguard 的探针（none×2 + rel×2）：四个格子都把实验库清干净
 | 通过 | 也通过 | ⚠️ 天花板：规则不用经验也能想到 ⇒ 场景重做，不许当成功 |
 
 **跑法**：`tools\t2-preflight.ps1`（含 2/2 判别力探针）→ 满格 15 格写入**新文件** `tools/t2-results-r3.jsonl`
-→ `node tools\t2-report.mjs tplcomment tools/t2-results-r3.jsonl`；出结果前先用
+→ `node tools\t2-report.mjs tplcomment --results tools/t2-results-r3.jsonl`；出结果前先用
 `node tools\delivery-report.mjs --db <隔离库>` 确认提示**真的弹了**（不确认就不许读成"经验没用"）。
 ### 4.14 改写后的第一次读数：探针 2/2 通过（满格 15 格被配额挡住，未跑完）
 
@@ -395,6 +395,6 @@ wipeguard 的探针（none×2 + rel×2）：四个格子都把实验库清干净
 
 ```
 powershell -ExecutionPolicy Bypass -File tools\t2-sweep.ps1 -Runs 3 -Skip @('tplcomment') -Out tools/t2-results-r3.jsonl
-node tools\t2-report.mjs tplcomment tools/t2-results-r3.jsonl
+node tools\t2-report.mjs tplcomment --results tools/t2-results-r3.jsonl
 node tools\delivery-report.mjs --db %TEMP%\dsh-t2\home\experience-memory\memory.db --record bb603076cfc742d133f6
 ```
