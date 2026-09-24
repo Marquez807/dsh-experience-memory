@@ -398,3 +398,15 @@ powershell -ExecutionPolicy Bypass -File tools\t2-sweep.ps1 -Runs 3 -Skip @('tpl
 node tools\t2-report.mjs tplcomment --results tools/t2-results-r3.jsonl
 node tools\delivery-report.mjs --db %TEMP%\dsh-t2\home\experience-memory\memory.db --record bb603076cfc742d133f6
 ```
+#### 4.13.1 补记（2026-09-24 深夜，**在本轮满格开跑之前**）：换了模型
+
+用户把桌面版切到了 `deepseek-official/deepseek-flash`（原来是 `xiaomi-token-plan-cn/mimo-v2.6-pro`，
+它的配额用尽了）。这有两处必须写下来：
+
+1. **隔离环境原本没跟着换**：`%TEMP%\dsh-t2\home\settings.yaml` 是第一次建隔离环境时拷的，里面仍写着
+   小米那个端点 —— 也就是说"配额用尽"那批格子跑的是旧端点，而**结果行里没有任何字段能看出来**。
+   现在：① 预检门第 ⑤ 条发现隔离与真机模型不一致就按真机刷新那四个文件，并**大声说明**；
+   ② `tools/t2-model.ps1` 被 run 与 preflight 共用；③ **每一行结果都记 `model` 字段**。
+2. **可比性**：§4.14 里那次探针（0/2 对 2/2）是**在 mimo 上**测的。换模型意味着那一读数**不能**直接
+   与新一轮比；所以预检门在刷新后**在新模型上重跑判别力探针**，通过才开跑满格。同一轮内部
+   （rel / none / ctrl 三臂）仍然可比——三臂跑的是同一个模型，对照臂就是为此存在的。

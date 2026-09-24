@@ -79,9 +79,24 @@ $jf = Join-Path $scratch 'jtry.json'
 $py = & python -c "import json,sys;print(len(json.load(open(sys.argv[1],encoding='utf-8'))['sources']))" $jf 2>&1
 Chk (($LASTEXITCODE -eq 0) -and ("$py".Trim() -eq '1')) '④ 判据要用的 python + json 可用' "退出码 $LASTEXITCODE；读出 $("$py".Trim())"
 
-# ⑤ 记录版本，免得事后说不清是哪套环境跑的
+# ⑤ 记录版本，并且**把隔离环境的模型对齐到真机**——这条有实测教训：隔离 home 里的 settings.yaml
+#    是第一次建环境时拷的，真机后来换了模型它并不知道，于是"配额用尽"那批格子跑的是旧端点，而结果
+#    行里没有任何字段能看出来。发现不一致就刷新那四个文件并**大声说明**：换模型意味着本轮读数按
+#    新模型记账，**不与换模型之前的轮次直接可比**。
+. (Join-Path $PSScriptRoot 't2-model.ps1')
 $nodeV = (& node --version) 2>&1
-Chk $true '⑤ 环境版本（存档用）' "node $nodeV；PowerShell $($PSVersionTable.PSVersion)；隔离 home $home_"
+$liveModel = Read-AgentModel (Join-Path $harness 'settings.yaml')
+$isoModel = Read-AgentModel (Join-Path $home_ 'settings.yaml')
+if ($liveModel -ne $isoModel) {
+  foreach ($f in @('settings.yaml', '.env', '.credentials.yaml', '.anonymous-user-id')) {
+    $src = Join-Path $harness $f
+    if (Test-Path $src) { Copy-Item $src (Join-Path $home_ $f) -Force }
+  }
+  $isoModel = Read-AgentModel (Join-Path $home_ 'settings.yaml')
+  Write-Host "  [黄] 隔离环境的模型与真机不一致，已按真机刷新：$liveModel（刷新后读到 $isoModel）"
+  Write-Host '       含义：本轮读数按这个模型记账，**不与换模型之前的轮次直接可比**。'
+}
+Chk ($isoModel -ne 'unknown' -and $isoModel -eq $liveModel) '⑤ 环境版本与模型（存档用）' "node $nodeV；PowerShell $($PSVersionTable.PSVersion)；模型 $isoModel；隔离 home $home_"
 
 # ⑥ 上限自证：**声明了上限，就要证明它真的会掐断 —— 而且要验生产里用的那套机制**。
 #    实测踩过两次：①声明 480 秒上限，扫里一格跑了 26 分钟没停；②换成 Wait-Job -Timeout 加一层，

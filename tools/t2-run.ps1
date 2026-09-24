@@ -35,6 +35,12 @@ $tagBytes = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes("$Scenario|$Arm|$Run
 $cellTag = ([BitConverter]::ToString($tagBytes) -replace '-', '').Substring(0, 12).ToLower()
 $ws = Join-Path $root "cell-$cellTag"
 
+# 这一格跑的是哪个模型：解析逻辑与预检门共用一份（tools/t2-model.ps1），写进每一行结果。
+# 实测（2026-09-24 夜）：隔离 home 的 settings.yaml 是第一次建环境时拷的，真机换模型它不知道 ——
+# 那批"配额用尽"的格子跑的是旧端点，而结果行里没有任何字段能看出来。
+. (Join-Path $PSScriptRoot 't2-model.ps1')
+$agentModel = Read-AgentModel (Join-Path $home_ 'settings.yaml')
+
 # ── 一次性：隔离 home + profile（junction 到本机 node_modules 与本插件）────────
 if (-not (Test-Path $home_)) {
   $src = "$env:APPDATA\dsh-desktop\harness"
@@ -81,14 +87,14 @@ foreach ($suffix in @('memory.db', 'memory.db-wal', 'memory.db-shm')) {
 }
 $copyOut = & node (Join-Path $PSScriptRoot 'copy-store.mjs') --from "$env:APPDATA\dsh-desktop\harness\experience-memory\memory.db" --to $isoDb 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
-  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; pass = $false; note = "copy-store-failed: $(($copyOut.Trim() -split "`n")[-1])" } | ConvertTo-Json -Compress
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = "copy-store-failed: $(($copyOut.Trim() -split "`n")[-1])" } | ConvertTo-Json -Compress
   exit 7
 }
 $env:DSH_HOME = $home_
 $w = & node (Join-Path $repo 'tools\verified-user-ab\wipe.mjs') 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
   $why = ($w.Trim() -split "`n" | Where-Object { $_ -match 'REFUSED|Error|error' } | Select-Object -First 1)
-  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; pass = $false; note = "wipe-failed(exit $LASTEXITCODE): $why" } | ConvertTo-Json -Compress
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = "wipe-failed(exit $LASTEXITCODE): $why" } | ConvertTo-Json -Compress
   exit 4
 }
 $seedTitle = $null
@@ -113,7 +119,7 @@ if ($seedTitle) {
     ForEach-Object { "  seed: $_" }
   Remove-Item $seedTitleFile -Force -ErrorAction SilentlyContinue
   if ($LASTEXITCODE -ne 0) {
-    [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; pass = $false; note = "seed-failed(exit $LASTEXITCODE)" } | ConvertTo-Json -Compress
+    [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = "seed-failed(exit $LASTEXITCODE)" } | ConvertTo-Json -Compress
     exit 5
   }
 }
@@ -136,7 +142,7 @@ $proc = Start-Process -FilePath 'node' -ArgumentList @("`"$entry`"", '--profile'
   -RedirectStandardOutput (Join-Path $ws '.agent.out.txt') -RedirectStandardError (Join-Path $ws '.agent.err.txt')
 Pop-Location
 if (-not $proc) {
-  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; pass = $false; note = 'launch-failed' } | ConvertTo-Json -Compress
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = 'launch-failed' } | ConvertTo-Json -Compress
   exit 6
 }
 # 超时用**轮询**实现，不用 Wait-Process -Timeout：实测那个参数在本机这条路里不生效
@@ -174,7 +180,7 @@ $elapsed = $sw.Elapsed.TotalSeconds
 $agentErr = if (Test-Path (Join-Path $ws '.agent.err.txt')) { [IO.File]::ReadAllText((Join-Path $ws '.agent.err.txt')) } else { '' }
 if ($agentErr -match 'dsh:\s*QUOTA|quota exhausted|429|ECONNREFUSED|fetch failed|ETIMEDOUT') {
   $why = ($agentErr -split "`n" | Where-Object { $_ -match 'QUOTA|quota|429|ECONNREFUSED|fetch failed|ETIMEDOUT' } | Select-Object -First 1)
-  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; pass = $false; note = "no-result: 智能体没起来（$($why.Trim())）" } | ConvertTo-Json -Compress
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; pass = $false; note = "no-result: 智能体没起来（$($why.Trim())）" } | ConvertTo-Json -Compress
   exit 8
 }
 
@@ -374,7 +380,7 @@ $verdict = switch ($sc.judge) {
 }
 
 $row = @{
-  scenario = $Scenario; arm = $Arm; run = $Run
+  scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel
   pass = [bool]$verdict.pass; note = [string]$verdict.note
   timeout = [bool]$timedOut; seconds = [math]::Round($elapsed, 1)
   kill_left = $killLeft
