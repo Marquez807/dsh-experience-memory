@@ -41,37 +41,60 @@ const from = flag('from'), to = flag('to'), wsRoot = flag('workspace')
 // 标题优先从文件读：PowerShell 把参数交给原生程序时会重写引号，标题里只要有英文双引号
 // 就会被吃掉（2026-09-23 实测：ctrl2 那条含 "适用哪次调用"，exit 2 查不到记录）。
 // 从命令行传标题只在没有双引号时可靠；文件是唯一稳的过法。
+//
+// **一个文件可以装多条标题**（一行一条，空行忽略）：T4 要比较"3 条分开喂 vs 1 条合并喂"，
+// 分开那一臂就得一次播多条。仍然走文件，理由同上。
 const titleFile = flag('title-file')
-const title = titleFile !== undefined
-  ? readFileSync(titleFile, 'utf8').replace(/^\uFEFF/, '').replace(/\r?\n$/, '')
-  : flag('title')
-
-const src = new DatabaseSync(from, { readOnly: true })
-const rows = src.prepare('SELECT * FROM record WHERE title = ?').all(title)
-src.close()
-if (rows.length === 0) {
-  console.error(`没有标题完全等于「${title}」的记录`)
+const titles = titleFile !== undefined
+  ? readFileSync(titleFile, 'utf8')
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line !== '')
+  : [flag('title')].filter(t => t !== undefined)
+if (titles.length === 0) {
+  console.error('没有标题可播种：给 --title <标题> 或 --title-file <每行一条的文件>')
   process.exit(2)
 }
-// 先挑 confirmed，再挑最新。为什么不直接取最新：库里同一个标题可能**同时**有一条 retired 和一条
-// confirmed（实测「清库脚本必须先核对目标路径」两条相差 6 秒，取最新的那次是靠运气不是靠规则）。
-// 播进去一条 retired 记录，那条记忆根本不会被送出，而产物上与"库里没有记忆"一模一样 ——
-// 又是一次静默退化，和 §23.2 那个"播种失败静默退化成 none 臂"是同一类病。
-const rank = r => (r.status === 'confirmed' ? 1 : 0)
-const row = rows.sort((a, b) => rank(b) - rank(a) || Number(b.created_at) - Number(a.created_at))[0]
-if (row.status !== 'confirmed') {
-  console.error(`标题「${title}」在库里只有 ${row.status} 状态的记录（${row.id}）：播进去等于没有记忆，拒绝播种`)
-  process.exit(3)
-}
 
-const record = toRecord(row)
-if (wsRoot !== undefined && record.scope === 'workspace') {
-  const ws = resolveWorkspace(wsRoot, '')
-  record.workspaceId = ws.id
-  record.domain = ws.domain
-}
-
+const src = new DatabaseSync(from, { readOnly: true })
 const dst = openDb(to)
-upsert(dst, record)
+let failed = 0
+for (const title of titles) {
+  const rows = src.prepare('SELECT * FROM record WHERE title = ?').all(title)
+  if (rows.length === 0) {
+    console.error(`没有标题完全等于「${title}」的记录`)
+    failed += 1
+    continue
+  }
+  // 先挑 confirmed，再挑最新。为什么不直接取最新：库里同一个标题可能**同时**有一条 retired 和一条
+  // confirmed（实测「清库脚本必须先核对目标路径」两条相差 6 秒，取最新的那次是靠运气不是靠规则）。
+  // 播进去一条 retired 记录，那条记忆根本不会被送出，而产物上与"库里没有记忆"一模一样 ——
+  // 又是一次静默退化，和 §23.2 那个"播种失败静默退化成 none 臂"是同一类病。
+  const rank = r => (r.status === 'confirmed' ? 1 : 0)
+  const row = rows.sort((a, b) => rank(b) - rank(a) || Number(b.created_at) - Number(a.created_at))[0]
+  if (row.status !== 'confirmed') {
+    console.error(`标题「${title}」在库里只有 ${row.status} 状态的记录（${row.id}）：播进去等于没有记忆，拒绝播种`)
+    failed += 1
+    continue
+  }
+
+  const record = toRecord(row)
+  if (wsRoot !== undefined && record.scope === 'workspace') {
+    const ws = resolveWorkspace(wsRoot, '')
+    record.workspaceId = ws.id
+    record.domain = ws.domain
+  }
+
+  upsert(dst, record)
+  console.log(`已播种：${record.id} [${record.status}/${record.evidence}] ws=${record.workspaceId} ${record.title.slice(0, 40)}`)
+}
+src.close()
 dst.close()
-console.log(`已播种：${record.id} [${record.status}/${record.evidence}] ws=${record.workspaceId} ${record.title.slice(0, 40)}`)
+// 整批的成败：任何一条没播进去就算失败。调用方（t2-run.ps1）只看退出码，而"少播了一条"
+// 与"库里本来就没有记忆"在产物上一模一样——所以这里绝不能返回 0。
+if (failed > 0) {
+  console.error(`有 ${failed} 条没播进去（共 ${titles.length} 条）`)
+  process.exit(1)
+}
+console.log(`共播种 ${titles.length} 条`)

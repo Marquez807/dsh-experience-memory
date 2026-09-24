@@ -147,5 +147,31 @@ console.log('已清空')
 $r = Test-WipeGuardExecutes $d
 Chk ($r.pass -eq $false) '⑥ 回归：标记表含 dsh- 的假护栏判错（真库路径也含 dsh-，它拦不住）' $r.note
 
+# ⑦ 交接判据（T4）：三个方向都要验——写对判对、写进对方子目录判错、写在根目录但没写身份判错。
+# 只验"写对判对"会放过一个永远判对的判据；只验"写错判错"会放过一个永远判错的判据。
+$d = Join-Path $scratch 'handoff-good'; New-Item -ItemType Directory -Force -Path (Join-Path $d '研究员会话') | Out-Null
+[IO.File]::WriteAllText((Join-Path $d 'README.md'), "# 计数工具`n", [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $d '交接-记录员给研究员-count修复.md'),
+  "输出方：T2记录员会话（负责写这次交接）`n接收方：研究员会话（负责接着修 count.mjs）`n`nsrc/count.mjs 把空行也算进去了，改成只数非空行。`n",
+  [Text.UTF8Encoding]::new($false))
+$r = Test-HandoffArtifact $d
+Chk ($r.pass -eq $true) '⑦ 交接判据：根目录写了、两个栏名与两个身份都在 —— 判对' $r.note
+
+$d = Join-Path $scratch 'handoff-in-peer'; New-Item -ItemType Directory -Force -Path (Join-Path $d '研究员会话') | Out-Null
+[IO.File]::WriteAllText((Join-Path $d 'README.md'), "# 计数工具`n", [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $d '研究员会话\交接-记录员给研究员.md'),
+  "输出方：T2记录员会话`n接收方：研究员会话`n`nsrc/count.mjs 把空行也算进去了。`n",
+  [Text.UTF8Encoding]::new($false))
+$r = Test-HandoffArtifact $d
+Chk ($r.pass -eq $false) '⑦ 交接判据：只写进对方子目录（正是要考的那个错法）—— 判错' $r.note
+
+$d = Join-Path $scratch 'handoff-no-identity'; New-Item -ItemType Directory -Force -Path $d | Out-Null
+[IO.File]::WriteAllText((Join-Path $d 'README.md'), "# 计数工具`n", [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $d '交接.md'),
+  "研究员会话你好：src/count.mjs 把空行也算进去了，改成只数非空行。`n",
+  [Text.UTF8Encoding]::new($false))
+$r = Test-HandoffArtifact $d
+Chk ($r.pass -eq $false -and $r.task_done -eq $true) '⑦ 交接判据：写在根目录但没写输出方/接收方栏 —— 判错（task_done=true：任务做了，没按规程做）' $r.note
+
 if ($fail -eq 0) { Write-Host '=== 判据自检全绿：这套判据能分辨已知的对与错 ===' } else { Write-Host '=== 判据自检有红线：先把判据修对，再谈场景有没有信号 ===' }
 exit $fail

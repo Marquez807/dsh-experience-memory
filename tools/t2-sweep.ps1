@@ -46,7 +46,10 @@ if ($done.Count -gt 0) { Write-Host "已有有效结果 $($done.Count) 格，跳
 $n = 0
 foreach ($sc in $spec.scenarios) {
   if ($Skip -contains $sc.id) { Write-Host "跳过 $($sc.id)"; continue }
-  foreach ($arm in @('none', 'rel', 'ctrl1', 'ctrl2', 'ctrl3')) {
+  # `fam` = 同一教训的**多条分开喂**（T4 比较用）。它只对声明了 familyRecordTitles 的场景有意义；
+  # 其余场景上 fam 会立刻失败并记成 seed-failed 占位行（不计入、也不算结论），这是有意的：
+  # 宁可要一条"这一格没跑"，也不要一条含义不明的通过。
+  foreach ($arm in @('none', 'rel', 'fam', 'ctrl1', 'ctrl2', 'ctrl3')) {
     for ($r = 1; $r -le $Runs; $r++) {
       $n += 1
       if ($done.ContainsKey("$($sc.id)|$arm|$r")) { Write-Host "[$n] $($sc.id) / $arm / $r  (已有结果，跳过)"; continue }

@@ -36,7 +36,11 @@ import { dirname, isAbsolute, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const ARMS = ['none', 'rel', 'ctrl1', 'ctrl2', 'ctrl3']
+// `fam` 只对声明了 familyRecordTitles 的场景（T4）有意义：其余场景上它没跑过，
+// 所以"这一格该不该存在"按场景决定，不能一律算成缺格。
+const ARMS = ['none', 'rel', 'fam', 'ctrl1', 'ctrl2', 'ctrl3']
+const BASE_ARMS = ['none', 'rel', 'ctrl1', 'ctrl2', 'ctrl3']
+const expectArms = scenario => (scenario?.compare === 'rel-vs-fam' ? ARMS : BASE_ARMS)
 const RUNS = [1, 2, 3]
 
 /**
@@ -123,6 +127,7 @@ if (!existsSync(resultsPath)) {
 }
 
 const spec = JSON.parse(readFileSync(join(here, 't2-scenarios.json'), 'utf8'))
+const scenarioById = new Map(spec.scenarios.map(s => [s.id, s]))
 const scenarios = spec.scenarios.map(s => s.id).filter(id => !skipped.has(id))
 
 const rows = readFileSync(resultsPath, 'utf8')
@@ -190,7 +195,7 @@ say('')
 say('| 场景 | 组 | run1 | run2 | run3 | 通过 |')
 say('|---|---|---|---|---|---|')
 for (const scenario of scenarios) {
-  for (const arm of ARMS) {
+  for (const arm of expectArms(scenarioById.get(scenario))) {
     const marks = RUNS.map(run => mark(cells.get(`${scenario}|${arm}|${run}`))).join(' | ')
     say(`| ${scenario} | ${arm} | ${marks} | ${rate(scenario, arm).text} |`)
   }
@@ -248,6 +253,27 @@ if (!fingerprint.blocking) for (const scenario of scenarios) {
   // or where nobody needs the lesson (a ceiling) says nothing about whether the lesson works:
   // reading a floor as "the lesson failed" and a ceiling as "the controls were as necessary as
   // the lesson" are both wrong, and the second would void the whole experiment.
+  // ── T4：合并版 vs 分开版（`compare: "rel-vs-fam"`）────────────────────────
+  // 这一格的读法与上面不同：上面问"这条经验有没有用"，这里问"**把多条合成一条**值不值"。
+  // 判据先写后跑（docs/GROWTH.md G4）：合并版**至少不差**才算过；明显更差就是负结论。
+  // 每臂只有 3 次，所以差 1 次是噪声，不许当成胜负——只报数字 + 方向。
+  if (scenarioById.get(scenario)?.compare === 'rel-vs-fam') {
+    const fam = rate(scenario, 'fam')
+    const done = none.ran === 3 && rel.ran === 3 && fam.ran === 3
+    const relRate = rel.ran === 0 ? 0 : rel.pass / rel.ran
+    const famRate = fam.ran === 0 ? 0 : fam.pass / fam.ran
+    const noneRateT4 = none.ran === 0 ? 0 : none.pass / none.ran
+    let v
+    if (!done) v = '未跑完（none/rel/fam 各 3 次要齐），不下结论'
+    else if (noneRateT4 >= relRate && noneRateT4 >= famRate) v = `无信号 · 天花板/地板：什么都不喂也拿到 ${rateText(noneRateT4)} ⇒ 这一格没有判别力，不下结论`
+    else if (rel.pass >= 3 && fam.pass <= 1 && none.pass <= 1) v = '✅ 合并版**明显更好**：三臂分离'
+    else if (fam.pass >= 3 && rel.pass <= 1) v = '❌ 合并版**明显更差** ⇒ 合并无收益，记为负结论'
+    else if (Math.abs(rel.pass - fam.pass) <= 1) v = `打平/不可判（差 ≤1 次，n=3）⇒ 只能说"合并没有明显收益"，不能说更好`
+    else if (rel.pass > fam.pass) v = `倾向合并版更好（+${rel.pass - fam.pass}/3，方向性，样本太小）`
+    else v = `倾向分开版更好（+${fam.pass - rel.pass}/3，方向性，样本太小）`
+    say(`- **${scenario}**（T4 合并 vs 分开）：合并版 rel ${rel.text} vs 分开版 fam ${fam.text} vs 不喂 none ${none.text} ⇒ ${v}`)
+    continue
+  }
   let verdict
   if (!complete) verdict = '未跑完，不下结论'
   else if (rel.pass === 0 && none.pass === 0 && taskDone) verdict = `❌ 负结果：四个臂都把任务做出来了（task_done=true），但**判据要求的行为一个都没出现**——记录就在库里、内容含判据需要的规则，却没有改变任何行为。这不是"没信号"，是"有了这条记录也没用"的直接证据`
@@ -265,13 +291,15 @@ for (const row of placeholders.slice(0, 10)) {
 }
 if (placeholders.length > 10) say(`  - …另有 ${placeholders.length - 10} 条`)
 const missing = []
+let expectedCells = 0
 for (const scenario of scenarios) {
-  for (const arm of ARMS) {
+  for (const arm of expectArms(scenarioById.get(scenario))) {
     for (const run of RUNS) {
+      expectedCells += 1
       if (cells.get(`${scenario}|${arm}|${run}`) === undefined) missing.push(`${scenario}/${arm}/${run}`)
     }
   }
 }
-say(`未测或无效的格子：${missing.length} / ${scenarios.length * ARMS.length * RUNS.length}`)
+say(`未测或无效的格子：${missing.length} / ${expectedCells}`)
 if (missing.length > 0 && missing.length <= 20) say(`  ${missing.join('、')}`)
 if (skipped.size > 0) say(`跳过（预检门判定无判别力，未计入上表）：${[...skipped].join('、')}`)

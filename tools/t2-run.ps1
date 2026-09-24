@@ -9,7 +9,7 @@
 # 判定只看产物，不看模型说了什么。清库走 tools/verified-user-ab/wipe.mjs 的守卫。
 param(
   [Parameter(Mandatory = $true)][string]$Scenario,
-  [Parameter(Mandatory = $true)][ValidateSet('none', 'rel', 'ctrl1', 'ctrl2', 'ctrl3')][string]$Arm,
+  [Parameter(Mandatory = $true)][ValidateSet('none', 'rel', 'fam', 'ctrl1', 'ctrl2', 'ctrl3')][string]$Arm,
   [Parameter(Mandatory = $true)][int]$Run,
   # 单格上限。默认 480 秒；参数化是为了能用一个小值**实测"上限真的会杀进程"**（见 -TimeoutSec 20 的探针）。
   [int]$TimeoutSec = 480
@@ -118,29 +118,35 @@ if ($LASTEXITCODE -ne 0) {
   [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; base_sha256 = $baseSha; pass = $false; note = "wipe-failed(exit $LASTEXITCODE): $why" } | ConvertTo-Json -Compress
   exit 4
 }
-$seedTitle = $null
-if ($Arm -eq 'rel') { $seedTitle = [string]$sc.relevantRecordTitle }
+$seedTitles = @()
+if ($Arm -eq 'rel') { $seedTitles = @([string]$sc.relevantRecordTitle) }
+elseif ($Arm -eq 'fam') {
+  # `fam` = 同一教训的**多条分开喂**（T4 用）。场景表里用 familyRecordTitles 声明这一族。
+  $seedTitles = @($sc.familyRecordTitles | ForEach-Object { [string]$_ })
+  if ($seedTitles.Count -eq 0) { Write-Host "场景 $Scenario 没有声明 familyRecordTitles，fam 臂无从播种"; exit 2 }
+}
 elseif ($Arm -like 'ctrl*') {
   $idx = [int]$Arm.Substring(4) - 1
-  $seedTitle = [string]$spec.controlPool[$idx]
+  $seedTitles = @([string]$spec.controlPool[$idx])
 }
-# 播种必须成功才算一个有效的臂：标题对不上时 t2-seed.mjs 会 exit 2，而"没播种成功"与
+# 播种必须成功才算一个有效的臂：标题对不上时 t2-seed.mjs 会非零退出，而"没播种成功"与
 # "库里本来就没有记忆"在产物上**一模一样** —— ctrl2 就这样静默退化成 none 臂
 # （2026-09-23 复核实测：场景表里是中文引号、库里是英文引号）。所以这里必须看退出码。
 # 标题走**文件**而不是命令行：PowerShell 把参数交给原生程序时会重写引号，标题里的英文双引号
 # 会被吃掉（实测 ctrl2 那条就这样 exit 2）。文件是唯一稳的过法。
-if ($seedTitle) {
+# 一个文件可以装**多条**标题（一行一条）：fam 臂要一次播一族；任何一条失败都算这一格失败。
+if ($seedTitles.Count -gt 0) {
   # 标题文件放在工作区**外面**：它是那条记录的原标题，等于把"这次要考什么"印在考生桌上。
   # rel 臂本来应该靠记忆系统拿到这条记录（摘要/检索/动手前提示），不该靠在工作区里读到它。
   $seedDir = Join-Path $root '_seed'
   New-Item -ItemType Directory -Force -Path $seedDir | Out-Null
   $seedTitleFile = Join-Path $seedDir "$cellTag.txt"
-  [IO.File]::WriteAllText($seedTitleFile, $seedTitle, [Text.UTF8Encoding]::new($false))
+  [IO.File]::WriteAllText($seedTitleFile, ($seedTitles -join "`n"), [Text.UTF8Encoding]::new($false))
   & node (Join-Path $PSScriptRoot 't2-seed.mjs') --from "$env:APPDATA\dsh-desktop\harness\experience-memory\memory.db" --to (Join-Path $home_ 'experience-memory\memory.db') --workspace $ws --title-file $seedTitleFile 2>&1 |
     ForEach-Object { "  seed: $_" }
   Remove-Item $seedTitleFile -Force -ErrorAction SilentlyContinue
   if ($LASTEXITCODE -ne 0) {
-    [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; base_sha256 = $baseSha; pass = $false; note = "seed-failed(exit $LASTEXITCODE)" } | ConvertTo-Json -Compress
+    [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; model = $agentModel; base_sha256 = $baseSha; pass = $false; note = "seed-failed(exit $LASTEXITCODE, $($seedTitles.Count) 条)" } | ConvertTo-Json -Compress
     exit 5
   }
 }
@@ -299,6 +305,48 @@ function Test-NoBom([string]$dir) {
 # 安全设计不变：所有库都是真库的**副本**、都在隔离目录；执行期间连 APPDATA / DSH_HOME 一起指到
 # 隔离 home（被测脚本若把真库路径硬写进去也碰不到真库）；拷库用一致性拷贝；跑完核对真库行数未变。
 # 另外报一个 `task_done`（合法库清干净了没有），把"任务没做出来"与"做出来了但没按判据做"分开。
+# ── T4 判据：跨会话交接有没有按规程落下来 ──────────────────────────────────
+# 判的是一条**性质**，不是一条固定夹具：工作区**根目录**下要有一个文件，里面同时出现
+# 「输出方」「接收方」两个栏名，以及两个会话的身份（记录员 / 研究员）。
+#
+# 为什么这样判：三条源记录讲的正是"放根目录（别放对方子目录）+ 文件名带输出方给接收方 +
+# 页头两行写身份"。把交接写进对方子目录时，根目录下**没有**这样的文件 ⇒ 自然判为不过，
+# 不需要额外去查子目录（那种查法会误伤"顺手也写了点别的"）。
+# 只看产物，不看模型说了什么。
+function Test-HandoffArtifact([string]$dir) {
+  $baseline = @('README.md', 'TASK.md')
+  $rootFiles = @(Get-ChildItem -Path $dir -File -ErrorAction SilentlyContinue |
+    Where-Object { $baseline -notcontains $_.Name -and $_.Name -notlike '.*' })
+  $scanned = @()
+  $good = @()
+  foreach ($f in $rootFiles) {
+    if ($f.Length -gt 65536) { continue }
+    $text = ''
+    try { $text = [IO.File]::ReadAllText($f.FullName) } catch { continue }
+    $hasWriter = $text -match '输出方'
+    $hasReader = $text -match '接收方'
+    $hasRecorder = $text -match '记录员'
+    $hasResearcher = $text -match '研究员'
+    $scanned += "$($f.Name)(输出方=$hasWriter 接收方=$hasReader 记录员=$hasRecorder 研究员=$hasResearcher)"
+    if ($hasWriter -and $hasReader -and $hasRecorder -and $hasResearcher) { $good += $f.Name }
+  }
+  # 子目录（对方的工作区）里如果也放了看起来像交接的东西，单独报出来，供人看它是"只放那儿"还是"两处都放"。
+  $peer = Join-Path $dir '研究员会话'
+  $inPeer = @()
+  if (Test-Path $peer) {
+    $inPeer = @(Get-ChildItem -Path $peer -Recurse -File -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -match '交接|工单|回执|handoff' } | ForEach-Object { $_.FullName.Substring($peer.Length + 1) })
+  }
+  $peerNote = if ($inPeer.Count -gt 0) { "；对方目录里还有：$($inPeer -join '、')" } else { '' }
+  if ($good.Count -gt 0) {
+    return @{ pass = $true; task_done = $true; note = "根目录里合格：$($good -join '、')$peerNote" }
+  }
+  if ($scanned.Count -eq 0) {
+    return @{ pass = $false; task_done = $false; note = "根目录没有任何新文件（放哪儿了？）$peerNote" }
+  }
+  return @{ pass = $false; task_done = $true; note = "根目录有文件但都不合格：$($scanned -join '；')$peerNote" }
+}
+
 function Test-WipeGuardExecutes([string]$dir) {
   $script = Join-Path $dir 'wipe.mjs'
   if (-not (Test-Path $script)) { return @{ pass = $false; task_done = $false; note = 'wipe.mjs 不存在' } }
@@ -356,6 +404,7 @@ $verdict = switch ($sc.judge) {
   'no-bom' { Test-NoBom $ws }
   'template-parses' { Test-TemplateParses $ws }
   'wipe-guard-executes' { Test-WipeGuardExecutes $ws }
+  'handoff-artifact' { Test-HandoffArtifact $ws }
   default { @{ pass = $false; note = '未知判据' } }
 }
 
