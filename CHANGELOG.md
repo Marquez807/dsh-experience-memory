@@ -1,5 +1,66 @@
 # Changelog
 
+## 0.3.0 — 2026-09-24
+
+This version is about the two things 0.2.0 could not do: **stop one record from owning the hint
+budget**, and **record whether a lesson actually changed an outcome instead of arguing about it**.
+Both came out of measurements, and one of them is a refusal to ship a mechanism on faith.
+
+**Behaviour changes in this version are two, and neither is silent:**
+
+1. `memory_remember` **drops a declared anchor whose measured cost is too high** and names it in the
+   new `anchors_refused` field. The record is still written — it reaches the digest and
+   `memory_recall` — only the anchor goes. Measured basis (`docs/DELIVERY-GAPS.md` §25): one record
+   declaring `tool:pwsh` matched 5,936 of 15,896 real calls and owned **94.8%** of every hint the
+   store delivered; `path:node_modules` matched 702. The threshold is 300, the same number as the
+   pre-registered per-record gate, so "one record may not own more than the gate allows" is one fact
+   in two places.
+2. `memory_remember` **answers with a computed line when a record describes an action that cannot be
+   undone** (new `danger_examples` field): the live store's own path and the disposable root. It is a
+   *proposal and nothing else* — the record's text is stored exactly as written. Measured basis (§27):
+   every arm that carried the previous wording of that lesson wrote a guard, and every guard failed,
+   because a marker list is a guess — one list contained `dsh-`, and the live store's path
+   (`AppData\Roaming\dsh-desktop\harness\…`) contains `dsh-` too. Ask a writer to type facts the
+   plugin already knows and the result is protection that only looks like protection.
+
+**Recorded, not yet ranked on: `effect` (schema 7).**
+
+`record.effect` holds the result of a controlled deletion test — run the same task with and without
+the record and subtract the pass rates — computed by `tools/effect-write.mjs` from a finished T2 round
+and written with an audit row. Two switches read it and **both ship off**: `effectWeight` (default
+`0`, ranking unchanged byte-for-byte) and `decisionLossRetirement` (default `false`). They are gated on
+`docs/GROWTH.md` G5's experiment, which has not passed. `null` means "nobody measured this", which is
+not the same fact as `0` ("measured; removing it changed nothing"), and a ceiling or a floor is never
+written down as a zero. The first two measurements are in the store: the BOM lesson `+1.00`, the
+wipeguard lesson `0.00`.
+
+**Config added:** `anchorCostTable` (`true`), `anchorCostMaxHits` (`300`), `effectWeight` (`0`),
+`decisionLossRetirement` (`false`), `guardHints` (`true`). Restated in `cordis.patch.yml` and both
+READMEs; `resolveConfig({})` and the README tables are cross-checked by `tests/docs.test.ts`.
+
+**Test bench work (tools, not plugin behaviour)** — every one of these was found by a measurement
+that disagreed with the documentation, which is the only reason they are listed:
+
+- `tools/t2-run.ps1`'s wipeguard judge now decides a **property** instead of a fixture: the sanctioned
+  store must be cleared, and four dangerous paths (real-store shape, the same shape under another
+  root, a plain `ledger.sqlite`, a store with no extension) must each be untouched and refused.
+  Fixtures nothing like the record's own wording cannot be satisfied by fitting them; the judge also
+  refuses to run at all unless every fixture is a readable store first.
+- `tools/copy-store.mjs`: `VACUUM INTO`, because copying only the `.db` of a WAL store either misses
+  recent commits or produces a file SQLite calls `database disk image is malformed` — six cells died
+  there, and the harness reported it as "the wipe guard refused".
+- `tools/t2-rejudge.ps1`: the judges look at artefacts only, so a finished cell can be re-judged
+  without re-running an agent (~1 minute for 15 cells). Added after losing the output of a finished
+  run twice.
+- `tools/delivery-report.mjs`: what the store actually delivered, and why. Without it "the hint never
+  fired" and "the hint fired and changed nothing" are indistinguishable — and those two answers point
+  in opposite directions.
+- `tools/add-anchor.mjs` / `tools/supersede-record.mjs`: narrow, dry-run-by-default edits to a live
+  store — add an anchor, or retire a record and point it at its replacement (`supersededBy` plus an
+  audit row with `replacement_id`). Records are **superseded, never silently rewritten**.
+- `tools/t2-judge-smoke.ps1` now checks six cases in both directions, including the one that matters
+  most here: a marker whitelist containing `dsh-` must **fail**.
+
 ## 0.2.0 — 2026-09-23
 
 This version replaces how a lesson is delivered just before an action, and is the first version
