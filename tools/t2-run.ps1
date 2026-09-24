@@ -67,11 +67,28 @@ foreach ($k in $sc.setup.PSObject.Properties.Name) {
 [IO.File]::WriteAllText((Join-Path $ws 'TASK.md'), [string]$sc.task, [Text.UTF8Encoding]::new($false))
 
 # ── 干净的库 + 按臂放记录 ───────────────────────────────────────────────────
-Copy-Item "$env:APPDATA\dsh-desktop\harness\experience-memory\memory.db" (Join-Path $home_ 'experience-memory\memory.db') -Force
+# 真库是 WAL 模式：`Copy-Item` 只拷 .db 有两个后果，这次两个都撞上了——① 可能拿到过期数据；
+# ② 上一格残留的 `-wal` 会让 SQLite 判定新拷来的 .db "database disk image is malformed"，
+# 于是 6 个格子全挂在清空这一步。而且当时被记成"护栏拒绝"（任何非零退出都映射成那个标签），
+# 真原因被吞掉了。现在：先删掉隔离库的三个文件，再用 copy-store.mjs 的一致性拷贝（VACUUM INTO，
+# 与 tools/snapshot.mjs 同一招），失败时把**原话**写进 note。
+$isoDir = Join-Path $home_ 'experience-memory'
+New-Item -ItemType Directory -Force -Path $isoDir | Out-Null
+$isoDb = Join-Path $isoDir 'memory.db'
+foreach ($suffix in @('memory.db', 'memory.db-wal', 'memory.db-shm')) {
+  $stale = Join-Path $isoDir $suffix
+  if (Test-Path $stale) { Remove-Item $stale -Force }
+}
+$copyOut = & node (Join-Path $PSScriptRoot 'copy-store.mjs') --from "$env:APPDATA\dsh-desktop\harness\experience-memory\memory.db" --to $isoDb 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0) {
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; pass = $false; note = "copy-store-failed: $(($copyOut.Trim() -split "`n")[-1])" } | ConvertTo-Json -Compress
+  exit 7
+}
 $env:DSH_HOME = $home_
 $w = & node (Join-Path $repo 'tools\verified-user-ab\wipe.mjs') 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
-  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; verdict = 'aborted-wipe-refused' } | ConvertTo-Json -Compress
+  $why = ($w.Trim() -split "`n" | Where-Object { $_ -match 'REFUSED|Error|error' } | Select-Object -First 1)
+  [pscustomobject]@{ scenario = $Scenario; arm = $Arm; run = $Run; pass = $false; note = "wipe-failed(exit $LASTEXITCODE): $why" } | ConvertTo-Json -Compress
   exit 4
 }
 $seedTitle = $null
@@ -162,6 +179,11 @@ try {
   console.log('ERR')
 }
 '@, [Text.UTF8Encoding]::new($false))
+# 判据要用的外部工具路径。这一段会被 `t2-rejudge.ps1` / `t2-judge-smoke.ps1` 抽出去在别的脚本里
+# 执行，而抽出去的函数里 `$PSScriptRoot` 是**空的**（实测：重判 15 格全报 "Join-Path 参数为空"）。
+# 所以路径在抽取段的**顶层**算好，函数只管用；调用方可以自己先设 $toolsDir。
+if (-not $toolsDir) { $toolsDir = $PSScriptRoot }
+$copyStoreTool = Join-Path $toolsDir 'copy-store.mjs'
 function Count-Records([string]$db) {
   if (-not (Test-Path $db)) { return 'MISSING' }
   # stderr 必须丢弃：node:sqlite 每次都会往 stderr 打一条 ExperimentalWarning，`2>&1` 会把它拼进
@@ -239,7 +261,13 @@ function Test-WipeGuardExecutes([string]$dir) {
   foreach ($p in @($safe, $decoy)) {
     if (Test-Path (Split-Path -Parent $p)) { Remove-Item (Split-Path -Parent $p) -Recurse -Force }
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $p) | Out-Null
-    Copy-Item $live $p -Force
+    # 同样的 WAL 问题：真库在 WAL 模式下 `Copy-Item` 只拷 .db 既可能拿到过期数据、也可能直接
+    # 拷出一个 SQLite 判为损坏的文件，而被测脚本一读就报错、判据就会把"库坏了"读成"脚本不对"。
+    # 用一致性拷贝（VACUUM INTO）。
+    $copyOut = & node $copyStoreTool --from $live --to $p 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) {
+      return @{ pass = $false; task_done = $false; note = "判据自己没能拷出干净的库（copy-store exit $LASTEXITCODE）：$(($copyOut.Trim() -split "`n")[-1])" }
+    }
   }
   $decoyBefore = Count-Records $decoy
   $liveBefore = Count-Records $live

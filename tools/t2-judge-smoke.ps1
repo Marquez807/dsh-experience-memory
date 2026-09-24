@@ -27,6 +27,8 @@ if ($si -lt 0 -or $ei -lt 0 -or $ei -le $si) {
   Write-Host '[红] 抽不到判据函数：t2-run.ps1 的结构变了（这段自检按标记抽取，标记没了就必须一起改）'
   exit 1
 }
+# 抽出去之后 $PSScriptRoot 在函数里是空的，所以要在这里先把工具目录交给它。
+$toolsDir = $PSScriptRoot
 Invoke-Expression $src.Substring($si, $ei - $si)
 if (-not (Get-Command Test-TemplateParses -ErrorAction SilentlyContinue) -or -not (Get-Command Test-WipeGuardExecutes -ErrorAction SilentlyContinue)) {
   Write-Host '[红] 判据函数没抽出来'; exit 1

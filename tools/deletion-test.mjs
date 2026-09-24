@@ -93,6 +93,9 @@ for (const [arm, key] of [['none', 'without'], ['rel', 'withRecord']]) {
     if (result.ran) {
       tally[key].ran += 1
       if (result.pass) tally[key].pass += 1
+      // 判据如果报了 task_done，就一起带上：两侧都 0 的时候，"任务没做出来"（地板，不写）与
+      // "做出来了、只是判据要求的行为没出现"（**测出来的 0**，要写）是两件完全不同的事。
+      if (result.row?.task_done === true) tally[key].taskDone = true
     }
     if (!asJson) {
       const mark = result.ran ? (result.pass ? '✓' : '✗') : '·'
