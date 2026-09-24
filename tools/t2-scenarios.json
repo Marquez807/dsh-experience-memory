@@ -68,6 +68,25 @@
         "跨会话交接要投到对方工作区根；对方是独立子工作区时放自己根目录对方读不到"
       ],
       "compare": "rel-vs-fam"
+    },
+    {
+      "id": "psencoding",
+      "why": "G5 需要很多条记录带**实测效果**，而『一条记录配一个场景』太贵。这一格把『PowerShell 文本编码/换行』一族的 5 条记录放进同一个任务，**每条记录占一个臂**、各管一个检查点，判据分项记分 ⇒ 一次跑批同时给 5 条记录测效果。这一族天然值得测，因为它内部**方向相反**：两条说『含中文的 .ps1 必须带 BOM』，一条说『写数据文件不许带 BOM』，两条说『读裸 LF 的行不能用 Get-Content』。",
+      "setup": {
+        "README.md": "# 取行工具\n\ndata.txt 是别人给的，换行符不确定（可能是只有 LF、没有 CR 的那种）。\n",
+        "data.txt": "alpha\nbeta\ngamma\ndelta\n"
+      },
+      "task": "写一个 PowerShell 脚本 extract.ps1（脚本里要有中文注释）：读出 data.txt 的**第 3 行**，写进同目录的 line3.txt。\n\n写完跑一遍，确认 line3.txt 里拿到的就是第 3 行。",
+      "judge": "ps-encoding-aspects",
+      "judgeNote": "分项记分（每项只看产物）：`ps1_exists` 脚本在不在；`ps1_chinese` 里面有没有中文；`ps1_bom` 脚本头 3 字节是不是 EF BB BF；`line3_right` line3.txt 去掉首尾空白后是否正好等于 `gamma`；`out_no_bom` line3.txt 存在且头 3 字节不是 BOM。**pass = ps1_bom && line3_right && out_no_bom**（三项分别对应有记录指向的规则）；`task_done` = 脚本在且含中文。**效果按臂自己那一项算**（`probeArms[].aspect`）：某条记录的效果 = 它那一项在『有它』与『none』之间的通过率之差。**防混淆**：5 条记录都不声明锚点（本来就没有），所以这一格比的是记录内容，不是有没有锚点；`data.txt` 用**裸 LF** 写（没有 CR），这正是 `Get-Content` 会读错的那种文件。",
+      "compare": "aspects",
+      "probeArms": [
+        { "arm": "p1", "aspect": "out_no_bom", "title": "写文本文件禁用 Set-Content/Out-File/重定向（BOM 坑复发 4 次后的硬规矩，已写进 AGENTS.md 第八节）" },
+        { "arm": "p2", "aspect": "ps1_bom", "title": "PowerShell 5.1 按系统 GBK 读无 BOM 的 .ps1：含中文的脚本必须带 UTF-8 BOM" },
+        { "arm": "p3", "aspect": "ps1_bom", "title": "带中文的 .ps1 必须存 UTF-8 with BOM：Windows PowerShell 5.1 会按系统代码页解码，时好时坏地整脚本解析失败" },
+        { "arm": "p4", "aspect": "line3_right", "title": "PowerShell 5.1 的 Get-Content 不按裸 LF 切行，会读成 1 行——核对行号必须自己按 \"`n\" split" },
+        { "arm": "p5", "aspect": "line3_right", "title": "核对\"第 N 行\"不能用 Get-Content：裸 LF 文件它会少算行（实测 1870 真行 → 返回 1858）" }
+      ]
     }
   ]
 }

@@ -9,7 +9,9 @@
 # 判定只看产物，不看模型说了什么。清库走 tools/verified-user-ab/wipe.mjs 的守卫。
 param(
   [Parameter(Mandatory = $true)][string]$Scenario,
-  [Parameter(Mandatory = $true)][ValidateSet('none', 'rel', 'fam', 'ctrl1', 'ctrl2', 'ctrl3')][string]$Arm,
+  # 臂的合法值现在由**场景自己**声明（`probeArms` 里一条记录一个臂），所以不能再用 ValidateSet 写死；
+  # 改为在下面按场景校验（未知臂直接 exit 2），消息里列出这个场景认哪些臂。
+  [Parameter(Mandatory = $true)][string]$Arm,
   [Parameter(Mandatory = $true)][int]$Run,
   # 单格上限。默认 480 秒；参数化是为了能用一个小值**实测"上限真的会杀进程"**（见 -TimeoutSec 20 的探针）。
   [int]$TimeoutSec = 480
@@ -23,6 +25,15 @@ $repo = Split-Path -Parent $PSScriptRoot                       # dsh-experience-
 $spec = Get-Content (Join-Path $PSScriptRoot 't2-scenarios.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $sc = $spec.scenarios | Where-Object { $_.id -eq $Scenario }
 if (-not $sc) { Write-Host "未知场景 $Scenario"; exit 2 }
+# 这个场景认哪些臂：固定四种 + 场景自己声明的 probeArms。未知臂立刻退，不猜。
+$knownArms = @('none', 'rel', 'fam', 'ctrl1', 'ctrl2', 'ctrl3')
+if ($sc.PSObject.Properties.Name -contains 'probeArms') {
+  $knownArms += @($sc.probeArms | ForEach-Object { [string]$_.arm })
+}
+if ($knownArms -notcontains $Arm) {
+  Write-Host "场景 $Scenario 不认识臂「$Arm」；它认：$($knownArms -join '、')"
+  exit 2
+}
 
 # ── 底板指纹（t2-plan.md §4.17）──────────────────────────────────────────────
 # 这一格是**从整轮冻结的那份底板**拷的（不是当时的活库），指纹写进每一行结果，好让"所有格子
@@ -119,13 +130,20 @@ if ($LASTEXITCODE -ne 0) {
   exit 4
 }
 $seedTitles = @()
-if ($Arm -eq 'rel') { $seedTitles = @([string]$sc.relevantRecordTitle) }
-elseif ($Arm -eq 'fam') {
+# 场景可以自己声明"探测臂"：一条记录一个臂，用来**一个场景同时测一族记录**（G5 需要很多条记录的
+# 实测效果，而"一条记录配一个场景"太贵）。`probeArms` = [{ arm: 'p1', title: '...' }, ...]
+$probe = $null
+if ($sc.PSObject.Properties.Name -contains 'probeArms') {
+  $probe = @($sc.probeArms | Where-Object { [string]$_.arm -eq $Arm } | Select-Object -First 1)
+  if ($probe.Count -gt 0) { $seedTitles = @([string]$probe[0].title) }
+}
+if ($seedTitles.Count -eq 0 -and $Arm -eq 'rel') { $seedTitles = @([string]$sc.relevantRecordTitle) }
+elseif ($seedTitles.Count -eq 0 -and $Arm -eq 'fam') {
   # `fam` = 同一教训的**多条分开喂**（T4 用）。场景表里用 familyRecordTitles 声明这一族。
   $seedTitles = @($sc.familyRecordTitles | ForEach-Object { [string]$_ })
   if ($seedTitles.Count -eq 0) { Write-Host "场景 $Scenario 没有声明 familyRecordTitles，fam 臂无从播种"; exit 2 }
 }
-elseif ($Arm -like 'ctrl*') {
+elseif ($seedTitles.Count -eq 0 -and $Arm -like 'ctrl*') {
   $idx = [int]$Arm.Substring(4) - 1
   $seedTitles = @([string]$spec.controlPool[$idx])
 }
@@ -313,6 +331,46 @@ function Test-NoBom([string]$dir) {
 # 页头两行写身份"。把交接写进对方子目录时，根目录下**没有**这样的文件 ⇒ 自然判为不过，
 # 不需要额外去查子目录（那种查法会误伤"顺手也写了点别的"）。
 # 只看产物，不看模型说了什么。
+# ── G5 用的"一景多测"判据：PowerShell 文本编码一族 ──────────────────────────
+# 为什么要有它：G5 要很多条记录带**实测效果**，而"一条记录配一个场景"太贵。所以一个场景里放一族的
+# 记录（每条记录占一个臂），判据**分项记分**——每条记录只负责其中一个检查点，效果就按它那一项算。
+#
+# 这一族的问题天然是"同一件事的不同侧面"：
+#   · 含中文的 .ps1 **必须带 BOM**（否则 PS 5.1 按 GBK 解码，中文变乱码、脚本解析失败）
+#   · 写**数据**文件**不许带 BOM**（否则下游按文本读会多出三个字节）
+#   · 读裸 LF 的行**不能用 Get-Content**（它不按裸 LF 切行，会少算/多算）
+# 两条记录指向"要 BOM"、两条指向"读行",一条指向"不要 BOM"——**方向相反的两条同时在场**，
+# 正是这一族值得测的原因。
+function Test-PsEncodingAspects([string]$dir) {
+  $aspects = [ordered]@{}
+  $ps1 = Join-Path $dir 'extract.ps1'
+  $out = Join-Path $dir 'line3.txt'
+  $aspects['ps1_exists'] = (Test-Path $ps1)
+  $script = ''
+  $hasBom = $false
+  if ($aspects['ps1_exists']) {
+    $bytes = [IO.File]::ReadAllBytes($ps1)
+    $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+    try { $script = [IO.File]::ReadAllText($ps1) } catch { $script = '' }
+  }
+  $aspects['ps1_chinese'] = ($script -match '[\u4e00-\u9fff]')
+  $aspects['ps1_bom'] = $hasBom
+  $line3 = ''
+  $outBom = $false
+  if (Test-Path $out) {
+    $ob = [IO.File]::ReadAllBytes($out)
+    $outBom = ($ob.Length -ge 3 -and $ob[0] -eq 0xEF -and $ob[1] -eq 0xBB -and $ob[2] -eq 0xBF)
+    try { $line3 = ([IO.File]::ReadAllText($out)).Trim() } catch { $line3 = '' }
+  }
+  $aspects['line3_right'] = ($line3 -eq 'gamma')
+  $aspects['out_no_bom'] = ((Test-Path $out) -and (-not $outBom))
+  $note = ($aspects.Keys | ForEach-Object { "$_=$($aspects[$_])" }) -join ' '
+  # pass 只由**有记录指向的三项**决定；ps1_exists / ps1_chinese 是"有没有干活"，进 task_done。
+  $pass = $aspects['ps1_bom'] -and $aspects['line3_right'] -and $aspects['out_no_bom']
+  $done = $aspects['ps1_exists'] -and $aspects['ps1_chinese']
+  return @{ pass = [bool]$pass; task_done = [bool]$done; note = "$note | line3=[$line3]"; aspects = $aspects }
+}
+
 function Test-HandoffArtifact([string]$dir) {
   $baseline = @('README.md', 'TASK.md')
   $rootFiles = @(Get-ChildItem -Path $dir -File -ErrorAction SilentlyContinue |
@@ -405,6 +463,7 @@ $verdict = switch ($sc.judge) {
   'template-parses' { Test-TemplateParses $ws }
   'wipe-guard-executes' { Test-WipeGuardExecutes $ws }
   'handoff-artifact' { Test-HandoffArtifact $ws }
+  'ps-encoding-aspects' { Test-PsEncodingAspects $ws }
   default { @{ pass = $false; note = '未知判据' } }
 }
 
@@ -418,4 +477,10 @@ $row = @{
 # 判据如果报了 task_done 就带上：它把"没做出来"与"做了但没按判据要求做"分开，
 # 报告据此才不会把负结果读成地板（t2-plan.md §4.8）。
 if ($verdict.ContainsKey('task_done')) { $row['task_done'] = [bool]$verdict.task_done }
+# 分项结果（"一景多测"用）：每条记录负责哪个检查点，效果就按那一项算。没有就不写这个字段。
+if ($verdict.ContainsKey('aspects')) {
+  $a = [ordered]@{}
+  foreach ($k in $verdict.aspects.Keys) { $a[$k] = [bool]$verdict.aspects[$k] }
+  $row['aspects'] = $a
+}
 [pscustomobject]$row | ConvertTo-Json -Compress

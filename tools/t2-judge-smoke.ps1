@@ -173,5 +173,29 @@ $d = Join-Path $scratch 'handoff-no-identity'; New-Item -ItemType Directory -For
 $r = Test-HandoffArtifact $d
 Chk ($r.pass -eq $false -and $r.task_done -eq $true) '⑦ 交接判据：写在根目录但没写输出方/接收方栏 —— 判错（task_done=true：任务做了，没按规程做）' $r.note
 
+# ⑧ 编码分项判据（G5 一景多测）：三个方向——全对、脚本没 BOM、第 3 行取错。
+# 这一族的关键是**分项**：三条记录分别指向 ps1_bom / line3_right / out_no_bom，
+# 所以每一项都要能独立被判对判错，否则"哪条记录的效果"就分不出来。
+function New-Ps1([string]$dir, [bool]$bom) {
+  [IO.File]::WriteAllText((Join-Path $dir 'extract.ps1'), "# 取第 3 行`n", [Text.UTF8Encoding]::new($bom))
+}
+$d = Join-Path $scratch 'ps-good'; New-Item -ItemType Directory -Force -Path $d | Out-Null
+New-Ps1 $d $true
+[IO.File]::WriteAllText((Join-Path $d 'line3.txt'), 'gamma', [Text.UTF8Encoding]::new($false))
+$r = Test-PsEncodingAspects $d
+Chk ($r.pass -eq $true -and $r.aspects['ps1_bom'] -and $r.aspects['line3_right'] -and $r.aspects['out_no_bom']) '⑧ 编码判据：脚本带 BOM、第 3 行对、输出无 BOM —— 判对' $r.note
+
+$d = Join-Path $scratch 'ps-nobom'; New-Item -ItemType Directory -Force -Path $d | Out-Null
+New-Ps1 $d $false
+[IO.File]::WriteAllText((Join-Path $d 'line3.txt'), 'gamma', [Text.UTF8Encoding]::new($false))
+$r = Test-PsEncodingAspects $d
+Chk ($r.pass -eq $false -and $r.aspects['ps1_bom'] -eq $false -and $r.aspects['line3_right']) '⑧ 编码判据：脚本没带 BOM（其余两项都对）—— 判错，且只有 ps1_bom 翻假' $r.note
+
+$d = Join-Path $scratch 'ps-wrongline'; New-Item -ItemType Directory -Force -Path $d | Out-Null
+New-Ps1 $d $true
+[IO.File]::WriteAllText((Join-Path $d 'line3.txt'), "alpha`nbeta`ngamma`ndelta", [Text.UTF8Encoding]::new($false))
+$r = Test-PsEncodingAspects $d
+Chk ($r.pass -eq $false -and $r.aspects['line3_right'] -eq $false -and $r.aspects['ps1_bom']) '⑧ 编码判据：整个文件被当成第 3 行（Get-Content 裸 LF 的典型错法）—— 判错，且只有 line3_right 翻假' $r.note
+
 if ($fail -eq 0) { Write-Host '=== 判据自检全绿：这套判据能分辨已知的对与错 ===' } else { Write-Host '=== 判据自检有红线：先把判据修对，再谈场景有没有信号 ===' }
 exit $fail

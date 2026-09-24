@@ -38,9 +38,15 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 // `fam` 只对声明了 familyRecordTitles 的场景（T4）有意义：其余场景上它没跑过，
 // 所以"这一格该不该存在"按场景决定，不能一律算成缺格。
+// G5 的"一景多测"（`compare: 'aspects'`）臂是「none + 场景声明的 probeArms + 一条无关对照」。
 const ARMS = ['none', 'rel', 'fam', 'ctrl1', 'ctrl2', 'ctrl3']
 const BASE_ARMS = ['none', 'rel', 'ctrl1', 'ctrl2', 'ctrl3']
-const expectArms = scenario => (scenario?.compare === 'rel-vs-fam' ? ARMS : BASE_ARMS)
+const probeArmsOf = scenario => (scenario?.probeArms ?? []).map(p => String(p.arm))
+const expectArms = scenario => {
+  if (scenario?.compare === 'rel-vs-fam') return ARMS
+  if (scenario?.compare === 'aspects') return ['none', ...probeArmsOf(scenario), 'ctrl1']
+  return BASE_ARMS
+}
 const RUNS = [1, 2, 3]
 
 /**
@@ -272,6 +278,45 @@ if (!fingerprint.blocking) for (const scenario of scenarios) {
     else if (rel.pass > fam.pass) v = `倾向合并版更好（+${rel.pass - fam.pass}/3，方向性，样本太小）`
     else v = `倾向分开版更好（+${fam.pass - rel.pass}/3，方向性，样本太小）`
     say(`- **${scenario}**（T4 合并 vs 分开）：合并版 rel ${rel.text} vs 分开版 fam ${fam.text} vs 不喂 none ${none.text} ⇒ ${v}`)
+    continue
+  }
+  // ── G5 的"一景多测"：分项对照 + 每条记录的效果 ─────────────────────────────
+  // 效果的定义就是删除测试的定义：**有它 减 没有它**，只不过单位是"臂自己那一项的通过率"。
+  // 没有记录指向的项（ps1_exists / ps1_chinese）只当"有没有干活"看，不算效果。
+  if (scenarioById.get(scenario)?.compare === 'aspects') {
+    const s = scenarioById.get(scenario)
+    const probes = s.probeArms ?? []
+    const aspectNames = [...new Set(probes.map(p => String(p.aspect)))]
+    const rateOf = (arm, aspect) => {
+      const list = RUNS.map(r => cells.get(`${scenario}|${arm}|${r}`)).filter(row => row !== undefined)
+      if (list.length === 0) return null
+      return list.filter(row => row.aspects?.[aspect] === true).length / list.length
+    }
+    const show = v => (v === null ? '—' : `${(v * 100).toFixed(0)}%`)
+    say(`- **${scenario}**（G5 一景多测，${probes.length} 条记录各占一个臂）`)
+    say('')
+    say('  | 检查点 | none | 一条无关对照 | 各臂（记录） |')
+    say('  |---|---|---|---|')
+    for (const aspect of aspectNames) {
+      const owners = probes.filter(p => String(p.aspect) === aspect).map(p => `${String(p.arm)}=${show(rateOf(String(p.arm), aspect))}`)
+      say(`  | ${aspect} | ${show(rateOf('none', aspect))} | ${show(rateOf('ctrl1', aspect))} | ${owners.join(' · ')} |`)
+    }
+    say('')
+    for (const p of probes) {
+      const aspect = String(p.aspect)
+      const withIt = rateOf(String(p.arm), aspect)
+      const without = rateOf('none', aspect)
+      const ctrl = rateOf('ctrl1', aspect)
+      if (withIt === null || without === null) { say(`  - \`${p.arm}\` ${aspect}：未跑完，不下结论`); continue }
+      const effect = withIt - without
+      const sign = effect > 0 ? '+' : ''
+      const verdict = Math.abs(effect) < 1e-9
+        ? '**effect = 0** ⇒ 这条记录在这一项上**没有任何可测效果**（不是"没用"，是"测不出来"）'
+        : (effect > 0 ? `effect ${sign}${effect.toFixed(2)} ⇒ 有正效果` : `effect ${sign}${effect.toFixed(2)} ⇒ **负效果**（有它反而更差）`)
+      const ctrlNote = ctrl === null ? '' : `；无关对照 ${show(ctrl)}`
+      say(`  - \`${p.arm}\`（管 ${aspect}）：有它 ${show(withIt)} vs 没有 ${show(without)}${ctrlNote} ⇒ ${verdict}`)
+    }
+    say('')
     continue
   }
   let verdict

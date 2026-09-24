@@ -49,7 +49,13 @@ foreach ($sc in $spec.scenarios) {
   # `fam` = 同一教训的**多条分开喂**（T4 比较用）。它只对声明了 familyRecordTitles 的场景有意义；
   # 其余场景上 fam 会立刻失败并记成 seed-failed 占位行（不计入、也不算结论），这是有意的：
   # 宁可要一条"这一格没跑"，也不要一条含义不明的通过。
-  foreach ($arm in @('none', 'rel', 'fam', 'ctrl1', 'ctrl2', 'ctrl3')) {
+  # `compare: 'aspects'` 的场景（G5 的"一景多测"）臂不一样：none + 场景自己声明的 probeArms +
+  # 一条无关对照。rel/fam/三个对照在这一格没有意义，跑了是白花配额。
+  $arms = @('none', 'rel', 'fam', 'ctrl1', 'ctrl2', 'ctrl3')
+  if (($sc.PSObject.Properties.Name -contains 'compare') -and $sc.compare -eq 'aspects') {
+    $arms = @('none') + @($sc.probeArms | ForEach-Object { [string]$_.arm }) + @('ctrl1')
+  }
+  foreach ($arm in $arms) {
     for ($r = 1; $r -le $Runs; $r++) {
       $n += 1
       if ($done.ContainsKey("$($sc.id)|$arm|$r")) { Write-Host "[$n] $($sc.id) / $arm / $r  (已有结果，跳过)"; continue }
