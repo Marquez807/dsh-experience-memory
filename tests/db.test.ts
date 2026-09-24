@@ -10,7 +10,8 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, eq } from './assert.ts'
-import { candidates, defaultDbPath, deliveriesAtOrBefore, deliveryTotals, findByFingerprint, getRecord, indexRow, noteDelivery, openDb, upsert, SCHEMA_VERSION } from '../src/db.ts'
+import { candidates, corroborationCount, defaultDbPath, deliveriesAtOrBefore, deliveryTotals, findByFingerprint, getRecord, indexRow, noteCorroboration, noteDelivery, openDb, upsert, SCHEMA_VERSION } from '../src/db.ts'
+import { applyRehome, censusWorkspaces, planRehome } from '../src/rehome.ts'
 import { matchExpression } from '../src/tokenize.ts'
 import type { MemoryRecord } from '../src/types.ts'
 
@@ -246,6 +247,84 @@ export function run(): void {
     upsert(db, make({ id: 'r6', contentFingerprint: 'fp-r6', scope: 'domain', domain: 'python/testing', title: 'x', body: 'y' }))
     const domainHits = candidates(db, matchExpression('testing'), 20).map(c => c.id)
     assert(domainHits.includes('r6'), 'a domain segment answers a partial query')
+
+    // ── Rehome: moving a store to another machine's identity ─────────────────
+    // The store is keyed by a hash of the workspace's *path* (`domain.ts:27-29`), so the
+    // 233 records built here are invisible at `D:\work` even with the file copied over.
+    // `tools/rehome-workspace.mjs` moves them; this pins the two halves that must move
+    // together. The corroboration half is the one that fails silently: the records would
+    // arrive, and `pruneCorroboration` (`db.ts:628`) would then delete the history of who
+    // independently reported the content, because no record would be left behind to justify it.
+    upsert(db, make({ id: 'ws1-rehome', workspaceId: 'ws1', contentFingerprint: 'fp-rehome' }))
+    noteCorroboration(db, 'fp-rehome', 'ws1', NOW)
+    noteCorroboration(db, 'fp-rehome', 'ws2', NOW)
+    eq(corroborationCount(db, 'fp-rehome'), 2, 'two workspaces independently reported this content')
+
+    const census = censusWorkspaces(db, NOW)
+    assert(census.some(row => row.id === 'ws1' && row.records > 0),
+      'a census names every workspace identity the store holds records for')
+    assert(census.every((row, index) => index === 0 || census[index - 1]!.records >= row.records),
+      'and lists the largest first, so the operator can spot the one they mean')
+
+    // Negative control: the same identity on both sides is not a migration.
+    eq(planRehome(db, 'ws1', 'ws1').same, true, 'from === to is recognised as nothing to do')
+    eq(applyRehome(db, 'ws1', 'ws1', NOW), { records: 0, skipped: 0, corroborations: 0, mergedCorroborations: 0 },
+      'and applying it writes nothing rather than touching every row')
+    eq(corroborationCount(db, 'fp-rehome'), 2, 'the negative control left the corroborations alone')
+
+    const ws1Records = Number((db.prepare(
+      "SELECT COUNT(*) AS n FROM record WHERE workspace_id = 'ws1' AND scope = 'workspace'",
+    ).get() as { n: number }).n)
+    const plan = planRehome(db, 'ws1', 'ws-moved')
+    eq(plan.records, ws1Records, 'the plan counts exactly the records that would change hands')
+    eq(plan.corroborations, 1, 'and only the corroboration row that belongs to the source workspace')
+    eq(plan.collisions, 0, 'with no collisions against an empty target')
+    assert(plan.sample.length > 0 && plan.sample.length <= 5, 'the plan shows a bounded sample to eyeball')
+
+    const moved = applyRehome(db, 'ws1', 'ws-moved', NOW)
+    eq(moved.records, ws1Records, 'applying moves every one of them')
+    eq(moved.skipped, 0, 'nothing is left behind when nothing collides')
+    eq(moved.corroborations, 1, 'and that one corroboration row')
+    eq(findByFingerprint(db, 'fp-rehome', 'workspace', 'ws-moved', '')?.id, 'ws1-rehome',
+      'the record is now found under the new identity')
+    eq(Number((db.prepare(
+      "SELECT COUNT(*) AS n FROM record WHERE workspace_id = 'ws1' AND scope = 'workspace'",
+    ).get() as { n: number }).n), 0, 'and the old identity holds nothing')
+    eq(Number((db.prepare(
+      "SELECT COUNT(*) AS n FROM corroboration WHERE workspace_id = 'ws1'",
+    ).get() as { n: number }).n), 0, 'no corroboration row is left behind to be pruned later')
+    eq(corroborationCount(db, 'fp-rehome'), 2, 'so the cross-workspace count is preserved, not silently lost')
+    eq(planRehome(db, 'ws1', 'ws-moved').records, 0, 're-planning afterwards reports an empty source')
+
+    // The collision case, which the schema decides for us: `record_identity_workspace`
+    // (`db.ts:68`) is unique on (content_fingerprint, workspace_id), so a second copy of the
+    // same lesson **cannot** enter a workspace that already holds it. The move leaves it
+    // behind and says so, rather than failing halfway or inventing a merge.
+    upsert(db, make({ id: 'ws4-copy', workspaceId: 'ws4', contentFingerprint: 'fp-rehome' }))
+    noteCorroboration(db, 'fp-rehome', 'ws4', NOW)
+    // A second record in ws4 whose fingerprint has a corroboration row at the target but no
+    // record there — that row is the same fact as the one arriving, so the two are merged.
+    upsert(db, make({ id: 'ws4-orphan', workspaceId: 'ws4', contentFingerprint: 'fp-orphan' }))
+    noteCorroboration(db, 'fp-orphan', 'ws4', NOW)
+    noteCorroboration(db, 'fp-orphan', 'ws-moved', NOW)
+    eq(corroborationCount(db, 'fp-orphan'), 2, 'two workspaces are credited with reporting fp-orphan')
+
+    const collidePlan = planRehome(db, 'ws4', 'ws-moved')
+    eq(collidePlan.collisions, 1, 'the overlapping record is reported as a collision')
+    eq(collidePlan.mergedCorroborations, 1, 'and the overlapping corroboration row as a merge')
+    const collideRun = applyRehome(db, 'ws4', 'ws-moved', NOW)
+    eq(collideRun.skipped, 1, 'the colliding record is left behind, not merged')
+    eq(collideRun.mergedCorroborations, 1, 'the duplicate corroboration row is dropped')
+    eq(corroborationCount(db, 'fp-orphan'), 1, 'leaving one workspace credited with fp-orphan, not two')
+    eq(corroborationCount(db, 'fp-rehome'), 3,
+      'and the skipped record keeps its workspace credit: ws2, the moved ws1 copy, and the ws4 copy left behind')
+    eq(findByFingerprint(db, 'fp-orphan', 'workspace', 'ws-moved', '')?.id, 'ws4-orphan',
+      'the record that could move, moved')
+    eq(findByFingerprint(db, 'fp-rehome', 'workspace', 'ws4', '')?.id, 'ws4-copy',
+      'the record that could not move is still where it was')
+    eq(Number((db.prepare(
+      "SELECT COUNT(*) AS n FROM corroboration WHERE workspace_id = 'ws4'",
+    ).get() as { n: number }).n), 1, 'and its corroboration row stays with it, still justified')
 
     // ── Default path honours DSH_HOME ────────────────────────────────────────
     const previous = process.env['DSH_HOME']
