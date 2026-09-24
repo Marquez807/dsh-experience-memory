@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, failureShapes, countFailureShapes, noteDelivery, noteFailureShape } from '../src/db.ts'
-import { LESSON_IGNORED_MIN, failureShape, failuresIn, gapKeywords, gapReport, noteFailures } from '../src/failure.ts'
+import { LESSON_IGNORED_MIN, failureShape, failuresIn, gapCandidateText, gapCandidateTitle, gapCandidates, gapKeywords, gapReport, noteFailures } from '../src/failure.ts'
 import { assert, eq } from './assert.ts'
 import type { SessionEventLike } from '../src/types.ts'
 
@@ -198,6 +198,52 @@ export async function run(): Promise<void> {
     eq(quoteOnly[0]?.closest, undefined,
       'a record that only quotes the error in its body is not counted as related')
     eq(quoteOnly[0]?.bestScore, 0, 'and its score stays zero')
+
+    // ── From a count nobody acts on, to material somebody can judge ──────────
+    // This is the link that was missing. Measured 2026-09-25 on the live store: 11 of 21
+    // recurring shapes had nothing delivered for them — the top one 140 times across 8
+    // sessions — because the only automatic path, the harvester, skips the agent's own tooling
+    // by design. Nothing turned "we keep doing this" into a row; a person had to run the
+    // ledger and then ask for a record. These assertions pin both halves: it proposes the
+    // uncovered repeats, and it stays out of the way of a shape that already has a record.
+    const proposed = gapCandidates(quoteOnly, { minCount: 3, max: 2 })
+    eq(proposed.length, 1, 'the repeated uncovered shape becomes material, and only it')
+    eq(proposed[0]?.tool, 'edit', 'with the tool it belongs to')
+    eq(proposed[0]?.count, 4, 'and the count that makes it worth a reader’s attention')
+    assert((proposed[0]?.sample ?? '').includes('cannot modify'),
+      `and the real error line, verbatim: ${proposed[0]?.sample ?? '(none)'}`)
+    eq(gapCandidates(quoteOnly, { minCount: 5, max: 2 }).length, 0,
+      'a shape below the floor is not proposed — the counters only grow, so it can wait')
+    eq(gapCandidates(quoteOnly, { minCount: 3, max: 0 }).length, 0, 'and the per-turn cap is honoured')
+
+    // The negative control the ordering matters for: a shape that already has a near record is
+    // a *different* problem (revise that record), so this must propose nothing — otherwise the
+    // pool fills with second copies of things the store already says.
+    const syntheticRow = (closest: boolean) => ({
+      shape: { workspaceId: 'ws1', tool: 'edit', shape: 'cannot modify', count: 9, firstSeen: 1, lastSeen: 2,
+        sessionIds: ['s1'], sample: 'Error: cannot modify "x": file has not been read', recentAt: [] },
+      closest: closest ? ({ id: 'r1', title: '改文件前必须先读' } as never) : undefined,
+      bestScore: closest ? 3 : 0,
+      keywords: ['edit', 'modify', 'retry'],
+      workspaces: 1,
+      sinceRecord: 0,
+      lessonNotWorking: false,
+      delivery: { before: false, count: 0, recordId: undefined, at: undefined, bySession: 'none' as const },
+      verdict: 'not-delivered' as const,
+    })
+    eq(gapCandidates([syntheticRow(true)], { minCount: 3, max: 2 }).length, 0,
+      'nothing is proposed for a shape a record already claims — that one needs revising, not a second row')
+    eq(gapCandidates([syntheticRow(false)], { minCount: 3, max: 2 }).length, 1,
+      'and the same shape is proposed the moment the closest record is not there')
+
+    // The text says what is known and nothing more: a count and a verbatim error line. It is
+    // not a rule, because a rule would be a claim about cause and nothing here knows the cause.
+    const text = gapCandidateText(proposed[0]!)
+    assert(text.includes('4') && text.includes('edit'), `the count and the tool are in the body: ${text}`)
+    assert(text.includes(proposed[0]!.sample.slice(0, 20)), 'and the error line is quoted, not paraphrased')
+    eq(gapCandidateTitle(proposed[0]!).startsWith('edit: '), true, 'the title is mechanical: tool, then shape')
+    eq(gapCandidateTitle(proposed[0]!) === proposed[0]!.shape || gapCandidateTitle(proposed[0]!).includes(proposed[0]!.shape.slice(0, 10)),
+      true, 'and it carries the shape rather than a summary of it')
 
     // ── Did the record that claims to cover it actually stop it? ─────────────
     // The question the observation layer exists to make answerable. Three conditions, all

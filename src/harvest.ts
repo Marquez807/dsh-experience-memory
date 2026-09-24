@@ -46,6 +46,16 @@ export type HarvestSignal =
   | 'failure-recovered'
   | 'goal-changed'
   | 'action-refused'
+  /**
+   * A failure shape that keeps happening in this workspace and that nothing in the store
+   * comes close to covering (`failure.ts:gapCandidates`).
+   *
+   * It belongs to this list rather than to the failure counter because the counters are the
+   * observation layer and stay out of the store; this signal is the one bridge from "we keep
+   * doing this" to "here is a row the model may judge". What gets stored is still the
+   * harness's own error line, verbatim — not a diagnosis.
+   */
+  | 'recurring-failure'
 
 /** Titles are a dedupe handle, so they are bounded and never paraphrased. */
 const TITLE_MAX = 60

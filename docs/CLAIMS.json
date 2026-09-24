@@ -101,6 +101,21 @@
       "note": "当时的统计没有落成仓库里的产物——README、CHANGELOG 与源码注释都引用了它，但凭证不在库里。现在能重跑同类统计（当前语料 15,896 次调用），那是**另一批**会话，不能当成这句话的凭证。"
     },
     {
+      "id": "gaps.auto-candidate",
+      "claim": "反复发生、且库里毫无相关记录的失败，会在出错的回合里自动写成待确认候选（每回合最多 2 条）",
+      "status": "measured",
+      "evidence": ["src/failure.ts", "tests/failure.test.ts"],
+      "note": "闭环：count ≥3 且 gapReport 找不到任何相关记录才写；正文是 harness 自己的报错原文加次数，不是判断。真实库干跑（2026-09-25）：14 个形态反复 ≥3 次，其中 8 个没有任何相关记录，最高频那个 140 次。"
+    },
+    {
+      "id": "gaps.auto-candidate-effect",
+      "claim": "自动写成候选之后，模型会去确认它们、这类错会变少",
+      "status": "not-run",
+      "evidence": [],
+      "how": "重启插件后，看候选池里 recurring-failure 来源的候选有没有被 memory_remember 复述转正；再用 node tools/prevention-ledger.mjs 比较该形态在候选出现前后的发生次数",
+      "note": "机制建了、单元测试过了、真实库干跑确认会产出候选——但**它到底有没有用，一次都没测过**。这正是「不主动去测就不知道」的那一环，如实登记。"
+    },
+    {
       "id": "g5.testability-rule",
       "claim": "一条记录「测得出效果」的前提是：模型的默认做法是错的",
       "status": "design",

@@ -400,3 +400,75 @@ export function gapReport(
   }
   return rows
 }
+
+/** A repeated failure that no confirmed record even comes close to covering. */
+export interface GapCandidate {
+  tool: string
+  /** The normalised error text, as the counter stores it. */
+  shape: string
+  /** How many times this workspace has produced it. */
+  count: number
+  /** How many workspaces have produced it. */
+  workspaces: number
+  /** The first line of a real occurrence, verbatim. */
+  sample: string
+}
+
+/**
+ * The recurring failures worth turning into raw material — the missing link.
+ *
+ * Why this exists (measured 2026-09-25, `tools/prevention-ledger.mjs` on the live store): of
+ * 21 recurring failure shapes, **11 had nothing delivered for them** — the top one, `edit`
+ * before `read`, had happened **140 times across 8 sessions**, most recently that same day,
+ * and the store contained no record about it at all; the other 9 had a related record
+ * delivered and recurred anyway. The ledger could say all of that, and nothing acted on it:
+ * `/memory-gaps` had to be run by a person, who then had to tell the agent to write a record.
+ * The one automatic path, the harvester, **skips the agent's own tooling by design**
+ * (`harvest.ts:26-30`), which is where those failures live.
+ *
+ * So the loop is closed here without inventing anything: the text is the harness's own error
+ * line, verbatim and already normalised to a shape, and the title is mechanical. The row is
+ * filed as a candidate, so it is invisible to the always-on layer and becomes a record only
+ * when the model re-states it under the ordinary evidence gate.
+ *
+ * Only shapes where **nothing in the store comes close** (`closest === undefined`: not one
+ * shared keyword) are proposed. A shape that already has a near record is a different
+ * problem with a different fix — revise that record — and a second ungraded row beside it
+ * would only add noise to the pool the model is asked to judge.
+ */
+export function gapCandidates(
+  rows: readonly GapRow[],
+  options: { minCount: number; max: number },
+): GapCandidate[] {
+  return rows
+    .filter(row => row.closest === undefined
+      && row.shape.count >= options.minCount
+      && row.shape.sample.trim() !== '')
+    .slice(0, options.max)
+    .map(row => ({
+      tool: row.shape.tool,
+      shape: row.shape.shape,
+      count: row.shape.count,
+      workspaces: row.workspaces,
+      sample: row.shape.sample.trim(),
+    }))
+}
+
+/**
+ * What a `recurring-failure` candidate says, and why it says exactly this.
+ *
+ * The body is the error line and the count; it is **not** a rule. A rule would be a claim
+ * about cause, and nothing here knows the cause — it knows how often and where. The count is
+ * included because it is the only thing that makes the row worth a reader's attention, and
+ * the `read the file, then retry` half of an error is often the fix already.
+ */
+export function gapCandidateText(candidate: GapCandidate): string {
+  const spread = candidate.workspaces > 1 ? `，跨 ${candidate.workspaces} 个工作区` : ''
+  return `本工作区反复出现的失败 ${candidate.count} 次${spread}（工具 ${candidate.tool}）：${candidate.sample}`
+}
+
+/** A mechanical title: the tool, then the head of the shape. Never a paraphrase. */
+export function gapCandidateTitle(candidate: GapCandidate): string {
+  return `${candidate.tool}: ${candidate.shape}`.slice(0, 120)
+}
+

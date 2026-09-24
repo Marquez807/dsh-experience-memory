@@ -39,7 +39,7 @@ import { configureEffect } from './effect.ts'
 import { guardHintFor } from './guard-hints.ts'
 import { commandDefinitions } from './commands.ts'
 import { openDb, noteRetrieval, countCandidates, noteDelivery, defaultDbPath } from './db.ts'
-import { noteFailures } from './failure.ts'
+import { gapCandidateText, gapCandidateTitle, gapCandidates, gapReport, noteFailures } from './failure.ts'
 import { harvestFrom, lastTurn } from './harvest.ts'
 import { recallForCallWithIdentifiers, renderPrecall } from './precall.ts'
 import { eventsOf, memoryDisabled } from './session.ts'
@@ -77,6 +77,16 @@ const CONTEXT_ORDER = 150
 
 /** Records a single `memory_recall` answer may carry. */
 const RECALL_MAX = 32
+/**
+ * The bar for turning a repeated failure into candidate material, and the per-turn cap.
+ *
+ * Three, not two: `/memory-gaps` reports from two because a reader can judge a two-off, while
+ * a row written into the store unprompted has to earn its place in a pool someone will read.
+ * The cap is two per turn so one bad turn cannot flood it — the counts only grow, so a shape
+ * that matters is still there next turn.
+ */
+const GAP_CANDIDATE_MIN_COUNT = 3
+const GAP_CANDIDATE_MAX_PER_TURN = 2
 
 /** The execution view a tool body receives. */
 interface ToolExec {
@@ -364,15 +374,43 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       }
     }
     // Counting the turn's failures runs here because this is the only place the plugin
-    // already holds the turn's events for free. It writes no record and injects nothing —
-    // see `failure.ts` for why the count and the lesson are deliberately kept apart.
+    // already holds the turn's events for free. The count itself writes no lesson and injects
+    // nothing — see `failure.ts` for why the count and the lesson are deliberately kept apart.
+    //
+    // The gap pass below is the one thing that does act on the count, and it is the answer to
+    // a measured complaint: the store's most frequent failure (`edit` before `read`) had
+    // happened 140 times across 8 sessions with **no record about it at all**, and the only
+    // way that was ever noticed was a person running `tools/prevention-ledger.mjs` and then
+    // asking for a record to be written. It runs only on a turn that actually failed, so a
+    // clean turn costs one integer comparison.
     if (!disabled) {
       try {
         const workspace = workspaceOf(payload?.agent, resolved.defaultDomain)
-        noteFailures(db, payload?.agent, workspace.id, payload?.agent?.id ?? '', now, {
+        const failures = noteFailures(db, payload?.agent, workspace.id, payload?.agent?.id ?? '', now, {
           enabled: resolved.failureTracking,
           shapeLimit: resolved.failureShapeLimit,
         })
+        if (failures > 0 && resolved.failureTracking) {
+          const rows = gapReport(db, {
+            workspaceId: workspace.id,
+            domain: workspace.domain,
+            now,
+            limit: resolved.failureShapeLimit,
+            minCount: GAP_CANDIDATE_MIN_COUNT,
+          })
+          for (const candidate of gapCandidates(rows, { minCount: GAP_CANDIDATE_MIN_COUNT, max: GAP_CANDIDATE_MAX_PER_TURN })) {
+            harvest(db, {
+              workspaceId: workspace.id,
+              domain: workspace.domain,
+              now,
+              candidate: {
+                text: gapCandidateText(candidate),
+                signal: 'recurring-failure',
+                title: gapCandidateTitle(candidate),
+              },
+            })
+          }
+        }
       } catch (error) {
         report('failure shape count', error)
       }
