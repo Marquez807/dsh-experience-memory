@@ -73,9 +73,12 @@ if (!existsSync(storePath)) {
 const { recallForCallWithIdentifiers } = await import(lib('precall.js'))
 const { decideForCall } = await import(lib('criteria.js'))
 const { resolveWorkspace } = await import(lib('domain.js'))
+const { resolveConfig } = await import(lib('config.js'))
+const { ANCHOR_COST_TABLE } = await import(lib('anchor-cost-table.js'))
 
 const workspace = resolveWorkspace(cwd, '')
 const now = Date.now()
+const config = resolveConfig({})
 const db = new DatabaseSync(storePath, { readOnly: true })
 
 const all = readFileSync(callsPath, 'utf8').split('\n').filter(Boolean).map(line => {
@@ -153,6 +156,159 @@ function runScenarios(name, options) {
     })
   }
   return rows
+}
+
+// ── --report hint-density：一轮里到底弹几条？（docs/GROWTH.md G1 结果之四）────────
+// 判据在跑之前就写死了：≥2 条的轮次占"有提示的轮次" ≥10% ⇒ 改投递层为每轮最多 1 条；<10% ⇒ 不改。
+// 这个模式只读、只打印，跑完就退出，不参与下面的投递率评估。
+const reportMode = flag('report')
+if (reportMode === 'hint-density') {
+  const spec = JUDGES.new // 生产路径：只认记录自己声明的锚点，**不传** derived 锚点
+  // 投递层还有两道闸门（`src/index.ts` 的 precall 钩子），**不照抄就会把"命中"当成"发出"**：
+  //   1. 每条记录的冷却（默认 30 分钟，按记录 id 计）；
+  //   2. 每会话上限（默认 20 条，按真的发出去的条数计）。
+  // 下面按会话、按时间顺序重放这两道闸门。阈值从配置里读，不写死，免得两处漂移。
+  const cooldownMs = config.precallCooldownMinutes * 60_000
+  const sessionCap = config.precallMaxPerSession
+  // `--ignore-overbroad`：把"命中里含有超过成本门槛的锚点"当成**没命中**——这正是写入期闸门
+  // （`anchors_refused`）会造成的效果，用来反事实地问："一轮弹多条，是因为锚点太宽，还是因为
+  // 真的有很多条不同的经验在同一轮里都该弹？" 这一步不改库、不改记录，只改这里的读数。
+  const ignoreOverbroad = has('ignore-overbroad')
+  const costTokens = ANCHOR_COST_TABLE.tokens ?? {}
+  const costThreshold = ANCHOR_COST_TABLE.thresholdHits ?? 300
+
+  const bySession = new Map()
+  for (const call of calls) {
+    const key = String(call.session ?? '(无会话)')
+    if (!bySession.has(key)) bySession.set(key, [])
+    bySession.get(key).push(call)
+  }
+
+  const turns = new Map() // `${session}|${turn}` → { hits: [], delivered: [] }
+  const perRecord = new Map()
+  let rawMatches = 0
+  for (const [session, sessionCalls] of bySession) {
+    const ordered = [...sessionCalls].sort((a, b) => Number(a.time ?? 0) - Number(b.time ?? 0))
+    const sent = new Map()
+    let delivered = 0
+    for (const call of ordered) {
+      const turnKey = `${session}|${call.turn ?? '(无轮次)'}`
+      let bucket = turns.get(turnKey)
+      if (bucket === undefined) {
+        bucket = { session, turn: call.turn ?? '(无轮次)', hits: [], delivered: [], calls: 0 }
+        turns.set(turnKey, bucket)
+      }
+      bucket.calls += 1
+      let hit
+      try { hit = spec.run(call) } catch { hit = undefined }
+      if (hit === undefined) continue
+      if (ignoreOverbroad) {
+        const overbroad = (hit.matched ?? []).some(m => (costTokens[String(m).toLowerCase()] ?? 0) >= costThreshold)
+        if (overbroad) continue
+      }
+      rawMatches += 1
+      const id = String(hit.record.id)
+      bucket.hits.push({ tool: String(call.name ?? ''), id, title: String(hit.record.title ?? '') })
+      const at = Number(call.time ?? 0)
+      const last = sent.get(id)
+      if (last !== undefined && at - last < cooldownMs) continue
+      if (delivered >= sessionCap) continue
+      sent.set(id, at)
+      delivered += 1
+      bucket.delivered.push({ tool: String(call.name ?? ''), id, title: String(hit.record.title ?? '') })
+      perRecord.set(id, (perRecord.get(id) ?? 0) + 1)
+    }
+  }
+
+  const buckets = [...turns.values()]
+  const stats = list => {
+    const withHints = buckets.filter(b => list(b).length > 0)
+    const dist = new Map()
+    for (const b of withHints) dist.set(list(b).length, (dist.get(list(b).length) ?? 0) + 1)
+    const multi = withHints.filter(b => list(b).length >= 2)
+    return {
+      withHints,
+      dist,
+      multi,
+      max: withHints.reduce((m, b) => Math.max(m, list(b).length), 0),
+      share: withHints.length === 0 ? 0 : multi.length / withHints.length,
+    }
+  }
+  const raw = stats(b => b.hits)
+  const shown = stats(b => b.delivered)
+  const THRESHOLD = 0.10
+  const change = shown.share >= THRESHOLD
+  const ranked = [...perRecord.entries()].sort((a, b) => b[1] - a[1])
+
+  console.log(`调用日志：${callsPath}（${calls.length} 次调用）`)
+  console.log(`库：${storePath}`)
+  console.log(`工作区：${workspace.root}（${workspace.id}）`)
+  console.log('判定路径：生产的那条（只认记录自己声明的锚点，不传 derived 锚点）')
+  console.log(`投递闸门：每条记录冷却 ${cooldownMs / 60_000} 分钟 · 每会话上限 ${sessionCap} 条`)
+  if (ignoreOverbroad) {
+    console.log(`**反事实**：已把"命中里含有 ≥${costThreshold} 次的过宽锚点"当成没命中（模拟写入期闸门生效）`)
+  }
+  console.log('')
+  console.log(`轮次（按 会话+轮次 分组）：${buckets.length}`)
+  console.log(`会话数：${bySession.size}`)
+  console.log('')
+  console.log('| | 命中（判据说该弹） | 真的发出（过完两道闸门） |')
+  console.log('|---|---|---|')
+  console.log(`| 次数 | ${rawMatches} | ${perRecord.size === 0 ? 0 : [...perRecord.values()].reduce((a, b) => a + b, 0)} |`)
+  console.log(`| 有提示的轮次 | ${raw.withHints.length} | ${shown.withHints.length} |`)
+  console.log(`| ≥2 条的轮次 | ${raw.multi.length} | ${shown.multi.length} |`)
+  console.log(`| 单轮最多 | ${raw.max} | ${shown.max} |`)
+  console.log(`| **≥2 条占"有提示的轮次"** | ${(raw.share * 100).toFixed(2)}% | **${(shown.share * 100).toFixed(2)}%** |`)
+  console.log('')
+  console.log(`**判据用"真的发出"那一列**（预注册说的是"数每一轮发出了几条提示"）。`)
+  console.log(`**预注册规则**（阈值 ${(THRESHOLD * 100).toFixed(0)}%，先写后跑）：`
+    + (change
+      ? '⇒ ≥ 阈值 ⇒ 判定"我们正在做 ICML 实测会掉分的事"，**改投递层为每轮最多 1 条**（改完要另跑对照，需配额）'
+      : '⇒ < 阈值 ⇒ **不改投递层**，把那条外部证据记成"不适用本系统"'))
+  console.log('')
+  console.log('分布（真的发出的、有提示的轮次）：')
+  for (const n of [...shown.dist.keys()].sort((a, b) => a - b)) console.log(`  ${String(n).padStart(3)} 条提示：${shown.dist.get(n)} 轮`)
+  console.log('')
+  console.log('发得最多的记录（前 5）：')
+  for (const [id, count] of ranked.slice(0, 5)) {
+    const row = db.prepare('select title from record where id = ?').get(id)
+    console.log(`  ${String(count).padStart(5)} 次  ${id}  ${String(row?.title ?? '?').slice(0, 52)}`)
+  }
+  if (shown.multi.length > 0) {
+    console.log('')
+    console.log('每轮 ≥2 条的例子（最多 5 个，用来看这些提示是不是在讲同一件事）：')
+    for (const b of [...shown.multi].sort((a, b) => b.delivered.length - a.delivered.length).slice(0, 5)) {
+      console.log(`  会话 ${b.session} 第 ${b.turn} 轮：${b.calls} 个调用，发出 ${b.delivered.length} 条`)
+      for (const h of b.delivered) console.log(`    · [${h.tool}] ${h.title.slice(0, 56)}`)
+    }
+  }
+  const density = {
+    callsPath,
+    calls: calls.length,
+    store: storePath,
+    workspace: workspace.root,
+    cooldownMinutes: config.precallCooldownMinutes,
+    sessionCap,
+    turns: buckets.length,
+    sessions: bySession.size,
+    rawMatches,
+    turnsWithHints: shown.withHints.length,
+    multiHintTurns: shown.multi.length,
+    maxHintsInATurn: shown.max,
+    multiShare: shown.share,
+    rawMultiShare: raw.share,
+    threshold: THRESHOLD,
+    changeRecommended: change,
+    ignoreOverbroad,
+    distribution: Object.fromEntries([...shown.dist].sort((a, b) => a[0] - b[0])),
+    topRecords: ranked.slice(0, 5).map(([id, count]) => ({ id, count })),
+  }
+  db.close()
+  if (jsonPath !== undefined) {
+    writeFileSync(jsonPath, `${JSON.stringify(density, null, 2)}\n`, 'utf8')
+    console.log(`\n已写入：${jsonPath}`)
+  }
+  process.exit(0)
 }
 
 for (const name of wanted) {

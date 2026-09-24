@@ -1,0 +1,46 @@
+{
+  "callsPath": "F:\\dsh主工作区\\dsh-experience-memory\\tools\\calls.jsonl",
+  "calls": 15896,
+  "store": "C:\\Users\\Admin\\AppData\\Roaming\\dsh-desktop\\harness\\experience-memory\\memory.db",
+  "workspace": "F:\\dsh主工作区",
+  "cooldownMinutes": 30,
+  "sessionCap": 20,
+  "turns": 416,
+  "sessions": 6,
+  "rawMatches": 6619,
+  "turnsWithHints": 75,
+  "multiHintTurns": 26,
+  "maxHintsInATurn": 4,
+  "multiShare": 0.3466666666666667,
+  "rawMultiShare": 0.8802992518703242,
+  "threshold": 0.1,
+  "changeRecommended": true,
+  "distribution": {
+    "1": 49,
+    "2": 16,
+    "3": 5,
+    "4": 5
+  },
+  "topRecords": [
+    {
+      "id": "24feb884c4212af90763",
+      "count": 56
+    },
+    {
+      "id": "d9999332d4c5f0522f31",
+      "count": 13
+    },
+    {
+      "id": "ea05071e9a9b173e2dd2",
+      "count": 9
+    },
+    {
+      "id": "ed6e6e66d2dbf929fc64",
+      "count": 6
+    },
+    {
+      "id": "2a164ea1dc18b752c3c1",
+      "count": 5
+    }
+  ]
+}
