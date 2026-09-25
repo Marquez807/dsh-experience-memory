@@ -1,4 +1,4 @@
-# Experience memory (dsh-experience-memory)
+# Experience memory (@marquez807/dsh-experience-memory)
 
 [简体中文](README.md) · [English](README.en.md)
 
@@ -27,6 +27,15 @@ Install it (point the path at the tarball you have):
 ```sh
 dsh plugin --profile <name> add /path/to/dsh-experience-memory.tgz
 ```
+
+**The package name is `@marquez807/dsh-experience-memory` — scoped on purpose.** npm carries a
+same-named `dsh-experience-memory` that belongs to someone else, and the desktop app resolves a
+dependency **by package name**: install by name and you get theirs (it ships no database binary, dies
+on load, and takes the whole back end — and every third-party plugin — down with it; that happened for
+real on 2026-09-23). With a scope, installing by name fails loudly with "no such package" instead of
+quietly loading someone else's code. The repository is also `private: true`: nothing is published to
+npm, and installs go through this repository's release tarball. To tell which copy you have, check
+whether `package.json`'s `repository` is `Marquez807/dsh-experience-memory`.
 
 **That is the whole step.** `dsh plugin add` does more than install a dependency — it **reconciles** `dsh.profile.bundles` with what is actually installed: any dependency declaring `dsh.bundle` is appended to the layer stack automatically (see `reconcilePlugins` in `@deepseek-ai/dsh`). No hand-editing of the profile's `package.json`.
 
@@ -606,7 +615,7 @@ It loads the built `lib/`, so it doubles as a check that the shipped artefact be
 
 ## About this document
 
-**Current version 0.4.0 (2026-09-25).** The full version record — what each version changed, why, and the measurements behind it — is in [`CHANGELOG.md`](CHANGELOG.md). The key change in `0.3.0` is **refusing an anchor whose measured hit count is too broad, and naming it in `anchors_refused`** (plus `effect`, which is recorded but does not rank by default); the key change in `0.2.0` is **the delivery rule moving to a record declaring its own `recall_for` anchors**, which is a behaviour change: a record that declares none no longer interrupts a tool call just before it acts.
+**Current version 0.5.0 (2026-09-25).** The full version record — what each version changed, why, and the measurements behind it — is in [`CHANGELOG.md`](CHANGELOG.md). The key change in `0.3.0` is **refusing an anchor whose measured hit count is too broad, and naming it in `anchors_refused`** (plus `effect`, which is recorded but does not rank by default); the key change in `0.2.0` is **the delivery rule moving to a record declaring its own `recall_for` anchors**, which is a behaviour change: a record that declares none no longer interrupts a tool call just before it acts.
 
 - **The numbers in the READMEs are checked by machine, not copied by hand.** `tests/docs.test.ts` compares the config table value by value, the registered tool and command names, the digest line ceiling (2+5=7), the suite count, the audit output list and the byte size of that guidance line; any disagreement fails the suite. Changing the docs and changing the code are the same act here.
 - **Every hard statement made in public is registered in [`docs/CLAIMS.json`](docs/CLAIMS.json)**: one row per claim, with its status and its evidence. `measured` must point at a check or artifact that really exists in the repository (`tests/claims.test.ts` confirms each path), something that was never run may only say `not-run` and **must not carry evidence**, and a statement already made in public without a reproducible artifact here is recorded honestly as `readme-only` — that is a debt to pay, not a passing grade.

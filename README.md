@@ -1,4 +1,4 @@
-# 经验记忆（dsh-experience-memory）
+# 经验记忆（@marquez807/dsh-experience-memory）
 
 [简体中文](README.md) · [English](README.en.md)
 
@@ -27,6 +27,13 @@
 ```sh
 dsh plugin --profile <name> add /path/to/dsh-experience-memory.tgz
 ```
+
+**包名是 `@marquez807/dsh-experience-memory`（带 scope），这是故意的。** npm 上另有一个同名的
+`dsh-experience-memory` 属于别人：桌面版按**包名**解析依赖，所以只要按名字装，就会装到那一家
+（它缺数据库二进制，一加载就崩，整个后台起不来、所有第三方插件停用——2026-09-23 真实发生过）。
+带 scope 之后，按名字装只会得到"没有这个包"的明确报错，**不会再静默装成别人的东西**。
+本仓库同时是 `private: true`：不发 npm，安装只走本仓库 Release 的 tarball。
+判断手上是哪一份，看 `package.json` 里的 `repository` 是不是 `Marquez807/dsh-experience-memory`。
 
 **这一步就够了。** `dsh plugin add` 不只是装依赖——它会把 `dsh.profile.bundles` 与已安装状态**对账**：任何声明了 `dsh.bundle` 的依赖都会被自动追加进 layer stack（见 `@deepseek-ai/dsh` 的 `reconcilePlugins`）。所以不需要手工编辑 profile 的 `package.json`。
 
@@ -742,7 +749,7 @@ node tools/preview.mjs --db <库路径> --cwd <项目根> --query "继续" --que
 
 ## 关于这份文档
 
-**当前版本 0.4.0（2026-09-25）。** 完整版本记录（每一版改了什么、为什么改、实测数字）见
+**当前版本 0.5.0（2026-09-25）。** 完整版本记录（每一版改了什么、为什么改、实测数字）见
 [`CHANGELOG.md`](CHANGELOG.md)；`0.3.0` 的关键变化是**写入时把命中过宽的锚点丢掉并写明理由**（外加把"这条经验有没有改变结果"记进 `effect` 字段，默认不参与排序）；`0.2.0` 的关键变化是**投递判据换成"记录自己声明 `recall_for`"**，
 这是行为变更：没声明的记录不再在动手前打断工具调用。
 

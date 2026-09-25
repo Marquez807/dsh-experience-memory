@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.5.0 — 2026-09-25
+
+**The package is renamed to `@marquez807/dsh-experience-memory`.** A breaking change, taken on purpose,
+and it is about an incident class rather than about tidiness.
+
+npm carries a **same-named package that belongs to someone else** (`dsh-experience-memory`, six
+versions, `github.com/lzpgood123/dsh-experience-memory`), and the desktop app resolves a plugin
+dependency **by package name**. So "install it by name" installed *their* plugin: it ships no database
+binary, died on load, took the back end with it and put the app into safe mode with every third-party
+plugin disabled (2026-09-23, recorded in the workspace). Nothing about this plugin was wrong; the name
+was.
+
+A scope fixes the class rather than the instance: `@marquez807/...` cannot be squatted, and because
+nothing here is published to npm, a by-name install now **fails with "no such package"** instead of
+quietly loading someone else's code. The failure becomes loud and harmless.
+
+What moved:
+
+- `package.json` `name`, and `cordis.patch.yml`'s row `name` — the specifier the loader resolves.
+- A profile's `package.json`: the dependency key and the bundle entry are now
+  `@marquez807/dsh-experience-memory`, with the link at `node_modules/@marquez807/<name>`.
+- `tools/verify-install.mjs`, `tools/t2-run.ps1`, `tools/verified-user-ab/run-one.ps1`,
+  `tools/standing-ab/run-ab.ps1`.
+
+What deliberately did **not** move, and why: the repository and directory name (every recorded
+`source_ref` and the anchor cost table are paths); the bundle row `id` (`experience-memory`, which user
+profiles key their overrides on); the release asset name (`dsh-experience-memory.tgz`, which the
+marketplace entry points at); and the marketplace entry itself, which references the repository and the
+tarball rather than the package name.
+
+**Migration** (one key, then a restart): in `profiles/<profile>/package.json` rename the dependency key
+to `@marquez807/dsh-experience-memory`, keep the same `link:` target, and put the junction at
+`node_modules/@marquez807/dsh-experience-memory`. `dsh-plugin-identity-guard.ps1` checks exactly this
+and prints the fix when it is wrong.
+
+Registry evidence, so the claim is checkable rather than remembered: `npm view dsh-experience-memory`
+resolves to the other author's package, and this repository's `package.json` is both scoped and
+`private: true`. Nothing else about 0.4.0's behaviour changed: 23 suites, 1180 assertions.
+
 ## 0.4.0 — 2026-09-25
 
 This version adds the one layer the previous two could not be: **a rule carried every turn, whatever

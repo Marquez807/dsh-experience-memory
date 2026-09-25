@@ -1,4 +1,4 @@
-# One trial of the second `verified-user` scenario.
+﻿# One trial of the second `verified-user` scenario.
 #
 #   powershell -File tools/verified-user-ab/run-one.ps1 -Mode with|without -Trial N
 #
@@ -38,15 +38,17 @@ if (-not (Test-Path $home_)) {
 {
   "name": "dsh-profile-placeab",
   "private": true,
-  "dependencies": { "dsh-experience-memory": "link:PLACEHOLDER_REPO" },
-  "dsh": { "profile": { "bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-headless", "dsh-experience-memory"] } }
+  "dependencies": { "@marquez807/dsh-experience-memory": "link:PLACEHOLDER_REPO" },
+  "dsh": { "profile": { "bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-headless", "@marquez807/dsh-experience-memory"] } }
 }
 '@
   $pkg = $pkg.Replace('PLACEHOLDER_REPO', ($repo -replace '\\', '/'))
   [IO.File]::WriteAllText((Join-Path $prof 'package.json'), $pkg, [Text.UTF8Encoding]::new($false))
   $nm = Join-Path $prof 'node_modules'
   New-Item -ItemType Junction -Path $nm -Target 'F:\Users\Admin\AppData\Local\Programs\DSH Desktop\resources\app\node_modules' | Out-Null
-  $link = Join-Path $nm 'dsh-experience-memory'
+  # 带 scope 的名字在 node_modules 下多一层目录：@marquez807\<name>
+  New-Item -ItemType Directory -Force -Path (Join-Path $nm '@marquez807') | Out-Null
+  $link = Join-Path $nm '@marquez807\dsh-experience-memory'
   if (Test-Path $link) { Remove-Item $link -Recurse -Force }
   New-Item -ItemType Junction -Path $link -Target $repo | Out-Null
 }

@@ -12,7 +12,7 @@
 
 - insert:
     - id: experience-memory
-      name: dsh-experience-memory
+      name: '@marquez807/dsh-experience-memory'
       config:
         enabled: true
         # Resident layer: the always-on experience digest injected every turn.

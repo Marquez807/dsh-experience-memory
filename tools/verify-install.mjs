@@ -27,7 +27,7 @@ import { Context } from '@deepseek-ai/cordis'
 import Commands from '@deepseek-ai/dsh-commands'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import * as memory from 'dsh-experience-memory'
+import * as memory from '@marquez807/dsh-experience-memory'
 
 let failed = 0
 let checked = 0

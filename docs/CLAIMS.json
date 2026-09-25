@@ -22,6 +22,13 @@
       "note": "README 里写的是同一个算式 3+2+5=10，测试比对的是配置里的真实上限（三段的条数上限相加）。"
     },
     {
+      "id": "identity.scoped-name",
+      "claim": "包名带 scope 且未发布到 npm：按包名安装不会落到同名的第三方插件上",
+      "status": "measured",
+      "evidence": ["package.json", "tests/built.mjs"],
+      "note": "npm 上确有同名包属于别人（github.com/lzpgood123/dsh-experience-memory），而桌面版按**包名**解析依赖——按名字装就会装到那一家（缺数据库二进制、崩、进安全模式，2026-09-23 真实发生）。scope 抢不走，且 private:true 不发 npm，所以按名字装只会明确报「没有这个包」。tests/built.mjs 钉住 name 带 scope、private 为 true、且 bundle patch 里的 specifier 与 manifest 一致。"
+    },
+    {
       "id": "standing.carried-every-turn",
       "claim": "标了 standing 的规矩每轮都进上下文，不看这一轮在聊什么；同一条记录不标就不进",
       "status": "measured",

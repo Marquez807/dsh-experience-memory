@@ -55,6 +55,20 @@ check(existsSync(join(root, 'LICENSE')), 'and a LICENSE file ships with it')
 check(manifest.peerDependencies['@deepseek-ai/dsh-commands'] !== undefined,
   'the command service is declared as a host-provided peer')
 
+// ── The name is scoped, and that is a safety property, not styling ──────────
+// npm carries a same-named package belonging to another author, and the desktop app resolves a
+// dependency by package name — so an unscoped name means "install by name" loads someone else's
+// plugin, which is how the 2026-09-23 safe-mode incident happened. A scope cannot be squatted, and
+// with `private: true` a by-name install fails loudly instead of silently loading the other one.
+check(/^@[a-z0-9][a-z0-9._-]*\//.test(manifest.name),
+  `the package name is scoped (${manifest.name}) so a by-name install cannot resolve to another author`)
+eq(manifest.private, true, 'the package stays private: it is installed from a release tarball, never from npm')
+{
+  const patch = readFileSync(join(root, manifest.dsh.bundle.patch), 'utf8')
+  check(patch.includes(`name: '${manifest.name}'`),
+    'the bundle patch resolves the same scoped specifier the manifest declares')
+}
+
 // A shipped module that reached into the sources would be unrunnable, and the
 // requirement is not obvious from any single file, so it is asserted here.
 for (const name of readdirSync(join(root, 'lib')).filter(entry => entry.endsWith('.js'))) {
