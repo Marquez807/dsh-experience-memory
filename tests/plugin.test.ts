@@ -482,6 +482,39 @@ export async function run(): Promise<void> {
       'no proposal names an anchor the cost table would refuse',
     )
 
+    // ── `standing` can be turned on, survives silence, and can be taken back ─
+    // Three states a caller cares about, and the middle one is the trap: a tool that collapses an
+    // omitted parameter into `false` demotes a standing rule every time anybody re-reports it —
+    // silently, because every other field comes back unchanged. The return value is checked rather
+    // than the row, because the return value is what the caller acts on.
+    const marked = await call<{ id: string; standing: boolean }>(
+      'memory_remember',
+      {
+        kind: 'fact', title: '常驻开关', body: '这条规矩要一直带着',
+        quote: '这条规矩要一直带着', standing: true,
+      },
+      agentFor([userMessage('这条规矩要一直带着')]),
+    )
+    eq(marked.standing, true, 'a record written with standing: true reports the effective state as true')
+
+    const silent = await call<{ id: string; standing: boolean }>(
+      'memory_remember',
+      { kind: 'fact', title: '常驻开关', body: '这条规矩要一直带着', quote: '这条规矩要一直带着' },
+      agentFor([userMessage('这条规矩要一直带着')]),
+    )
+    eq(silent.id, marked.id, 're-reporting the same claim updates the same record')
+    eq(silent.standing, true, 'saying nothing about standing leaves a standing rule standing')
+
+    const cleared = await call<{ id: string; standing: boolean }>(
+      'memory_remember',
+      {
+        kind: 'fact', title: '常驻开关', body: '这条规矩要一直带着',
+        quote: '这条规矩要一直带着', standing: false,
+      },
+      agentFor([userMessage('这条规矩要一直带着')]),
+    )
+    eq(cleared.standing, false, 'standing: false takes it back, explicitly and on the same record')
+
     // ── Guard hints: the machine's own facts, offered and not written ───────
     // `docs/DELIVERY-GAPS.md` §27: a safety lesson phrased with example markers was copied into a
     // guard that could not protect the live store. The plugin knows where that store is, so it says

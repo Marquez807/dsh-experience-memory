@@ -25,7 +25,7 @@
 装（把路径换成你手上的 tarball）：
 
 ```sh
-dsh plugin --profile <name> add /path/to/dsh-experience-memory-0.2.0.tgz
+dsh plugin --profile <name> add /path/to/dsh-experience-memory.tgz
 ```
 
 **这一步就够了。** `dsh plugin add` 不只是装依赖——它会把 `dsh.profile.bundles` 与已安装状态**对账**：任何声明了 `dsh.bundle` 的依赖都会被自动追加进 layer stack（见 `@deepseek-ai/dsh` 的 `reconcilePlugins`）。所以不需要手工编辑 profile 的 `package.json`。
@@ -35,10 +35,10 @@ dsh plugin --profile <name> add /path/to/dsh-experience-memory-0.2.0.tgz
 **重启后先看一眼启动日志那一行**（这一行是刻意加的，来由见「已知限制」里那次事故）：
 
 ```
-experience-memory: store <路径> — 285 records, 181 confirmed, 9 anchored
+experience-memory: store <路径> — <记录数> records, <已确认数> confirmed, <带锚点数> anchored
 ```
 
-**确认 `store <路径>` 是不是你预期的那个库。**"空库"和"开错库"从外面看一模一样（都是"什么都查不到"），所以这一行把路径和条数说明白——库开错了就看得出来，不会静默地什么都不告诉你。
+**确认 `store <路径>` 是不是你预期的那个库。**"空库"和"开错库"从外面看一模一样（都是"什么都查不到"），所以这一行把路径和条数说明白——库开错了就看得出来，不会静默地什么都不告诉你。三个数字随库变化，多少都不用管；要警觉的是路径不对，或者 `0 records`。
 
 想在装之前/装完之后确认它是在工作的，用斜杠命令：
 
@@ -374,6 +374,8 @@ agent 直接启动，那一轮白跑。
 | `residentMaxRecords` | `5` | 每段条数上限 |
 | `residentMaxBytes` | `1536` | 整个摘要（所有段合计）的字节硬上限 |
 | `coreMaxRecords` | `2` | 核心层条数上限；`0` 关闭核心层 |
+| `standingMaxRecords` | `3` | 常驻规矩条数上限；`0` 关闭常驻层 |
+| `standingMaxBytes` | `768` | 常驻规矩那一段自己的字节上限（整份摘要仍受 `residentMaxBytes` 约束）。按实测每行最多 240 字节、标签 49 字节，这一段装得下约 3 条短规矩或 2 条长规矩 |
 | `recallMaxBytes` | `16384` | 单次召回字节上限 |
 | `defaultDomain` | `''` | 固定领域；空则推断 |
 | `maintenanceBatchSize` | `32` | 每次维护处理的记录数 |
@@ -395,17 +397,21 @@ agent 直接启动，那一轮白跑。
 | `decisionLossRetirement` | `false` | 是否允许"实测证明不影响结果"的记录因此退役。默认关；且只有**真的测过**（`effect` 不为空）的记录才可能被这条规则退休——没测过不等于没用 |
 | `guardHints` | `true` | 记录写的是**不可撤销的动作**（删库/清空/覆盖）时，`memory_remember` 的返回里附上一条**由框架算出来的**提示：真库路径是哪个、可丢弃范围在哪，好让规则写成"默认拒绝 + 永不动这个文件"，而不是写成"路径含某个词才放行"这种会被真库路径自己满足的清单。**只提议、绝不写入**——记录正文一字不改 |
 
-非法值在**加载期**报错并拒绝启动插件，而不是静默降级。允许为 `0` 的限额只有两个：
-`coreMaxRecords`（0 = 关闭核心层）和 `harvestMaxPerTurn`（0 = 停止采集），
+非法值在**加载期**报错并拒绝启动插件，而不是静默降级。允许为 `0` 的限额只有三个：
+`coreMaxRecords`（0 = 关闭核心层）、`standingMaxRecords`（0 = 关闭常驻层）和
+`harvestMaxPerTurn`（0 = 停止采集），
 其余限额为 0 与「关闭」无法区分，所以最小是 1。
 
 ## 模型的体验（Model Experience）
 
 ### 每轮的经验摘要
 
-请求组装时，插件渲染最多两段：跨项目印证过的领域级经验（核心层，最多 `coreMaxRecords` 条），以及以最近
-两条用户消息为查询检索到的相关经验（查询层，最多 `residentMaxRecords` 条）。**两段共享同一个 1536 字节硬上限**，
-所以实际行数通常由字节预算先决定——按默认配置条数上限是 2+5=7 行。每条一行：`- [id] 标题 — 教训`。
+请求组装时，插件渲染最多三段：**常驻规矩**（写记录时标了 `standing` 的那些，最多 `standingMaxRecords` 条，
+不管这一轮在聊什么都会出现；它自己还有 `standingMaxBytes` 的字节上限）、跨项目印证过的领域级经验
+（核心层，最多 `coreMaxRecords` 条），以及以最近两条用户消息为查询检索到的相关经验
+（查询层，最多 `residentMaxRecords` 条）。**三段共享同一个 1536 字节硬上限**，
+所以实际行数通常由字节预算先决定——按默认配置条数上限是 3+2+5=10 行。每条一行：`- [id] 标题 — 教训`。
+常驻层被它自己的字节上限挡住时，摘要里会**写明"另有 N 条常驻规矩未列出"**并把该调哪个配置说出来——这一层承诺的是"每轮都在"，所以不能悄悄少一条。
 
 它**不是**加在系统提示里的。`ctx.systemPrompt.context` 的贡献由 DSH 合成进「运行时上下文快照」，而该快照是以
 **一条插件来源的消息**（`source.kind === 'plugin'`，plugin 为 `dsh-system-prompt`，form 为 snapshot）投递给模型的。
@@ -676,8 +682,8 @@ node tools/preview.mjs --db <库路径> --cwd <项目根> --query "继续" --que
   | 覆盖 ≥15% 的失败 | **撤掉**，理由见下面那条 |
 
   **代价与边界**：动手前这一层只对"用户说过、文件里查不到"的知识实证有效（见下文「它到底有没有用」）；
-  库里 **163 条可投递记录里只有 10 条声明了锚点**，其余动手前静默——多数讲的是"讨论某项目时"这类没有
-  文件可锚的事，得人工补 `tool:` / `command:` 锚点，**这一步没有自动化**。
+  库里**声明了锚点的永远是少数，而且这个数随库变化**（2026-09-25 在本工作区实测：可投递 234 条，自己声明锚点的 70 条，动手前静默的 107 条；在库所属工作区的根目录跑 `node dsh-experience-memory/tools/anchors.mjs` 可重测），其余动手前静默——多数讲的是"讨论某项目时"这类没有
+  文件可锚的事，得人工补 `tool:` / `command:` 锚点，**这一步没有自动化**——`tools/backfill-anchors.mjs` 只从记录的出处推断 `path:` 锚点，`tool:` / `command:` 仍然要人写。
 - **"覆盖 ≥15% 的失败"这条判据已撤，换成它本来想表达的那句话**："这条经验写下之后，同类事件还犯不犯？"
   撤的理由是实测出来的，不是嫌麻烦：442 次工具失败里 **83% 是工具自己拒绝、并在报错里写着下一步怎么做**
   （`file has not been read` 一类占 49%），没有任何记忆能预防它；而分子需要一个语义判断
@@ -736,12 +742,12 @@ node tools/preview.mjs --db <库路径> --cwd <项目根> --query "继续" --que
 
 ## 关于这份文档
 
-**当前版本 0.2.0（2026-09-23）。** 完整版本记录（每一版改了什么、为什么改、实测数字）见
-[`CHANGELOG.md`](CHANGELOG.md)；`0.2.0` 的关键变化是**投递判据换成"记录自己声明 `recall_for`"**，
+**当前版本 0.4.0（2026-09-25）。** 完整版本记录（每一版改了什么、为什么改、实测数字）见
+[`CHANGELOG.md`](CHANGELOG.md)；`0.3.0` 的关键变化是**写入时把命中过宽的锚点丢掉并写明理由**（外加把"这条经验有没有改变结果"记进 `effect` 字段，默认不参与排序）；`0.2.0` 的关键变化是**投递判据换成"记录自己声明 `recall_for`"**，
 这是行为变更：没声明的记录不再在动手前打断工具调用。
 
 - **README 里的数字是机器核对的，不是手抄的。** `tests/docs.test.ts` 逐格比对配置表的默认值、注册的工具与命令名单、摘要行数上限（2+5=7）、测试套件数、审计产出清单，以及那一行提示的字节数；对不上测试就红。改文档和改代码是同一件事。
 - **对外讲过的每一句硬话都登记在 [`docs/CLAIMS.json`](docs/CLAIMS.json)**：一条一行，写明状态与凭证。`measured` 必须指向仓库里真实存在的检查或产物（`tests/claims.test.ts` 逐个确认文件在不在）；**没跑的东西只能写 `not-run`，而且不许带凭证**；已经讲出去、但仓库里没有可复跑凭证的，如实登记成 `readme-only`——那是待补的债，不是合格状态。
 - **测试按标题逐字定位。** 被钉住的标题是 `## Known Limitations and Deferred Work`、`## 配置`、`## 模型的体验（Model Experience）`、`### 它挂了四个表面`、`#### Token effect`——重命名它们要同时改测试，否则整套检查会找不到锚点而失败（失败，不是静默跳过）。细节见 `docs/DEVELOPING.md` 的「文档与代码对齐」。
-- **一共 22 个套件**，一条命令跑完全部：`pnpm verify`。各套件覆盖什么，见 [`docs/DEVELOPING.md`](docs/DEVELOPING.md) 的「测试」。
+- **一共 23 个套件**，一条命令跑完全部：`pnpm verify`。各套件覆盖什么，见 [`docs/DEVELOPING.md`](docs/DEVELOPING.md) 的「测试」。
 - **构建、打包、启动验收、测试清单与开发环境**在 [`docs/DEVELOPING.md`](docs/DEVELOPING.md)。

@@ -1,5 +1,92 @@
 # Changelog
 
+## 0.4.0 — 2026-09-25
+
+This version adds the one layer the previous two could not be: **a rule carried every turn, whatever
+the turn is about**. It exists because a class of knowledge was being written into the store and
+never delivered, and the reason was structural rather than a tuning problem.
+
+The case, from this workspace's own store (2026-09-25): the user had repeatedly said that every
+session must think and answer in Chinese. Searching all 422 records for it — title, body, lesson and
+trigger, in both languages — found nothing that stated it, and 279 confirmed records were then read
+one by one: about ten of them are *rules* ("report in plain language", "cite which side wrote a
+handoff", "no `Set-Content` when writing files"), and six of those ten had been **hand-copied into
+`AGENTS.md`** by whoever happened to remember. Four were only in the store. Why they never arrived is
+the whole argument for this version:
+
+- the **resident layer is query-gated**, so a rule with no trigger word shares no term with
+  「帮我看看这个仓库」, and no ranking change can fix an empty intersection;
+- the **core layer** is not query-gated, but requires two independent workspaces to have reported
+  the same thing, which a personal rule never will;
+- the **just-before-acting layer** needs a declared anchor (`path:` / `tool:` / `command:`), and
+  "always answer in Chinese" has none — an anchor for it would be a guess that fires everywhere.
+
+So `memory_remember` gains **`standing`**, and the digest gains a section that renders first:
+
+```
+经验记忆（常驻规矩，每轮必带）：
+- [<id>] 所有会话一律用简体中文回答 — 一律用中文
+```
+
+**What the flag does, and what it deliberately does not:**
+
+- It **skips the query gate and nothing else.** A standing record still needs `confirmed` status, a
+  `verified-*` grade and the resident importance before it appears — so an `inferred` guess marked
+  standing stays a candidate and stays silent. Skipping the grade gate too would have made
+  "always-on" reachable by any unverifiable claim, which is the one property this framework exists
+  to prevent. `tests/standing.test.ts` pins both halves.
+- It is **bounded twice**: `standingMaxRecords` (default 3) and, on the section itself,
+  `standingMaxBytes` (default 768). The section shares the existing 1536-byte digest budget rather
+  than growing the prompt, and its own ceiling is what stops one long rule from eating the layer
+  that answers the turn in front of the reader. `0` switches the layer off without touching a record.
+  **768 rather than 512 because the real store measured the first number as wrong**: rendered lines
+  cap at 240 bytes and the label costs 49, so 512 held exactly *one* real rule — a layer that could
+  not hold the rules it exists for. 768 holds three short rules or two long ones.
+- It changes **when** a record appears, never **who sees it**: visibility is unchanged, so a
+  workspace-scoped rule is still invisible in another workspace. Cross-workspace rules stay the
+  user-level `AGENTS.md`'s job, or need `scope: domain`.
+- A rule that the section ceiling left out is **stated, not silently dropped**: the digest appends
+  「另有 N 条常驻规矩被这一段 768 字节的上限挡住，未列出」and names the setting to raise. The
+  query-matched layer dropping its tail is ordinary ranking; a standing rule dropping out is a
+  configuration problem, and this is the one layer whose whole claim is "present every turn".
+- A record that qualifies for two sections is printed **once**, under the strongest claim:
+  standing > core > query-matched.
+- `memory_remember` returns the **effective** state, not the requested one: a record marked standing
+  whose grade is `inferred` answers `standing: false`, so a caller finds out immediately instead of
+  assuming the rule is now in force.
+- Saying nothing about `standing` on a later report **leaves it as it was**. The first build collapsed
+  an omitted parameter into `false` (`args.standing === true`), which demoted a standing rule every
+  time anybody re-reported it — silently, because every other field came back unchanged and only the
+  always-on behaviour quietly stopped. Found while re-reading the write path after the real-model run,
+  pinned by three assertions in `tests/plugin.test.ts` (mark → silence → explicit take-back).
+
+**Schema 8** adds `record.standing` (`INTEGER NOT NULL DEFAULT 0`). Existing rows default to 0, which
+is the only honest reading — nothing written before the flag existed was ever declared a rule, and
+back-filling it by looking for imperatives in the body would be inventing a decision nobody made.
+The column is added by inspection (`addMissingColumns`), so an existing store gains it on open.
+
+**Verified**: 23 suites, 1172 assertions. The new suite is written as pairs — the same row with and
+without the flag, produce and produce-nothing; the caps at their defaults and lowered; a rule that is
+also query-matched appearing once; an older store (column dropped, `user_version = 7`) re-migrating to
+8 with its records intact and not-standing.
+
+**Verified on a real model too** (2026-09-25, after the desktop app restarted onto this build): an
+isolated workspace whose task shares no word with the rule, 24 headless turns on
+`deepseek-official/deepseek-flash`, judged from the produced file's first line only —
+**standing 6/6 versus 0/18 across the other three arms** (empty store, the same record unmarked, an
+unrelated standing record), Fisher exact two-sided **p = 0.000007**. The harness, the raw rows and the
+arithmetic are in `tools/standing-ab/`. Unit tests could only ever show that the line reaches the
+prompt; this shows the model then acts on it, and that neither the environment nor "any standing
+record" produces the same behaviour.
+
+**Not verified, stated rather than implied**: that a model *writes* the flag well — nothing here
+measures whether a writer marks the right records standing, and the default of 3 means a store that
+marks everything standing is a store where the layer says nothing; that the flag helps for a rule
+which is a judgement rather than a format (the real-model run covers one rule, one task, one turn);
+and whether the layer is ever *ignored* — the run shows a rule being followed, not what happens to a
+rule a model decides to disobey. The classification rule this version implements is written down in
+the workspace at `F:\dsh主工作区\记忆分类标准-常驻与触发-20260925.md`.
+
 ## 0.3.0 — 2026-09-24
 
 This version is about the two things 0.2.0 could not do: **stop one record from owning the hint

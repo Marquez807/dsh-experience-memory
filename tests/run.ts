@@ -13,6 +13,7 @@ import { run as effect } from './effect.test.ts'
 import { run as guardHints } from './guard-hints.test.ts'
 import { run as db } from './db.test.ts'
 import { run as retrieve } from './retrieve.test.ts'
+import { run as standing } from './standing.test.ts'
 import { run as domain } from './domain.test.ts'
 import { run as evidence } from './evidence.test.ts'
 import { run as lifecycle } from './lifecycle.test.ts'
@@ -38,6 +39,7 @@ const suites: ReadonlyArray<readonly [string, () => void | Promise<void>]> = [
   ['guardHints', guardHints],
   ['db', db],
   ['retrieve', retrieve],
+  ['standing', standing],
   ['domain', domain],
   ['evidence', evidence],
   ['lifecycle', lifecycle],

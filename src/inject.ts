@@ -54,6 +54,24 @@ export const RESIDENT_HEADER = '经验记忆（按重要性排序）：'
 export interface DigestSection {
   label: string
   ranked: readonly RankedRecord[]
+  /**
+   * Ceiling for this section alone, counted from wherever the digest has already reached.
+   *
+   * The standing layer uses it. Standing rules are carried every turn by design, so one long
+   * rule must not be able to eat the whole shared budget and silence the layer that answers the
+   * turn in front of it — the guarantee has to stay a re-allocation, not a takeover.
+   */
+  maxBytes?: number
+  /**
+   * Text appended under this section when entries were left out — the difference between a
+   * silent truncation and a stated one.
+   *
+   * Only the standing layer passes it, and for a specific reason: its entries carry a promise
+   * the other layers never make ("this is carried every turn"), so dropping one in silence
+   * breaks that promise invisibly. The query-matched layer dropping its tail is ordinary
+   * ranking; a standing rule dropping out is a configuration problem the reader should see.
+   */
+  overflow?: (dropped: number) => string
 }
 
 /**
@@ -79,18 +97,33 @@ export function renderDigest(sections: readonly DigestSection[], options: Reside
     if (section.ranked.length === 0) continue
     const lines: string[] = []
     let sectionUsed = byteLength(section.label) + 1
+    // A section without its own ceiling is bounded by the shared budget, exactly as before.
+    const ceiling = section.maxBytes === undefined
+      ? options.maxBytes
+      : Math.min(options.maxBytes, used + section.maxBytes)
 
     for (const entry of section.ranked.slice(0, options.maxRecords)) {
       const { record } = entry
       const detail = record.lesson !== '' ? record.lesson : record.body
       const line = truncateToBytes(`- [${record.id}] ${record.title} — ${detail}`, RESIDENT_LINE_BYTES)
       const cost = byteLength(line) + 1
-      if (used + sectionUsed + cost > options.maxBytes) break
+      if (used + sectionUsed + cost > ceiling) break
       lines.push(line)
       sectionUsed += cost
     }
 
     if (lines.length === 0) continue
+    const dropped = section.ranked.length - lines.length
+    if (dropped > 0 && section.overflow !== undefined) {
+      const note = section.overflow(dropped)
+      const cost = byteLength(note) + 1
+      // Stated only when it fits the shared budget: a note about a byte ceiling must not itself
+      // be the thing that pushes a record out.
+      if (used + sectionUsed + cost <= options.maxBytes) {
+        lines.push(note)
+        sectionUsed += cost
+      }
+    }
     blocks.push([section.label, ...lines].join('\n'))
     used += sectionUsed
   }

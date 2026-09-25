@@ -282,11 +282,15 @@ export async function run(): Promise<void> {
     // section that makes the promise, because a token found anywhere proves
     // nothing — the first version of this check missed a reinstated false claim
     // exactly that way.
-    const ceiling = `${resolved.coreMaxRecords}+${resolved.residentMaxRecords}=${resolved.coreMaxRecords + resolved.residentMaxRecords}`
+    // Three sections since 0.4.0: standing + core + query-matched. The standing layer was added
+    // precisely because the other two cannot carry a rule with no trigger word, so leaving it out
+    // of this sum would have let the README describe a digest that no longer exists.
+    const ceiling = `${resolved.standingMaxRecords}+${resolved.coreMaxRecords}+${resolved.residentMaxRecords}`
+      + `=${resolved.standingMaxRecords + resolved.coreMaxRecords + resolved.residentMaxRecords}`
     const experience = sectionOf(readmeZh, SECTION_ANCHORS.experience)
     assert(experience.includes(ceiling),
       `the README's Model Experience section states the digest ceiling as ${ceiling} records,`
-      + ' which is coreMaxRecords + residentMaxRecords')
+      + ' which is standingMaxRecords + coreMaxRecords + residentMaxRecords')
     // The record ceiling is per section, so a *combined* record cap is always the
     // wrong shape regardless of the number in it. This is the specific claim that
     // was false, pinned as a forbidden phrasing rather than a remembered number.
@@ -317,6 +321,24 @@ export async function run(): Promise<void> {
     }
     eq(JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version as string, versionNames[0],
       'package.json version is the changelog\'s newest version, so updating one side alone cannot drift')
+
+    // ── The README says which version it documents ─────────────────────────
+    // Only the package.json ↔ changelog pair was pinned, so the one line a reader looks at
+    // first drifted a whole release behind: both READMEs said 0.2.0 while package.json and the
+    // changelog said 0.3.0, and nothing failed (found 2026-09-25). A reader deciding whether to
+    // upgrade reads that line, so it is pinned here the same way the package version is.
+    const newest = versions[0]
+    assert(newest, 'the changelog has a newest version to compare the READMEs against')
+    const current = versionNames[0] as string
+    const currentDate = newest![2] as string
+    const zh = /当前版本\s*(\d+\.\d+\.\d+)（(\d{4}-\d{2}-\d{2})）/.exec(readmeZh)
+    assert(zh, 'README.md states the current version with its date, in full-width parentheses')
+    eq(zh![1], current, 'README.md\'s current version is package.json\'s version')
+    eq(zh![2], currentDate, 'README.md\'s version date is the changelog\'s newest date')
+    const en = /Current version\s*(\d+\.\d+\.\d+)\s*\((\d{4}-\d{2}-\d{2})\)/.exec(readmeEn)
+    assert(en, 'README.en.md states the current version with its date, in half-width parentheses')
+    eq(en![1], current, 'README.en.md\'s current version is package.json\'s version')
+    eq(en![2], currentDate, 'README.en.md\'s version date is the changelog\'s newest date')
 
     // `recall_for` is the one parameter whose absence changes observable behaviour: an
     // undeclared record is not delivered just before a tool call. Both READMEs have to say

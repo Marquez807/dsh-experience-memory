@@ -16,10 +16,24 @@
     },
     {
       "id": "digest.line-ceiling",
-      "claim": "常驻摘要最多 7 条：核心层 2 条 + 查询层 5 条",
+      "claim": "常驻摘要最多 10 条：常驻规矩 3 条 + 核心层 2 条 + 查询层 5 条",
       "status": "measured",
-      "evidence": ["tests/docs.test.ts"],
-      "note": "README 里写的是同一个算式 2+5=7，测试比对的是配置里的真实上限。"
+      "evidence": ["tests/docs.test.ts", "tests/standing.test.ts"],
+      "note": "README 里写的是同一个算式 3+2+5=10，测试比对的是配置里的真实上限（三段的条数上限相加）。"
+    },
+    {
+      "id": "standing.carried-every-turn",
+      "claim": "标了 standing 的规矩每轮都进上下文，不看这一轮在聊什么；同一条记录不标就不进",
+      "status": "measured",
+      "evidence": ["tests/standing.test.ts", "src/digest.ts"],
+      "note": "同一个库、同一个与规矩毫无共同词的查询，只差一个布尔值：标了出现、没标整份摘要为空（正反对照）。跳过的只有查询闸门——证据等级与 resident 分数线照旧，inferred 标了也进不去。"
+    },
+    {
+      "id": "standing.model-follows-it",
+      "claim": "真模型回合里，标了常驻的规矩会被照做：6/6，而空库/不标常驻/无关常驻三臂合计 0/18（Fisher 双侧 p = 0.000007）",
+      "status": "measured",
+      "evidence": ["tools/standing-ab/README.md", "tools/standing-ab/results.jsonl", "tools/standing-ab/stats.mjs"],
+      "note": "24 个隔离真回合（deepseek-official/deepseek-flash），任务与规矩毫无共同词，判定只看产物文件第一行。只测了一条规矩、一个任务；会话日志读不到注入内容，所以『送达』是行为对照推出来的，不是直接读出来的。"
     },
     {
       "id": "runtime.zero-third-party-deps",

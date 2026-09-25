@@ -16,7 +16,7 @@ import { tokenize } from './tokenize.ts'
 import type { Evidence, Kind, MemoryRecord, Scope, Status } from './types.ts'
 
 /** Bumped whenever a migration below changes the schema. */
-export const SCHEMA_VERSION = 7
+export const SCHEMA_VERSION = 8
 
 /** `$DSH_HOME/experience-memory/memory.db`, with `~/.dsh` as the documented fallback. */
 export function defaultDbPath(): string {
@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS record (
   origin              TEXT NOT NULL DEFAULT 'model',
   harvest_signal      TEXT,
   effect              REAL,
+  standing            INTEGER NOT NULL DEFAULT 0,
   embedding           BLOB
 );
 -- Identity is per scope, and the two scopes identify differently. A
@@ -207,6 +208,10 @@ export function migrate(db: DatabaseSync): void {
     // would have claimed 300-odd measurements that never happened, and the decision-loss rule
     // would then have been entitled to retire every one of them.
     effect: 'REAL',
+    // Schema 8. Defaults to 0 on every existing row, which is the only honest reading: nothing
+    // written before this flag existed was ever declared a standing rule, and back-filling it
+    // from anything (kind, imperatives in the body) would be inventing a decision nobody made.
+    standing: 'INTEGER NOT NULL DEFAULT 0',
   })
   // Schema 5 added a column to a table that may already exist, for the same reason as above:
   // `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it was. Rows that predate
@@ -279,6 +284,7 @@ interface Row {
   origin: string
   harvest_signal: string | null
   effect: number | null
+  standing: number
   distinct_workspaces: number
   created_at: number
   occurred_at: number
@@ -316,6 +322,7 @@ export function toRecord(row: Row): MemoryRecord {
     origin: row.origin === 'harvest' ? 'harvest' : 'model',
     harvestSignal: row.harvest_signal,
     effect: row.effect ?? null,
+    standing: row.standing === 1,
     distinctWorkspaces: row.distinct_workspaces,
     createdAt: row.created_at,
     occurredAt: row.occurred_at,
@@ -345,8 +352,8 @@ export function upsert(db: DatabaseSync, record: MemoryRecord): void {
       retrieve_count, last_retrieved_at,
       created_at, occurred_at, updated_at, last_used_at, review_after, expires_at,
       content_fingerprint, superseded_by, needs_review
-      , origin, harvest_signal, effect
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      , origin, harvest_signal, effect, standing
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       workspace_id=excluded.workspace_id, domain=excluded.domain, scope=excluded.scope,
       kind=excluded.kind, status=excluded.status, evidence=excluded.evidence,
@@ -360,7 +367,8 @@ export function upsert(db: DatabaseSync, record: MemoryRecord): void {
       review_after=excluded.review_after, expires_at=excluded.expires_at,
       content_fingerprint=excluded.content_fingerprint, superseded_by=excluded.superseded_by,
       needs_review=excluded.needs_review,
-      origin=excluded.origin, harvest_signal=excluded.harvest_signal, effect=excluded.effect
+      origin=excluded.origin, harvest_signal=excluded.harvest_signal, effect=excluded.effect,
+      standing=excluded.standing
   `).run(
     record.id, record.workspaceId, record.domain, record.scope, record.kind, record.status, record.evidence,
     record.title, record.body, record.trigger, record.failureMode, record.lesson, record.sourceRef,
@@ -372,6 +380,10 @@ export function upsert(db: DatabaseSync, record: MemoryRecord): void {
     record.createdAt, record.occurredAt, record.updatedAt, record.lastUsedAt, record.reviewAfter, record.expiresAt,
     record.contentFingerprint, record.supersededBy, record.needsReview,
     record.origin ?? 'model', record.harvestSignal ?? null, record.effect ?? null,
+    // `=== true` rather than `? 1 : 0`: the type says this field exists, but a hand-built record
+    // reaching here without it is a real case in this project's own tests, and the bind is the
+    // last place that can fail softly instead of throwing "cannot be bound to parameter 33".
+    record.standing === true ? 1 : 0,
   )
   db.prepare('DELETE FROM record_fts WHERE id = ?').run(record.id)
   db.prepare('INSERT INTO record_fts VALUES (?,?,?,?,?,?)').run(record.id, ...indexRow(record))
@@ -480,6 +492,34 @@ export function domainCoreRecords(
     + ' AND superseded_by IS NULL AND (expires_at IS NULL OR expires_at > ?)'
     + ' ORDER BY success_count DESC, updated_at DESC LIMIT ?',
   ).all('domain', domain, 'confirmed', now, limit) as Row[]
+  return rows.map(toRecord)
+}
+
+/**
+ * Standing rules visible to one workspace, selected without a query term.
+ *
+ * This is the set the every-turn digest carries unconditionally. `standing` is a fact the
+ * *writer* asserted, not one this query infers: a rule like "always answer in Chinese" shares no
+ * term with any request, so no amount of ranking would ever surface it.
+ *
+ * Visibility follows the ordinary rule — a workspace-scoped record belongs to its workspace, a
+ * domain-scoped one to every workspace resolving to that domain — so this flag changes *when* a
+ * record appears, never *who* can see it. Ordering here is a cheap pre-ranking; the real ordering
+ * is {@link rank.importance}, applied by the caller.
+ */
+export function standingRecords(
+  db: DatabaseSync,
+  workspaceId: string,
+  domain: string,
+  now: number,
+  limit: number,
+): MemoryRecord[] {
+  const rows = db.prepare(
+    'SELECT * FROM record WHERE standing = 1 AND status = ?'
+    + ' AND superseded_by IS NULL AND (expires_at IS NULL OR expires_at > ?)'
+    + ' AND ((scope = ? AND workspace_id = ?) OR (scope = ? AND domain = ?))'
+    + ' ORDER BY success_count DESC, updated_at DESC LIMIT ?',
+  ).all('confirmed', now, 'workspace', workspaceId, 'domain', domain, limit) as Row[]
   return rows.map(toRecord)
 }
 

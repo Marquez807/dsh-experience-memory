@@ -14,7 +14,7 @@
  * by chance and new memories had an `8/n` chance of appearing. Ordering is now
  * {@link rank.importance}, and it lives in one function.
  */
-import { domainCoreRecords, searchRecords } from './db.ts'
+import { domainCoreRecords, searchRecords, standingRecords } from './db.ts'
 import type { DatabaseSync } from 'node:sqlite'
 import { compareRanked, eligibleForResident, explain, importance } from './rank.ts'
 import { identifierKey, identifiers, lexicalQueryTerms, matchExpression, tokenize } from './tokenize.ts'
@@ -28,6 +28,9 @@ export const CANDIDATE_LIMIT = 512
 
 /** Candidate ceiling for the core pass, which also ranks in memory. */
 export const CORE_CANDIDATE_LIMIT = 128
+
+/** Candidate ceiling for the standing pass, which also ranks in memory. */
+export const STANDING_CANDIDATE_LIMIT = 128
 
 /**
  * Distinct workspaces a record needs before it may be injected unconditionally.
@@ -215,6 +218,52 @@ export function retrieve(db: DatabaseSync, input: RetrieveInput): RetrieveResult
       }
     }
 
+    ranked.push(entry)
+  }
+
+  ranked.sort(compareRanked)
+  if (ranked.length > input.limit) {
+    for (const _ of ranked.slice(input.limit)) drop('limit')
+    ranked.length = input.limit
+  }
+  return { ranked, excluded }
+}
+
+export interface StandingInput {
+  workspaceId: string
+  domain: string
+  now: number
+  limit: number
+}
+
+/**
+ * The standing pass: rules carried every turn, whatever the turn is about.
+ *
+ * Why this exists, stated as the two layers it is not:
+ *
+ *   - the resident layer is query-gated, so a rule with no trigger word never arrives — "always
+ *     answer in Chinese" shares no term with "帮我看看这个仓库", and no ranking change can fix
+ *     that, because there is nothing to match on;
+ *   - the core layer is not query-gated, but it requires two independent workspaces to have
+ *     reported the same thing, which a personal rule will never have.
+ *
+ * What makes it safe is that it adds no new *kind* of trust: `standing` skips the query gate and
+ * nothing else. The same bar as the resident layer still applies per record — `confirmed`, a
+ * `verified-*` grade, not expired, and at least the resident importance — so an `inferred` guess
+ * can never become always-on, and a caller caps both the slots and the bytes.
+ */
+export function retrieveStanding(db: DatabaseSync, input: StandingInput): RetrieveResult {
+  const excluded: Record<string, number> = {}
+  const drop = (reason: string): void => {
+    excluded[reason] = (excluded[reason] ?? 0) + 1
+  }
+
+  const ranked: RankedRecord[] = []
+  for (const record of standingRecords(
+    db, input.workspaceId, input.domain, input.now, STANDING_CANDIDATE_LIMIT,
+  )) {
+    const entry = rankOne(record, [], input.now)
+    if (!eligibleForResident(record, entry.importance, input.now)) { drop('grade'); continue }
     ranked.push(entry)
   }
 

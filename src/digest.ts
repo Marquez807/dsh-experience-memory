@@ -14,7 +14,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import type { ResolvedConfig } from './config.ts'
 import { resolveWorkspace } from './domain.ts'
 import { renderDigest, renderRecall, renderResident } from './inject.ts'
-import { retrieve, retrieveCore } from './retrieve.ts'
+import { retrieve, retrieveCore, retrieveStanding } from './retrieve.ts'
 import { eventsOf } from './session.ts'
 import type { AgentLike } from './types.ts'
 
@@ -30,6 +30,14 @@ export type { AgentLike }
  */
 export const CORE_LABEL = '经验记忆（领域通用，已由多个项目独立印证）：'
 export const MATCHED_LABEL = '经验记忆（与本轮相关）：'
+/**
+ * Header for the standing layer: rules carried every turn.
+ *
+ * Separate from the core label on purpose. "Two projects agreed on this" and "the writer said
+ * this is a rule" are different claims, and a reader deciding whether to obey a line is entitled
+ * to know which one it is.
+ */
+export const STANDING_LABEL = '经验记忆（常驻规矩，每轮必带）：'
 
 /**
  * The standing instruction that makes recording happen at all.
@@ -223,6 +231,18 @@ export function buildDigest(input: DigestInput): string {
   const { db, config, workspace, query, now } = input
   const budget = { maxRecords: config.residentMaxRecords, maxBytes: config.residentMaxBytes }
 
+  // The standing layer: rules the writer marked as always-on. Read without a query term, because
+  // the whole point of the flag is that a rule like "always answer in Chinese" has no term to
+  // match. Capped on its own (`standingMaxBytes`) so the guarantee cannot take over the budget.
+  const standing = config.standingMaxRecords > 0
+    ? retrieveStanding(db, {
+      workspaceId: workspace.id,
+      domain: workspace.domain,
+      now,
+      limit: config.standingMaxRecords,
+    }).ranked
+    : []
+
   // The query-matched layer. Query-gated by design, so it empties when the turn
   // carries no term to match — which is most short replies.
   const { ranked } = retrieve(db, {
@@ -241,13 +261,37 @@ export function buildDigest(input: DigestInput): string {
     ? retrieveCore(db, { domain: workspace.domain, now, limit: config.coreMaxRecords }).ranked
     : []
 
-  if (core.length === 0) return renderResident(ranked, budget)
+  // A record can qualify for more than one section, and must not be shown twice. Precedence is
+  // standing > core > matched, which is also the order they render in: the strongest statement
+  // about *when* a record should appear wins.
+  const shown = new Set<string>()
+  const take = (entries: readonly RankedRecord[]): RankedRecord[] =>
+    entries.filter((entry) => {
+      if (shown.has(entry.record.id)) return false
+      shown.add(entry.record.id)
+      return true
+    })
+  const standingSection = take(standing)
+  const coreSection = take(core)
+  const matchedSection = ranked.filter(entry => !shown.has(entry.record.id))
 
-  // A record can be both, and must not be shown twice.
-  const coreIds = new Set(core.map(entry => entry.record.id))
+  if (standingSection.length === 0 && coreSection.length === 0) {
+    return renderResident(matchedSection, budget)
+  }
+
   return renderDigest([
-    { label: CORE_LABEL, ranked: core },
-    { label: MATCHED_LABEL, ranked: ranked.filter(entry => !coreIds.has(entry.record.id)) },
+    {
+      label: STANDING_LABEL,
+      ranked: standingSection,
+      maxBytes: config.standingMaxBytes,
+      // Said out loud rather than truncated in silence: this layer is the one that promised to be
+      // present every turn, so a rule that did not make it has to be visible, with the knob to fix it.
+      overflow: dropped =>
+        `（另有 ${dropped} 条常驻规矩被这一段 ${config.standingMaxBytes} 字节的上限挡住，未列出；`
+        + '要都带上就把 standingMaxBytes 调大）',
+    },
+    { label: CORE_LABEL, ranked: coreSection },
+    { label: MATCHED_LABEL, ranked: matchedSection },
   ], budget)
 }
 

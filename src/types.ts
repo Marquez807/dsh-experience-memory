@@ -96,6 +96,20 @@ export interface MemoryRecord {
    * retired by it unless the corresponding switch is turned on.
    */
   effect: number | null
+  /**
+   * Whether this record is a standing rule: carried every turn, whatever the turn is about.
+   *
+   * The resident digest is query-gated, so a rule with no trigger word — "always answer in
+   * Chinese" — shares no term with any request and is never delivered; the core layer cannot
+   * carry it either, because it needs two independent workspaces to have reported the same
+   * thing and a personal rule is not a project habit. This flag is the writer saying *when* the
+   * record should appear instead of the reader inferring it from *what the record is about*.
+   *
+   * It is not a bypass: a standing record still needs `confirmed` status, a `verified-*` grade,
+   * and the resident importance bar, so a guess can never become always-on. Its only effect is
+   * to skip the query gate.
+   */
+  standing: boolean
 }
 
 /** A record plus the ranking facts computed for one retrieval. */

@@ -25,7 +25,7 @@ Domain-scoped long-term experience memory for DeepSeek Harness: it tells weight 
 Install it (point the path at the tarball you have):
 
 ```sh
-dsh plugin --profile <name> add /path/to/dsh-experience-memory-0.2.0.tgz
+dsh plugin --profile <name> add /path/to/dsh-experience-memory.tgz
 ```
 
 **That is the whole step.** `dsh plugin add` does more than install a dependency — it **reconciles** `dsh.profile.bundles` with what is actually installed: any dependency declaring `dsh.bundle` is appended to the layer stack automatically (see `reconcilePlugins` in `@deepseek-ai/dsh`). No hand-editing of the profile's `package.json`.
@@ -35,10 +35,10 @@ Then restart the app. **Zero configuration**: it works with no config at all —
 **After the restart, look at one line of the startup log** (that line exists on purpose; the incident it comes from is in Known Limitations):
 
 ```
-experience-memory: store <path> — 285 records, 181 confirmed, 9 anchored
+experience-memory: store <path> — <records> records, <confirmed> confirmed, <anchored> anchored
 ```
 
-**Check that `store <path>` is the store you expect.** An *empty* store and a *wrong* store look identical from outside — both answer every query with nothing — so this line states the path and the count, and a mis-resolved store is visible instead of silently telling you nothing.
+**Check that `store <path>` is the store you expect.** An *empty* store and a *wrong* store look identical from outside — both answer every query with nothing — so this line states the path and the count, and a mis-resolved store is visible instead of silently telling you nothing. The three numbers move with the store and none of them is a target; what matters is a path you did not expect, or `0 records`.
 
 To confirm it is working, use the slash commands:
 
@@ -330,6 +330,8 @@ Why auditing and importing are not given to the model: they scan arbitrary direc
 | `residentMaxRecords` | `5` | per-section record ceiling |
 | `residentMaxBytes` | `1536` | hard byte ceiling for the whole digest (all sections together) |
 | `coreMaxRecords` | `2` | core-layer record ceiling; `0` turns the core layer off |
+| `standingMaxRecords` | `3` | standing-rule ceiling; `0` turns the standing layer off |
+| `standingMaxBytes` | `768` | byte ceiling for the standing section alone (the whole digest still respects `residentMaxBytes`); measured, that holds about three short rules or two long ones (lines cap at 240 bytes, the label costs 49) |
 | `recallMaxBytes` | `16384` | per-recall byte ceiling |
 | `defaultDomain` | `''` | fixed domain; empty means infer it |
 | `maintenanceBatchSize` | `32` | records processed per maintenance pass |
@@ -351,13 +353,13 @@ Why auditing and importing are not given to the model: they scan arbitrary direc
 | `decisionLossRetirement` | `false` | whether a record a deletion test measured as not changing the outcome may be retired for that reason. Off by default, and only a record that was **actually measured** (`effect` not null) can be retired this way — unmeasured is not the same as useless |
 | `guardHints` | `true` | when a record describes an action that cannot be undone (wiping/clearing/overwriting), `memory_remember` answers with a **computed** line: which file the live store is, and where throwaway stores may live, so the rule can read "refuse by default, never touch this file" instead of a marker list the real store's own path may satisfy. **Proposed, never written** — the record's text is stored unchanged |
 
-An invalid value raises **at load time** and refuses to start the plugin instead of degrading silently. Exactly two limits may be `0`: `coreMaxRecords` (0 = core layer off) and `harvestMaxPerTurn` (0 = stop harvesting). For every other limit, 0 is indistinguishable from "off", so the minimum is 1.
+An invalid value raises **at load time** and refuses to start the plugin instead of degrading silently. Exactly three limits may be `0`: `coreMaxRecords` (0 = core layer off), `standingMaxRecords` (0 = standing layer off) and `harvestMaxPerTurn` (0 = stop harvesting). For every other limit, 0 is indistinguishable from "off", so the minimum is 1.
 
 ## Model Experience
 
 ### The per-turn experience digest
 
-When a request is assembled, the plugin renders at most two sections: domain-level experience corroborated across projects (the core layer, at most `coreMaxRecords` records), and relevant experience retrieved with the last two user messages as the query (the query layer, at most `residentMaxRecords` records). **Both sections share the one 1536-byte hard ceiling**, so the real line count is usually decided by the byte budget first — under the shipped configuration the record ceiling is 2+5=7 lines. One line per record: `- [id] 标题 — 教训`.
+When a request is assembled, the plugin renders at most three sections: **standing rules** (records written with `standing`, at most `standingMaxRecords`, carried whatever the turn is about, with their own `standingMaxBytes` ceiling), domain-level experience corroborated across projects (the core layer, at most `coreMaxRecords` records), and relevant experience retrieved with the last two user messages as the query (the query layer, at most `residentMaxRecords` records). **All three share the one 1536-byte hard ceiling**, so the real line count is usually decided by the byte budget first — under the shipped configuration the record ceiling is 3+2+5=10 lines. One line per record: `- [id] 标题 — 教训`. When the standing section is cut by its own byte ceiling, the digest **says how many rules were left out** and names the setting to raise: this is the layer that promised to be present every turn, so it may not quietly lose one.
 
 It is **not** added to the system prompt. The contribution of `ctx.systemPrompt.context` is composed by DSH into the "runtime context snapshot", and that snapshot is delivered to the model as **a plugin-sourced message** (`source.kind === 'plugin'`, plugin `dsh-system-prompt`, form snapshot). That is not a detail: precisely because this text travels the same channel as the user's words, the plugin's query derivation and evidence grading **must both skip plugin-sourced messages** (one place each in `src/digest.ts` and `src/evidence.ts`), otherwise the digest would be read back as something the user said and the same few memories would reinforce themselves — the road Mem0's production store took to 97.8% noise. Both skips are verified against real session logs.
 
@@ -578,7 +580,7 @@ It loads the built `lib/`, so it doubles as a check that the shipped artefact be
   | per-turn fixed cost unchanged | **unchanged** — the 204-byte line is still 204 bytes |
   | covers ≥15% of failures | **retired** — see the next entry |
 
-  **The cost and the boundary**: this layer is empirically effective only for **knowledge that lives in a conversation and not in a file** (see "Does it actually work" above), and of **163 deliverable records only 10 declare an anchor** — the rest stay silent just before an action, most of them about things with no file to anchor to, so `tool:` / `command:` anchors have to be written by hand. **There is no automation for that step.**
+  **The cost and the boundary**: this layer is empirically effective only for **knowledge that lives in a conversation and not in a file** (see "Does it actually work" above), and of **how many declare an anchor, which moves with the store** (measured in this workspace on 2026-09-25: 234 deliverable records, 70 declaring one, 107 silent; re-measure with `node dsh-experience-memory/tools/anchors.mjs` from the root of the workspace the store belongs to) — the rest stay silent just before an action, most of them about things with no file to anchor to, so `tool:` / `command:` anchors have to be written by hand. **There is no automation for that step** — `tools/backfill-anchors.mjs` only derives `path:` anchors from what a record already cites, and `tool:` / `command:` anchors are still written by hand.
 - **The "covers ≥15% of failures" criterion is retired, and replaced with the question it was standing in for**: "does this class of mistake still happen after the lesson was written?" The reason is measured, not convenience: of 442 tool failures, **83% are the harness's own guard refusing a call and stating the next step in the error text** (`file has not been read` alone is 49%), and no memory can prevent that. The numerator needs a semantic judgement ("should this record have prevented this failure"), which this framework deliberately does not make — even a word-overlap proxy assigned a data-source independence rule to a "tool call aborted" failure, the same defect recurring one layer up. The only way to hit the bar would be to anchor "read the file before editing" on `edit`, which is 28.3% of all calls — fourteen times over the trigger budget. That is cheating, not coverage. The replacement question **can** be answered from what is already here: `failure_shape` counts occurrences by shape with their times, `delivery` records what was shown, and `tools/prevention-ledger.mjs` produces the four-way account. The measurements and the reasoning are in [`docs/DELIVERY-GAPS.md`](docs/DELIVERY-GAPS.md) §5 (including the 2026-09-23 13:00 retirement entry), §15 and §20.
 - **Type annotations are never checked.** The build only strips them and the toolchain has no `tsc` (zero build dependencies is deliberate), so a type inconsistency is never discovered by any step — a wrong annotation is deleted as-is, runtime behaviour is unaffected, and not even the tests notice. Types here are documentation for people to read, not a verified contract. Adding a gate means adding a TypeScript dependency, which conflicts with "zero build-time dependencies"; that is a known trade-off, and it is written down here.
 - **The relevance gate makes "function words only" matches miss.** The resident layer requires an identifier hit or one shared content word, so a reply containing only 「这个/可以」 brings back no records even when one is genuinely relevant. The mitigation is on-demand retrieval: `memory_recall` is not subject to that gate.
@@ -604,10 +606,10 @@ It loads the built `lib/`, so it doubles as a check that the shipped artefact be
 
 ## About this document
 
-**Current version 0.2.0 (2026-09-23).** The full version record — what each version changed, why, and the measurements behind it — is in [`CHANGELOG.md`](CHANGELOG.md). The key change in `0.2.0` is **the delivery rule moving to a record declaring its own `recall_for` anchors**, which is a behaviour change: a record that declares none no longer interrupts a tool call just before it acts.
+**Current version 0.4.0 (2026-09-25).** The full version record — what each version changed, why, and the measurements behind it — is in [`CHANGELOG.md`](CHANGELOG.md). The key change in `0.3.0` is **refusing an anchor whose measured hit count is too broad, and naming it in `anchors_refused`** (plus `effect`, which is recorded but does not rank by default); the key change in `0.2.0` is **the delivery rule moving to a record declaring its own `recall_for` anchors**, which is a behaviour change: a record that declares none no longer interrupts a tool call just before it acts.
 
 - **The numbers in the READMEs are checked by machine, not copied by hand.** `tests/docs.test.ts` compares the config table value by value, the registered tool and command names, the digest line ceiling (2+5=7), the suite count, the audit output list and the byte size of that guidance line; any disagreement fails the suite. Changing the docs and changing the code are the same act here.
 - **Every hard statement made in public is registered in [`docs/CLAIMS.json`](docs/CLAIMS.json)**: one row per claim, with its status and its evidence. `measured` must point at a check or artifact that really exists in the repository (`tests/claims.test.ts` confirms each path), something that was never run may only say `not-run` and **must not carry evidence**, and a statement already made in public without a reproducible artifact here is recorded honestly as `readme-only` — that is a debt to pay, not a passing grade.
 - **The tests locate sections by exact heading text.** The pinned headings are `## Known Limitations and Deferred Work`, `## 配置`, `## 模型的体验（Model Experience）`, `### 它挂了四个表面` and `#### Token effect` — renaming one means changing the test in the same commit, otherwise those assertions fail on a missing anchor (fail, not silently skip). Details in the "documents and code" section of `docs/DEVELOPING.md`.
-- **22 个套件** (22 suites) in total, run with one command: `pnpm verify`. What each one covers is in the "tests" section of [`docs/DEVELOPING.md`](docs/DEVELOPING.md).
+- **23 个套件** (23 suites) in total, run with one command: `pnpm verify`. What each one covers is in the "tests" section of [`docs/DEVELOPING.md`](docs/DEVELOPING.md).
 - **Building, packaging, boot acceptance, the test inventory and the development environment** live in [`docs/DEVELOPING.md`](docs/DEVELOPING.md).

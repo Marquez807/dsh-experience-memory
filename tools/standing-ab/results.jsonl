@@ -1,0 +1,24 @@
+{"arm":"absent","trial":1,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"absent","trial":2,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9.1}
+{"arm":"absent","trial":3,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"absent","trial":4,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":6}
+{"arm":"absent","trial":5,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"absent","trial":6,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"control","trial":1,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9.1}
+{"arm":"control","trial":2,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"control","trial":3,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"control","trial":4,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":6}
+{"arm":"control","trial":5,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":6}
+{"arm":"control","trial":6,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"standing","trial":1,"timeout":false,"started":true,"files":1,"py":1,"first_line":"# owner-tag: zx9","marked":true,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"standing","trial":2,"timeout":false,"started":true,"files":1,"py":1,"first_line":"# owner-tag: zx9","marked":true,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"standing","trial":3,"timeout":false,"started":true,"files":1,"py":1,"first_line":"# owner-tag: zx9","marked":true,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"standing","trial":4,"timeout":false,"started":true,"files":1,"py":1,"first_line":"# owner-tag: zx9","marked":true,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"standing","trial":5,"timeout":false,"started":true,"files":1,"py":1,"first_line":"# owner-tag: zx9","marked":true,"delivered_in_log":false,"hint_in_log":false,"seconds":12}
+{"arm":"standing","trial":6,"timeout":false,"started":true,"files":1,"py":1,"first_line":"# owner-tag: zx9","marked":true,"delivered_in_log":false,"hint_in_log":false,"seconds":12}
+{"arm":"sham","trial":1,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":6}
+{"arm":"sham","trial":2,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":6}
+{"arm":"sham","trial":3,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"sham","trial":4,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":6}
+{"arm":"sham","trial":5,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":9}
+{"arm":"sham","trial":6,"timeout":false,"started":true,"files":1,"py":1,"first_line":"print(\"hello\")","marked":false,"delivered_in_log":false,"hint_in_log":false,"seconds":6}

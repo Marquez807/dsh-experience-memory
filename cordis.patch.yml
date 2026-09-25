@@ -22,6 +22,14 @@
         # mentions them. 0 disables it. They share residentMaxBytes with the
         # resident layer above, so guaranteeing them cannot grow the prompt.
         coreMaxRecords: 2
+        # Standing layer: rules the writer marked always-on ("always answer in Chinese"), carried
+        # every turn whatever the turn is about — the one class the query-gated digest can never
+        # reach, because such a rule shares no term with any request. 0 disables the layer. Its
+        # section has its own byte ceiling so a long rule cannot consume the budget that answers
+        # the turn in front of the reader. Same eligibility bar as the resident layer per record,
+        # so an `inferred` guess marked standing stays silent.
+        standingMaxRecords: 3
+        standingMaxBytes: 768
         # On-demand layer: the ceiling for one memory_recall call.
         recallMaxBytes: 16384
         # Empty means infer the domain from the workspace, most explicit source

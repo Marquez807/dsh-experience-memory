@@ -113,6 +113,17 @@ export interface RememberInput {
    * schema needs no new column, and `splitTrigger` gives the prose half back to the digest.
    */
   recallFor?: readonly string[]
+  /**
+   * Mark this record as a standing rule: carried on every turn, whatever the turn is about.
+   *
+   * For a rule with no trigger word — "always answer in Chinese" — because the query-gated layer
+   * can never reach one: it shares no term with any request. This flag skips the query gate and
+   * nothing else. The record still has to be `confirmed` and carry a `verified-*` grade with the
+   * resident importance before it is shown at all, so an unverifiable claim marked standing stays
+   * a candidate and stays silent — which is the property that keeps guesses out of the always-on
+   * context, unchanged.
+   */
+  standing?: boolean
   /** The verbatim passage the claim rests on; enables a verified grade. */
   quote?: string
   /**
@@ -252,6 +263,9 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
       // new window replaces the old one rather than being ignored.
       expiresAt: input.expiresAt ?? existing.expiresAt,
       reviewAfter: input.reviewAfter ?? existing.reviewAfter,
+      // Re-reporting is how a rule gets promoted or demoted: a caller that says `standing: true`
+      // now, on a record that exists, means it; a caller that says nothing leaves it as it was.
+      standing: input.standing ?? existing.standing,
       updatedAt: input.now,
     }
     upsert(db, record)
@@ -294,6 +308,7 @@ export function remember(db: DatabaseSync, input: RememberInput): RememberResult
     contentFingerprint,
     supersededBy: null,
     needsReview: verified ? null : 'awaiting a second observation or a verified passage',
+    standing: input.standing === true,
   }
   upsert(db, record)
 
