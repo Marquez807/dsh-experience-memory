@@ -260,11 +260,11 @@ export async function run(): Promise<void> {
         recall_for: ['command:restore-save-backup.ps1'],
       })
       const cappedScheduler = (cappedCtx.tools as unknown as Record<symbol, Stage>)[TOOL_RUNTIME_SCHEDULER]
-      const cappedRun = async (command: string, callId: string): Promise<Dispatched> => {
+      const cappedRun = async (command: string, callId: string, on = agent): Promise<Dispatched> => {
         const prepared = await cappedScheduler.prepare({
           name: 'probe_run',
           arguments: { command },
-          agent,
+          agent: on,
           signal: new AbortController().signal,
           callId,
         })
@@ -276,6 +276,28 @@ export async function run(): Promise<void> {
       const beyond = await cappedRun('pwsh -File .\\restore-save-backup.ps1', 'call_capped_2')
       eq((beyond.additionalContexts ?? []).length, 0,
         'and the session ceiling of 1 holds even for a record it has never shown')
+
+      // ── The ceiling belongs to a session, not to the process ───────────────
+      // One process runs many sessions, and a counter shared between them is a counter that
+      // runs out for everyone. Measured on the live store 2026-10-07: 20 deliveries went out
+      // across 5 sessions and every session after that received nothing until the app
+      // restarted, while this knob and the README both said "a session may be shown at most N
+      // hints". The session that goes without is the one about to repeat the mistake, and
+      // nothing reports it — a silent failure of precisely the feature that exists to break a
+      // silence. So a second session starts with its own ceiling, and its own cooldown: this
+      // call names the same lesson the first session was already shown.
+      const secondSession = { ...agent, id: 'session-precall-other' }
+      const firstOfSecond = await cappedRun(
+        'pwsh -File .\\launch-a-runtime-clean.ps1', 'call_capped_3', secondSession,
+      )
+      eq((firstOfSecond.additionalContexts ?? []).length, 1,
+        'a second session gets its own ceiling and its own cooldown, even though the first '
+        + 'session has spent both')
+      const secondOfSecond = await cappedRun(
+        'pwsh -File .\\restore-save-backup.ps1', 'call_capped_4', secondSession,
+      )
+      eq((secondOfSecond.additionalContexts ?? []).length, 0,
+        'and the ceiling of 1 still holds inside that second session')
     } finally {
       await cappedCtx.fiber.dispose()
       rmSync(capped, { recursive: true, force: true })

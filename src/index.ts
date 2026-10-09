@@ -144,12 +144,67 @@ interface ToolExecutionLike {
  *     otherwise fine. The only acceptable consequence of a failure is that this turn got no
  *     hint.
  */
+/**
+ * How many sessions the hint bookkeeping maps may remember before the quietest entry is
+ * dropped — from the map only.
+ *
+ * These are memory bounds, not throttles: the throttles are `precallMaxPerSession` and the
+ * per-record cooldown. One desktop process serves every session opened in it, so an unbounded
+ * map grows for the life of the process. A few hundred entries cost a few kilobytes, and an
+ * entry dropped here is re-earned on the next call of that session — which is the harmless
+ * direction to be wrong in, since it can only hand a ceiling back, never take one away.
+ */
+const PRECALL_SESSION_TRACK_LIMIT = 512
+const PRECALL_COOLDOWN_TRACK_LIMIT = 2048
+
+/**
+ * The bucket a delivery count and a cooldown belong to: **the session**.
+ *
+ * This has to be per session, and it was not (measured 2026-10-07): one shared counter meant a
+ * process that had handed out its twentieth hint stopped handing out hints to *every* session
+ * until it restarted — 20 deliveries across 5 sessions, then silence, while this knob and the
+ * README both said "a session may be shown at most N hints". A session that gets no hint is a
+ * session whose lesson about to be repeated mistake never arrives, and nothing reports it.
+ *
+ * A call carrying no session identity shares one bucket rather than silently joining some other
+ * session's. Deliberately not the same value written to the ledger: a delivery without a session
+ * keeps the gap (`noteDelivery`), while in-memory bookkeeping still needs a key.
+ */
+const NO_SESSION_KEY = '(no-session)'
+
+function sessionKeyOf(exec: ToolExecutionLike): string {
+  const id = exec.agent?.session?.header?.id ?? exec.agent?.id
+  return typeof id === 'string' && id !== '' ? id : NO_SESSION_KEY
+}
+
+/**
+ * Write one bookkeeping entry, keeping its map bounded and ordered by last use.
+ *
+ * Re-inserting moves a key to the end, so the map is ordered by recency and the eviction below
+ * drops whatever has been quiet longest. Without it the maps grow with every session ever
+ * opened, which for a desktop process is days of sessions.
+ */
+function touchTracked(
+  map: Map<string, number>,
+  key: string,
+  value: number,
+  limit: number,
+): void {
+  map.delete(key)
+  map.set(key, value)
+  while (map.size > limit) {
+    const oldest = map.keys().next().value
+    if (oldest === undefined) return
+    map.delete(oldest)
+  }
+}
+
 function attachPrecall(
   db: DatabaseSync,
   exec: ToolExecutionLike,
   config: ResolvedConfig,
   sent: Map<string, number>,
-  budget: { session: number; nudged: boolean },
+  budget: Map<string, number>,
   report: (what: string, error: unknown) => void,
 ): void {
   try {
@@ -164,17 +219,23 @@ function attachPrecall(
     if (recall === undefined) return
     const record = recall.record
 
-    // A cooldown per record, and a hard session ceiling counted in hints actually delivered.
+    // A cooldown per record **per session**, and a hard ceiling per session counted in hints
+    // actually delivered. Both are keyed by the session because "how many hints has this reader
+    // been shown" is a fact about one conversation: under a shared counter, the day's twentieth
+    // hint anywhere silenced every session until restart (see `sessionKeyOf`).
     // A hint on every matching call would be noise the agent learns to skip, which is worse
     // than never sending it — but the throttle is the *cooldown*, not a per-turn limit: a
     // per-turn limit was measured against the real session this feature exists for, and it
     // handed the turn's slot to whatever else matched first, so the lesson about launching
     // the game never went out at all.
-    const last = sent.get(record.id)
+    const sessionKey = sessionKeyOf(exec)
+    const cooldownKey = `${sessionKey}\u0000${record.id}`
+    const last = sent.get(cooldownKey)
     if (last !== undefined && now - last < config.precallCooldownMinutes * 60_000) return
-    if (budget.session >= config.precallMaxPerSession) return
-    sent.set(record.id, now)
-    budget.session += 1
+    const delivered = budget.get(sessionKey) ?? 0
+    if (delivered >= config.precallMaxPerSession) return
+    touchTracked(sent, cooldownKey, now, PRECALL_COOLDOWN_TRACK_LIMIT)
+    touchTracked(budget, sessionKey, delivered + 1, PRECALL_SESSION_TRACK_LIMIT)
 
     // Written only now that the hint is really going out. This is the one place in the whole
     // framework that answers "did this lesson ever reach the agent" — before it existed, a
@@ -193,7 +254,7 @@ function attachPrecall(
 
     exec.deferContext(createUserMessage({
       content: [{ type: 'text', text: renderPrecall(record) }],
-      source: { kind: 'plugin', plugin: 'experience-memory' },
+      source: { kind: 'plugin:experience-memory' },
     }))
   } catch (error) {
     // Visible in the log, and never fatal to the call it was riding on.
@@ -421,8 +482,12 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
   // Attached to the tool call it is about, on the waterfall that wraps the tool body. The
   // listener always calls `next()`: in this waterfall a listener that does not is a veto,
   // and a recall hint must never be able to stop a tool call.
+  // Both maps are keyed by session, and both outlive any one session: the plugin is applied
+  // once per process while many sessions run inside it. A single shared ceiling is what made
+  // the twentieth hint of the day the last hint of the day, for every session (measured
+  // 2026-10-07). `hinted` holds per-record cooldowns as `<session>\0<record>`.
   const hinted = new Map<string, number>()
-  const hintBudget = { session: 0 }
+  const hintBudget = new Map<string, number>()
   if (resolved.precallEnabled) {
     ctx.on('tools/execute', (exec: ToolExecutionLike, next: () => unknown) => {
       attachPrecall(db, exec, resolved, hinted, hintBudget, report)

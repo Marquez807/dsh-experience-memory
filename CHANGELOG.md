@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.5.1 — 2026-10-07
+
+**The just-in-time hint ceiling is per session again — which is what the knob, the README and
+the code comment all said it was.**
+
+`precallMaxPerSession` shipped as one counter on the plugin instance, and the instance serves
+every session in the process. So the twentieth hint handed out *anywhere* was the last hint
+handed out *anywhere*, for every session, until the app restarted — and nothing reported it.
+Measured on the live store (2026-10-07): the process had delivered exactly 20 hints — across 5
+sessions, none of which had spent 20 itself — and then delivered none for the next five hours,
+including two calls that matched an anchor and a probe that proved the matcher still fired,
+while `README.md` promised "a session may be shown at most N hints". The session that goes
+without a hint is the session about to repeat the mistake, and the failure is silent: the
+feature that exists to break a silence was itself the quiet one.
+
+- Delivery counts and per-record cooldowns are now keyed by session (`sessionKeyOf`), so one
+  session's spent ceiling cannot silence another's; a call carrying no session identity gets a
+  bucket of its own instead of joining someone else's.
+- Both bookkeeping maps are bounded and ordered by last use
+  (`PRECALL_SESSION_TRACK_LIMIT`, `PRECALL_COOLDOWN_TRACK_LIMIT`), because the plugin is applied
+  once per process and previously grew with every session ever opened.
+- `tests/precall.test.ts` now asserts the case that was missing: a second session still receives
+  a hint after the first session has spent its ceiling **and** its cooldown on the same record.
+  Checked in the failing direction as well — restoring the shared counter turns that assertion
+  red (`expected 1, actual 0`), so the test is known to catch this bug rather than merely pass
+  beside it.
+
 ## 0.5.0 — 2026-09-25
 
 **The package is renamed to `@marquez807/dsh-experience-memory`.** A breaking change, taken on purpose,
