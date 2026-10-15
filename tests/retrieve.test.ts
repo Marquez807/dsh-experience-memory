@@ -130,6 +130,55 @@ export function run(): void {
     const identRanked = retrieve(db, query({ query: 'memory_mvp.py' })).ranked
     eq(identRanked[0]?.record.id, 'exact', 'the record carrying the identifier ranks first')
 
+    // ── Relevance outranks standing (2026-10-11, from a live-store work order) ──
+    // Four records written that day could not be recalled by five queries, two of which quoted
+    // their own text; they were ranked 39th–104th, not missing. The cause was the comparison
+    // order: standing first, BM25 only as a tie-break that never fires between floats. A fresh
+    // `verified-file` record scores 6.0 against 10–17.8 for reused ones, so the newest lessons
+    // lost every query to the oldest. These two cases fail on the old order and pass on the new
+    // one — the `veteran` record matches the query too, which is what gives them their teeth.
+    upsert(db, make({
+      id: 'veteran',
+      evidence: 'verified-tool',
+      title: '老记录',
+      body: '部署相关的老经验，顺带提一句归档。',
+      reuseCount: 19,
+      retrieveCount: 32,
+      successCount: 1,
+      contentFingerprint: 'fp-veteran',
+    }))
+    upsert(db, make({
+      id: 'fresh',
+      evidence: 'verified-file',
+      title: '新记录',
+      body: '归档迁移的引用扫描必须包含归档目录，否则零引用文件数是假象。',
+      contentFingerprint: 'fp-fresh',
+    }))
+    const relevanceQuery = '归档迁移 引用扫描 零引用 归档目录'
+    const byRelevance = retrieve(db, query({ query: relevanceQuery, limit: 5 })).ranked
+    assert(byRelevance.map(entry => entry.record.id).includes('veteran'),
+      'the seasoned record does match the query, so the ordering case below is a real contest')
+    eq(byRelevance[0]?.record.id, 'fresh',
+      'the relevant record outranks the seasoned one — relevance decides, standing breaks ties')
+    const residentRelevance = retrieve(db, query({ query: relevanceQuery, tier: 'resident', limit: 5 })).ranked
+    eq(residentRelevance[0]?.record.id, 'fresh',
+      'and the always-on layer orders by the same rule, so a new lesson can reach the digest')
+
+    // The other half of the trade, pinned so the fix cannot be "relevance only": when two
+    // candidates are equally relevant, standing still decides.
+    upsert(db, make({
+      id: 'twin-low', title: '同题低分', body: '归档迁移的引用扫描要看归档目录。',
+      evidence: 'verified-file', contentFingerprint: 'fp-twin-low',
+    }))
+    upsert(db, make({
+      id: 'twin-high', title: '同题高分', body: '归档迁移的引用扫描要看归档目录。',
+      evidence: 'verified-tool', reuseCount: 5, contentFingerprint: 'fp-twin-high',
+    }))
+    const twins = retrieve(db, query({ query: '归档迁移 引用扫描 归档目录', limit: 8 })).ranked
+      .filter(entry => entry.record.id.startsWith('twin-'))
+    eq(twins.map(entry => entry.record.id), ['twin-high', 'twin-low'],
+      'equally relevant candidates fall back to standing, so the fix is relevance *first*, not alone')
+
     // ── A query with no indexable term returns nothing ─────────────────────
     eq(retrieve(db, query({ query: '，。！？' })).ranked, [], 'a punctuation-only query retrieves nothing')
 

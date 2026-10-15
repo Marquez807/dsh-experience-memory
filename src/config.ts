@@ -253,7 +253,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     harvestPoolLimit: positive(config.harvestPoolLimit, 200, 'harvestPoolLimit'),
     harvestCandidateTtlDays: positive(config.harvestCandidateTtlDays, 14, 'harvestCandidateTtlDays'),
     precallEnabled: config.precallEnabled ?? true,
-    precallMaxPerSession: positive(config.precallMaxPerSession, 20, 'precallMaxPerSession'),
+    precallMaxPerSession: positive(config.precallMaxPerSession, 100, 'precallMaxPerSession'),
     precallCooldownMinutes: positive(config.precallCooldownMinutes, 30, 'precallCooldownMinutes'),
     failureTracking: config.failureTracking ?? true,
     failureShapeLimit: positive(config.failureShapeLimit, 200, 'failureShapeLimit'),

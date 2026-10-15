@@ -29,6 +29,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { lastTurn } from './harvest.ts'
 import { visible } from './retrieve.ts'
 import { eventsOf } from './session.ts'
+import { resultFailed, resultText } from './toolresult.ts'
 import { identifierKey } from './tokenize.ts'
 import type { AgentLike, MemoryRecord, SessionEventLike } from './types.ts'
 
@@ -59,20 +60,9 @@ export function failureShape(text: string): string {
     .slice(0, 96)
 }
 
-/** The readable text of the first block of a tool result, as `harvest.ts` reads it. */
-function errorText(blocks: readonly unknown[]): string {
-  for (const block of blocks) {
-    if (typeof block !== 'object' || block === null) continue
-    const inner = (block as { content?: unknown }).content
-    if (!Array.isArray(inner)) continue
-    for (const piece of inner) {
-      if (typeof piece !== 'object' || piece === null) continue
-      const text = (piece as { text?: unknown }).text
-      if (typeof text === 'string' && text.trim() !== '') return text
-    }
-  }
-  return ''
-}
+// Reading a result's text moved to `toolresult.ts` when the harness changed where it keeps
+// it. Both callers used to walk the nesting by hand, and both walks knew only the older shape.
+
 
 /** One failure found in a turn's events. */
 export interface ObservedFailure {
@@ -104,12 +94,11 @@ export function failuresIn(turn: readonly SessionEventLike[]): ObservedFailure[]
     if (typeof callId !== 'string') continue
     const tool = toolOf.get(callId)
     if (tool === undefined) continue
-    const blocks = event.data?.message?.content ?? event.data?.content
-    if (!Array.isArray(blocks)) continue
-    const failed = blocks.some(block =>
-      typeof block === 'object' && block !== null && (block as { isError?: unknown }).isError === true)
-    if (!failed) continue
-    const text = errorText(blocks)
+    // Both spellings of "this result failed" are read in one place (`toolresult.ts`): the
+    // harness moved the flag from the content block to the message, and this walk kept
+    // answering the older question — silently, for two weeks.
+    if (!resultFailed(event.data)) continue
+    const text = resultText(event.data)
     if (text.trim() === '') continue
     found.push({ tool, shape: failureShape(text), sample: text.replace(/\s+/g, ' ').trim().slice(0, SAMPLE_MAX_BYTES) })
   }

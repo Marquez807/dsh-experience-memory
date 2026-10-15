@@ -36,6 +36,7 @@ import {
   baseNameOf,
   callFacts,
   deriveAnchorFromSourceRef,
+  isCritical,
   parseAnchor,
   splitTrigger,
   type Anchor,
@@ -95,10 +96,34 @@ export function decideForCall(
   domain: string,
   argumentsValue: unknown,
   now: number,
-  options: { tool?: string; derivedAnchors?: boolean; derivedNeedsMention?: boolean } = {},
+  options: {
+    tool?: string
+    derivedAnchors?: boolean
+    derivedNeedsMention?: boolean
+    /**
+     * Records this session has already been shown, so a call two records anchor can go to the
+     * one it has not seen.
+     *
+     * Only one record rides along per call, and the ordering is decided by anchor count and then
+     * by standing. Standing is a record's *history* — a lesson written five minutes ago has none,
+     * so where two records anchor the same call, the older, higher-scoring one wins every time
+     * and the newer one is never shown. Never shown ⇒ never reused ⇒ standing never grows: the
+     * same closed loop that `compareRankedByRelevance` broke for search, one layer further out.
+     * Measured 2026-10-12 on the live store: a lesson saying "check the gate before starting
+     * heavy work" was anchored exactly right (`tool:quant_research` + `command:sweep_op`) and
+     * lost 7.00 to 11.79 to an older lesson about ledger naming on every submission — the
+     * session that wrote it then burned 2.5 hours of compute against a gate it had been told
+     * about, and said afterwards "the lesson was injected several times, I read it and did not
+     * act". It had not been injected *at the moment that mattered*; on that call the other
+     * record won. Preferring what the session has not seen breaks the loop without widening what
+     * counts as a match: if only a seen record anchors the call, it is still delivered.
+     */
+    alreadyDelivered?: ReadonlySet<string>
+  } = {},
 ): RecallDecision | undefined {
   const useDerived = options.derivedAnchors ?? false
   const useMention = options.derivedNeedsMention ?? true
+  const delivered = options.alreadyDelivered
   const facts: CallFacts = callFacts(options.tool ?? '', argumentsValue)
   if (facts.paths.length === 0 && facts.command === '' && facts.tool === '') return undefined
 
@@ -109,7 +134,7 @@ export function decideForCall(
     && visible(record, workspaceId, domain))
   if (pool.length === 0) return undefined
 
-  const hits: { record: MemoryRecord; matched: string[]; declared: string[]; via: 'declared' | 'derived'; importance: number }[] = []
+  const hits: { record: MemoryRecord; matched: string[]; declared: string[]; via: 'declared' | 'derived'; importance: number; critical: boolean }[] = []
   for (const record of pool) {
     const { anchors, via } = recordAnchors(record, { derived: useDerived })
     if (anchors.length === 0) continue
@@ -130,6 +155,7 @@ export function decideForCall(
       matched: matched.map(renderAnchor),
       declared: anchors.map(renderAnchor),
       via,
+      critical: isCritical(record.trigger),
       importance: importance({
         evidence: record.evidence,
         successCount: record.successCount,
@@ -148,12 +174,22 @@ export function decideForCall(
   }
   if (hits.length === 0) return undefined
 
-  // Most anchors satisfied first (a record that anticipated two facts about this call beats
-  // one that anticipated a single common file name), then how specific the anchor kind is,
-  // then the record's own standing.
+  // A record that declares itself a hard constraint goes first (`priority:critical`) — that claim
+  // is about the lesson, and no fact about the call can stand in for it. It deliberately does *not*
+  // yield to a record the session has already seen: a hard constraint is one that has to be in front
+  // of the reader every time the action comes up, and what keeps that from becoming noise is the
+  // per-record cooldown (30 minutes), not this ordering. Among several hard constraints the yield
+  // rule below still applies. Then: what this session has not yet been shown (see
+  // `alreadyDelivered`), then most anchors satisfied (a record that anticipated two facts about this
+  // call beats one that anticipated a single common file name), then how specific the anchor kind
+  // is, then the record's own standing.
+  const freshness = (item: { record: MemoryRecord }): number =>
+    delivered === undefined || !delivered.has(item.record.id) ? 1 : 0
   const specificity = (item: { matched: string[] }): number =>
     item.matched.reduce((sum, text) => sum + (text.startsWith('path:') ? 2 : text.startsWith('tool:') ? 1 : 0), 0)
-  hits.sort((a, b) => b.matched.length - a.matched.length
+  hits.sort((a, b) => Number(b.critical) - Number(a.critical)
+    || freshness(b) - freshness(a)
+    || b.matched.length - a.matched.length
     || specificity(b) - specificity(a)
     || b.importance - a.importance)
 

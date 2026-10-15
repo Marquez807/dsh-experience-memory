@@ -65,8 +65,14 @@
         # first, so the lesson never went out. `precallCooldownMinutes` keeps one lesson from
         # coming back too soon; `precallMaxPerSession` counts hints actually delivered and is
         # the hard stop. 0 for `precallEnabled` removes the listener entirely.
+        #
+        # 100, raised from 20 on 2026-10-10 on measurement: the six sessions run since the
+        # per-session counter landed delivered 20 / 19 / 12 / 10 / 1 / 1 hints, and the one that
+        # hit 20 did it in 1h17m and then went silent for the rest of the session. A ceiling
+        # reached in an afternoon is not a throttle, it is an outage — and it is silent, which is
+        # how the shared-counter version of this went unnoticed for a day (see CHANGELOG).
         precallEnabled: true
-        precallMaxPerSession: 20
+        precallMaxPerSession: 100
         precallCooldownMinutes: 30
         # Counts the tool failures this workspace repeats, so `/memory-gaps` can answer "what
         # keeps going wrong, and does anything in the store cover it". Counting only: nothing

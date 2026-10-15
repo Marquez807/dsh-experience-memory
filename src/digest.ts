@@ -220,6 +220,22 @@ export interface DigestInput {
   workspace: Workspace
   query: string
   now: number
+  /**
+   * Records this session has already been shown, so the matched layer can prefer others.
+   *
+   * Why it exists: that layer is a stateless query — every assembly takes the top few by score —
+   * so records with a long reuse history hold those slots turn after turn and equally relevant
+   * ones never appear. Measured in this workspace on 2026-10-10: the same few `bigfat` lessons
+   * were re-injected every turn of a session that made no such call. Not passing it changes
+   * nothing.
+   */
+  exclude?: ReadonlySet<string>
+  /**
+   * The records this assembly actually rendered, handed back so the caller can maintain
+   * `exclude`. A callback rather than a wider return type: what this function returns is the
+   * text the model reads, and changing its shape would touch every caller, including preview.
+   */
+  collectShown?: (ids: readonly string[]) => void
 }
 
 /**
@@ -275,8 +291,21 @@ export function buildDigest(input: DigestInput): string {
   const coreSection = take(core)
   const matchedSection = ranked.filter(entry => !shown.has(entry.record.id))
 
+  // The session hand-off (2026-10-10): prefer what this session has not been shown yet. The
+  // query is stateless, so the same high-scoring records would otherwise hold these slots every
+  // turn. When everything relevant has been shown, fall back to the unfiltered list — the price
+  // of de-duplication must never be an empty layer.
+  const freshMatched = input.exclude === undefined
+    ? matchedSection
+    : matchedSection.filter(entry => input.exclude?.has(entry.record.id) !== true)
+  const matchedFinal = freshMatched.length > 0 ? freshMatched : matchedSection
+
+  input.collectShown?.(
+    [...standingSection, ...coreSection, ...matchedFinal].map(entry => entry.record.id),
+  )
+
   if (standingSection.length === 0 && coreSection.length === 0) {
-    return renderResident(matchedSection, budget)
+    return renderResident(matchedFinal, budget)
   }
 
   return renderDigest([
@@ -291,7 +320,7 @@ export function buildDigest(input: DigestInput): string {
         + '要都带上就把 standingMaxBytes 调大）',
     },
     { label: CORE_LABEL, ranked: coreSection },
-    { label: MATCHED_LABEL, ranked: matchedSection },
+    { label: MATCHED_LABEL, ranked: matchedFinal },
   ], budget)
 }
 

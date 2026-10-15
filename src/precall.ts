@@ -57,7 +57,7 @@ export function recallForCall(
   domain: string,
   argumentsValue: unknown,
   now: number,
-  options: { tool?: string } = {},
+  options: { tool?: string; alreadyDelivered?: ReadonlySet<string> } = {},
 ): MemoryRecord | undefined {
   return recallForCallWithIdentifiers(db, workspaceId, domain, argumentsValue, now, options)?.record
 }
@@ -76,7 +76,7 @@ export function recallForCallWithIdentifiers(
   domain: string,
   argumentsValue: unknown,
   now: number,
-  options: { tool?: string } = {},
+  options: { tool?: string; alreadyDelivered?: ReadonlySet<string> } = {},
 ): { record: MemoryRecord; matched: string[] } | undefined {
   const decision = decideForCall(db, workspaceId, domain, argumentsValue, now, options)
   if (decision === undefined) return undefined

@@ -88,6 +88,34 @@ export function run(): void {
     eq(recordLines(digest(unrelated)).length, 1,
       'the record without the flag stays out of that same turn — evidence the flag is what did it')
 
+    // ── The session hand-off: the matched layer changes cast, and never empties ──
+    // Measured symptom behind this: the same few high-reuse lessons were re-injected every turn
+    // of a session that never touched their subject. The query is stateless, so nothing but the
+    // caller can say "this one has already had its turn".
+    upsert(db, make({ id: 'zeta-a', contentFingerprint: 'fp-za', title: '甲经验', body: 'zeta 相关内容一' }))
+    upsert(db, make({ id: 'zeta-b', contentFingerprint: 'fp-zb', title: '乙经验', body: 'zeta 相关内容二' }))
+    const shownIds: string[] = []
+    const round1 = buildDigest({
+      db, config, workspace: WS, query: 'zeta', now: NOW,
+      collectShown: ids => shownIds.push(...ids),
+    })
+    assert(shownIds.includes('zeta-a') && shownIds.includes('zeta-b'),
+      `both matched records are rendered and their ids handed back: ${shownIds.join(',')}`)
+    assert(round1.includes('甲经验') && round1.includes('乙经验'), 'and both appear in that turn')
+
+    const round2 = buildDigest({
+      db, config, workspace: WS, query: 'zeta', now: NOW, exclude: new Set(['zeta-a']),
+    })
+    assert(!round2.includes('甲经验'), 'an already-shown record gives up its slot')
+    assert(round2.includes('乙经验'), 'while the other one still appears for the same query')
+
+    const round3 = buildDigest({
+      db, config, workspace: WS, query: 'zeta', now: NOW,
+      exclude: new Set(['zeta-a', 'zeta-b']),
+    })
+    assert(round3.includes('甲经验') || round3.includes('乙经验'),
+      'with everything shown already it falls back rather than emptying the layer')
+
     upsert(db, make({
       id: 'rule', contentFingerprint: 'fp-rule', standing: false,
       title: '常驻规矩', body: '所有会话一律用简体中文回答', lesson: '一律用中文',

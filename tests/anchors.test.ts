@@ -17,6 +17,7 @@ import {
   anchorSatisfied,
   callFacts,
   deriveAnchorFromSourceRef,
+  isCritical,
   joinTrigger,
   parseAnchor,
   splitTrigger,
@@ -51,6 +52,18 @@ export async function run(): Promise<void> {
   assert(!anchorSatisfied({ kind: 'tool', token: 'pwshx' }, runCall), 'and only exactly')
   assert(!anchorSatisfied({ kind: 'path', token: 'tools.js' }, runCall),
     'a call that does not name the file does not satisfy it')
+
+  // A plugin tool has no `command` field at all — its sub-action is spelled in the arguments
+  // (`quant_research` with `sweep_op`). Before 2026-10-11 a `command:` anchor was checked against
+  // the command-line field only, so it was silently dead on every plugin-tool call: measured on
+  // the live store, one record's `command:sweep_op` never matched a single `quant_research`
+  // delivery (it matched `pwsh` lines only, by accident of wording), and a record anchored on
+  // `command:mining.handle_sweep` + `path:.quant/mining` could never fire at all.
+  const pluginCall = callFacts('quant_research', { action: 'research', payload: { sweep_op: 'run' } })
+  assert(anchorSatisfied({ kind: 'command', token: 'sweep_op' }, pluginCall),
+    'a command anchor matches argument text too — that is where a plugin tool spells its sub-action')
+  assert(!anchorSatisfied({ kind: 'command', token: 'walkforward' }, pluginCall),
+    'and it still matches nothing when the token is absent from the command line and every argument')
 
   // ── The prose/delivery split inside the trigger column ────────────────────
   const joined = joinTrigger('准备在 pwsh 里执行 git 命令时', ['command:git'])
@@ -297,6 +310,101 @@ export async function run(): Promise<void> {
 
     const unrelated = decideForCall(db, workspace.id, workspace.domain, { file_path: 'lib/unrelated.js' }, now, { tool: 'edit' })
     eq(unrelated, undefined, 'a call naming nothing anchored gets nothing')
+
+    // ── The 2026-10-11 work order: start-of-work hints on quant tool calls ──
+    // A quant session that never calls `memory_recall` must still be handed the start-of-work
+    // rule at its first quant call. Both spellings a record may use are exercised, one record
+    // each so the single-slot delivery cannot confound the assertion: `tool:` on the status
+    // call (the work order's acceptance case 1), `command:` on a plugin tool's own argument
+    // token (acceptance case 2 — "run a quant action directly, without recalling first").
+    const kickoff = make({
+      id: 'kickoff',
+      contentFingerprint: 'fp-kickoff',
+      title: '量化开工先 memory_recall 查坑 + 加载 quant-lessons 技能',
+      trigger: joinTrigger('量化 开工 挖掘 回测', ['tool:quant_status']),
+      lesson: '开工先 memory_recall 查坑，再显式加载 quant-lessons 技能。',
+    })
+    const ledger = make({
+      id: 'ledger',
+      contentFingerprint: 'fp-ledger',
+      title: '同窗口两次 sweep 会混台账',
+      trigger: joinTrigger('跑 mining sweep 前', ['command:sweep_op']),
+    })
+    for (const record of [kickoff, ledger]) upsert(db, record)
+
+    const statusCall = decideForCall(db, workspace.id, workspace.domain, { action: 'status' }, now, { tool: 'quant_status' })
+    eq(statusCall?.record.id, 'kickoff',
+      'the first quant call of a session gets the start-of-work hint (work order acceptance 1)')
+    assert(statusCall?.matched.includes('tool:quant_status') === true, 'and the tool anchor is what carried it')
+
+    const sweepCall = decideForCall(db, workspace.id, workspace.domain,
+      { action: 'research', payload: { sweep_op: 'run' } }, now, { tool: 'quant_research' })
+    eq(sweepCall?.record.id, 'ledger',
+      'a command anchor on a plugin tool fires on the very call that carries the token (acceptance 2)')
+    assert(sweepCall?.matched.includes('command:sweep_op') === true,
+      'matched via argument text, which is where the sub-action is spelled')
+
+    // ── 让位规则：本会话已看过的记录，让给还没看过的（2026-10-12，来自真实事故） ──
+    // 一次调用只投一条，排序先看命中锚点数、再看**资历**。新写的教训没有资历（零复用、零被查），
+    // 所以在"两条都锚中同一个动作"时永远输给老记录 ⇒ 永远没被看到 ⇒ 永远涨不了资历：闭环。
+    // 实测（活库）：一条"开跑前先查门禁"的教训锚点写得完全正确，却以 7.00 : 11.79 输给一条台账
+    // 命名的老记录，在每次提交挖掘时都被顶掉——那个会话随后白跑了 2.5 小时算力。
+    const seenHigh = make({
+      id: 'seen-high',
+      evidence: 'verified-tool',
+      reuseCount: 19,
+      title: '已经看过的高分记录',
+      trigger: joinTrigger('每次开工时', ['tool:zz_probe']),
+      contentFingerprint: 'fp-seen-high',
+    })
+    const freshLow = make({
+      id: 'fresh-low',
+      evidence: 'verified-file',
+      title: '还没看过的新记录',
+      trigger: joinTrigger('每次开工时', ['tool:zz_probe']),
+      contentFingerprint: 'fp-fresh-low',
+    })
+    for (const record of [seenHigh, freshLow]) upsert(db, record)
+    eq(decideForCall(db, workspace.id, workspace.domain, {}, now, { tool: 'zz_probe' })?.record.id, 'seen-high',
+      'without a delivery history the higher-standing record wins, as before')
+    eq(decideForCall(db, workspace.id, workspace.domain, {}, now,
+      { tool: 'zz_probe', alreadyDelivered: new Set(['seen-high']) })?.record.id, 'fresh-low',
+      'a record this session has already been shown gives way to one it has not')
+    assert(decideForCall(db, workspace.id, workspace.domain, {}, now,
+      { tool: 'zz_probe', alreadyDelivered: new Set(['seen-high', 'fresh-low']) }) !== undefined,
+    'and when everything that matches has been shown, one is still delivered — the rule only reorders')
+
+    // ── 关键标记：声明"这是硬约束"的记录压过一切（2026-10-12） ──
+    // 让位规则只能做到"轮到"；一个动作上 15 条记录竞争时，那条"开跑前先查门禁"的教训排第 4，
+    // 提交挖掘时从未出现。哪条教训"漏掉会烧掉几小时"不是关于这次调用的事实，而是关于这条教训的
+    // 事实——所以由教训自己声明（trigger 里写 `priority:critical`），排序时排第一。
+    const criticalLow = make({
+      id: 'critical-low',
+      evidence: 'verified-file',
+      title: '硬约束（分数低、已看过）',
+      trigger: joinTrigger('提交重活前', ['tool:zz_probe', 'priority:critical']),
+      contentFingerprint: 'fp-critical-low',
+    })
+    upsert(db, criticalLow)
+    assert(isCritical(criticalLow.trigger), 'a trigger can declare a hard constraint')
+    assert(!isCritical(seenHigh.trigger), 'and a record without the marker is not one')
+    eq(decideForCall(db, workspace.id, workspace.domain, {}, now, { tool: 'zz_probe' })?.record.id, 'critical-low',
+      'a hard constraint outranks a higher-scoring record (score 6.0 against a reused veteran)')
+    eq(decideForCall(db, workspace.id, workspace.domain, {}, now,
+      { tool: 'zz_probe', alreadyDelivered: new Set(['critical-low']) })?.record.id, 'critical-low',
+    'and it keeps the slot even after being shown — a hard constraint is one that must be seen every time; what stops it repeating within a session is the per-record cooldown, not the yield rule')
+    // 多条硬约束之间仍然轮换：让位规则在 critical 内部照常生效。
+    const criticalLowTwo = make({
+      id: 'critical-low-two',
+      evidence: 'verified-file',
+      title: '第二条硬约束',
+      trigger: joinTrigger('提交重活前', ['tool:zz_probe', 'priority:critical']),
+      contentFingerprint: 'fp-critical-low-two',
+    })
+    upsert(db, criticalLowTwo)
+    eq(decideForCall(db, workspace.id, workspace.domain, {}, now,
+      { tool: 'zz_probe', alreadyDelivered: new Set(['critical-low']) })?.record.id, 'critical-low-two',
+    'among hard constraints the one not yet shown comes first — the yield rule still orders them')
   } finally {
     db.close()
     rmSync(dir, { recursive: true, force: true })

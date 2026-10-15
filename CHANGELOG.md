@@ -1,5 +1,170 @@
 # Changelog
 
+## 0.5.6 — 2026-10-12
+
+**A record can declare itself a hard constraint and outrank everything else competing for the
+same call — because nothing about the call can tell which lesson is the expensive one to miss.**
+
+0.5.5 gave the slot to records the session had not seen, which gets a lesson shown *eventually*.
+It cannot make the right lesson go first: on the live store **fifteen** records anchored the same
+submission call, and the one saying "check the gate before starting heavy work" sat fourth at
+8.00 against a leader at 15.60. Being fourth meant it was never shown on a submission, and a
+2.5-hour run was thrown away by exactly that gate. Which lesson costs hours when missed is not a
+fact about the call — it is a fact about the lesson, so the lesson states it.
+
+- `priority:critical` in a record's declared block now sorts it ahead of every competitor
+  (`CRITICAL_MARKER`, `isCritical`). It rides in the same `trigger` block the anchors already use,
+  so no migration runs against a live store, and a writer sets it through the parameter that
+  already exists (`recall_for`).
+- It deliberately does **not** yield to a record the session has already seen: a hard constraint is
+  one that has to be in front of the reader every time the action comes up. What keeps that from
+  becoming noise is the per-record cooldown (30 minutes), not the ordering; among several hard
+  constraints the yield rule still applies.
+- The write path lifts the marker out before the anchor cost guard, which would otherwise refuse it
+  as unparseable and drop it silently — measured: the first attempt to write one was refused for
+  exactly that reason.
+- Checked in the failing direction: removing the marker key turns `anchors` red on
+  `a hard constraint outranks a higher-scoring record`. Two further cases pin the boundaries —
+  `it keeps the slot even after being shown`, and `among hard constraints the one not yet shown
+  comes first`.
+- Replayed on the live store: the gate lesson moved from fourth to first, and three consecutive
+  submission calls all delivered it.
+
+## 0.5.5 — 2026-10-12
+
+**The other half of 0.5.4: a lesson anchored exactly right could still never be *shown*, because
+the one hint slot per call went to whichever record had the higher standing.**
+
+0.5.4 fixed the search path. This fixes the delivery path, which had the same disease one layer
+out. One record rides along per call, ranked by anchor count and then by standing — and standing
+is a record's history. A lesson written minutes ago has none, so on a call that several records
+anchor, the oldest and highest-scoring one wins every time. Measured on the live store,
+2026-10-12: a lesson saying "check the gate before starting heavy work" was anchored exactly
+right (`tool:quant_research` + `command:sweep_op`) and sat fourth in a queue of **fifteen**
+records competing for that slot, at 8.00 against the leader's 15.60. The session that wrote it
+went on to burn 2.5 hours of compute against a gate it had been told about, and reported
+afterwards: "the lesson was injected several times — I read it and did not act." Against the
+delivery ledger, it had never been injected *on the submission call*; on that call another
+record won the slot. Never shown ⇒ never reused ⇒ standing never grows: the same closed loop.
+
+- A record the session has **already been shown** now yields to one it has not
+  (`decideForCall`'s `alreadyDelivered`, fed from the per-session delivery bookkeeping the plugin
+  already keeps). What counts as a match is unchanged: if the only record anchoring the call is
+  one already seen, it is still delivered.
+- Checked in the failing direction: dropping the fresh-record key turns `anchors` red on
+  `a record this session has already been shown gives way to one it has not`. A third case pins
+  the other half: `when everything that matches has been shown, one is still delivered — the rule
+  only reorders`.
+- Replayed on the live store, three submissions in one session now read: ledger-naming → sweep
+  parameters → long-task/gate. Before, all three went to the same record.
+- **What this does not fix, stated plainly**: fifteen records anchored that one action, and the
+  ordering can only use match quality and history — the plugin has no notion of which lesson is
+  the *dangerous* one. Handing ties to unseen records rotates the queue; it does not put the gate
+  check first. Making "check the gate before heavy work" unconditional needs a check inside the
+  tool that does the heavy work, not a better hint — a work order for that side was filed with
+  this change (`_收件箱/工单-记忆框架会话给量化插件会话-提交前硬检查门禁-20261012.md`).
+
+## 0.5.4 — 2026-10-11
+
+**Relevance never fired: every layer sorted on standing first, so a newly written lesson could
+not be recalled by quoting its own text.** Reported as a defect by the quant session, whose work
+order carried five reproducible queries and the store census; the diagnosis here is narrower than
+the report's, and the fix is two lines.
+
+`compareRanked` sorted on `importance` and used `bm25` only to break ties. Importance is a float,
+so two records essentially never tie, and the relevance signal was dead weight on every call: a
+freshly written `verified-file` record scores exactly `6.0` against `10–17.8` for records that
+have been reused, so the newest lessons lost every query to the oldest ones. Measured on the live
+store with the work order's own queries: four records written that day, `confirmed`, visible to
+the caller, and **matched by FTS**, ranked 39th–104th of 154–266 candidates — they were never
+missing, they were never shown. The same mechanism explains the report's second observation, that
+repeated recalls kept returning the same handful of records whatever was asked.
+
+- `compareRankedByRelevance` (`bm25 ASC, importance DESC, id ASC`) now orders the **two passes
+  that have a query** — on-demand recall and the per-turn digest. The **two query-free passes**
+  (core, standing) keep `compareRanked`: with no query there is no relevance to rank on, and
+  standing is the only signal there is.
+- Checked in the failing direction: restoring the old sort key turns `retrieve` red on
+  `the relevant record outranks the seasoned one — relevance decides, standing breaks ties`.
+  The case has teeth because the seasoned record matches the query too.
+- The trade is pinned from both sides: `equally relevant candidates fall back to standing, so the
+  fix is relevance *first*, not alone`.
+- Replayed against the live store with the work order's five queries: the four records move from
+  "absent" to 1st–3rd place on the three queries that are about them; on the query about a
+  different topic, the results are now that topic's records rather than the same old handful.
+- Two of the report's other suspicions were **not** defects, and both are worth writing down:
+  **FTS matching was never broken** — the queries that missed did so because the record genuinely
+  shares no term with them; and **anchor delivery was never broken** — the record in question was
+  delivered once, at the second it was written, while the later calls the report watched fell
+  inside the 30-minute per-record cooldown.
+- One census line was misread: `常驻合格 598/600` is `residentEligible/residentScanned` — "of 600
+  records scanned, 598 clear the bar" — not a quota with two slots left. `residentMaxRecords` is a
+  separate, much smaller ceiling applied at render time.
+
+## 0.5.3 — 2026-10-11
+
+**`command:` anchors were silently dead on every plugin-tool call — on exactly the calls they
+were written for.**
+
+A work order from the quant session ("start-of-work discipline has no enforcement mechanism")
+led to the store rather than to the session. The records were there, anchored `tool:quant_research`
+with a `command:sweep_op` sibling, and the delivery ledger shows the `command:` half never matched
+anything but `pwsh` lines, by accident of wording. `anchorSatisfied` checked `command:` against the
+`command` field of a call's arguments, and a plugin tool has no such field: its sub-action is a
+*value* (`action: "sweep_op"`) or a *parameter name* (`worker_memory_estimate_mb`), and neither was
+searchable — argument **values** went into the call text, argument **keys** did not. A record
+anchored `command:mining.handle_sweep` + `path:.quant/mining` therefore could never fire at all.
+
+- `command:` now matches the command line **or any argument text, keys included**: a call's
+  parameter names are part of what the call is. Cost, stated rather than hidden: a broad token now
+  matches argument prose too — anchor width stays the writer's judgement, and the write-time cost
+  guard is unchanged.
+- Checked in the failing direction: reverting the match to the command-line field only turns
+  `anchors` red ("a command anchor matches argument text too"), so the suite is known to catch it.
+- The work order's two acceptance cases are pinned end to end on the real store shape: the first
+  `quant_status` call of a session receives the start-of-work hint (record `255cd486`, delivered
+  live at 14:50 the same day), and a `quant_research` call carrying `sweep_op` receives the
+  campaign-mixing lesson with **no** `memory_recall` beforehand.
+- Also corrected in the record store, not the code: the same work order's claim that "no anchor is
+  set on calling quant tools" does not match the delivery ledger — the hints were delivered on
+  2026-10-10 and ignored; the 300-byte hint truncation cut the actionable half of the sentence.
+  The ledger is the evidence for "did this lesson reach the agent", which is what settled it.
+
+## 0.5.2 — 2026-10-10
+
+**Failure observation had been silently dead for two weeks, and both hint throttles were
+re-measured and changed.**
+
+The counter that answers "what keeps going wrong here" stopped on 2026-09-26 and said nothing
+about it. The root cause was found by decompressing a live session log: the harness moved the
+failure flag from `data.message.content[].isError` to `data.message.isError`, and the error text
+from `block.content[].text` to `block.text`. Both readers (`failure.ts` and `harvest.ts`) walked
+the older nesting by hand, so both kept answering the question that no longer occurs — the shape
+table sat at 66 rows and never grew, and the `failure-recovered` harvester signal fired zero
+times, while the suite stayed green because every fixture had been hand-built to the old shape.
+That is the failure this plugin already wrote down once, in `session.ts`: fixtures that encode the
+assumption instead of the contract.
+
+- `src/toolresult.ts` now owns the two questions ("did this result fail", "what did it say") and
+  accepts **both** spellings. Accepting both, rather than only the current one, is what turns the
+  next move into a one-line change instead of a second silent outage.
+- `tests/failure.test.ts` and `tests/harvest.test.ts` gained fixtures copied from a real v4 log
+  line rather than written from the field names. Checked in the failing direction: restoring the
+  block-only read turns both suites red ("the current spelling of a failure is seen too" and
+  `expected "failure-recovered"`), so the tests are known to catch this bug rather than pass
+  beside it.
+- `precallMaxPerSession` raised from 20 to 100, on measurement: the six sessions run since the
+  counter became per-session delivered 20 / 19 / 12 / 10 / 1 / 1 hints, and the one that reached
+  20 spent it in 1h17m and then went silent for the rest of the session. A ceiling reached in an
+  afternoon is not a throttle, it is an outage — and a silent one.
+- The resident digest's matched layer now changes cast inside one session. The caller passes the
+  records already shown (`exclude`) and receives what was rendered (`collectShown`), so a few
+  high-reuse lessons stop holding every turn's slots; measured symptom: the same `bigfat` lessons
+  were re-injected every turn of a session that made no such call. When everything relevant has
+  been shown it falls back to the unfiltered list, because de-duplication must never empty the
+  layer. Checked in the failing direction as well — ignoring `exclude` turns `standing` red ("an
+  already-shown record gives up its slot").
+
 ## 0.5.1 — 2026-10-07
 
 **The just-in-time hint ceiling is per session again — which is what the knob, the README and

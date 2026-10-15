@@ -33,7 +33,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { tmpdir } from 'node:os'
 import { Config, resolveConfig, type Config as ExperienceConfig } from './config.ts'
 import { buildIdentity } from './build-id.ts'
-import { suggestAnchors } from './anchors.ts'
+import { CRITICAL_MARKER, suggestAnchors } from './anchors.ts'
 import { explainRefusals, guardAnchors } from './anchor-cost.ts'
 import { configureEffect } from './effect.ts'
 import { guardHintFor } from './guard-hints.ts'
@@ -172,9 +172,34 @@ const PRECALL_COOLDOWN_TRACK_LIMIT = 2048
  */
 const NO_SESSION_KEY = '(no-session)'
 
-function sessionKeyOf(exec: ToolExecutionLike): string {
-  const id = exec.agent?.session?.header?.id ?? exec.agent?.id
+function sessionKeyOfAgent(agent: AgentLike | undefined): string {
+  const id = agent?.session?.header?.id ?? agent?.id
   return typeof id === 'string' && id !== '' ? id : NO_SESSION_KEY
+}
+
+function sessionKeyOf(exec: ToolExecutionLike): string {
+  return sessionKeyOfAgent(exec.agent)
+}
+
+/** How many sessions keep a shown-record set before the quietest one is dropped. */
+const DIGEST_SEEN_SESSIONS = 64
+
+/**
+ * Remember which records an assembly showed, oldest session evicted first.
+ *
+ * The digests of one session are the unit that matters: a record already carried this session is
+ * the one worth replacing next turn, and a record carried in some other session is not.
+ */
+function rememberShown(map: Map<string, Set<string>>, key: string, ids: readonly string[]): void {
+  const set = map.get(key) ?? new Set<string>()
+  for (const id of ids) set.add(id)
+  map.delete(key)
+  map.set(key, set)
+  while (map.size > DIGEST_SEEN_SESSIONS) {
+    const oldest = map.keys().next().value
+    if (oldest === undefined) break
+    map.delete(oldest)
+  }
 }
 
 /**
@@ -212,9 +237,21 @@ function attachPrecall(
     if (memoryDisabled(exec.agent, config.disabledPresets)) return
     const workspace = workspaceOf(exec.agent, config.defaultDomain)
     const now = Date.now()
+    const sessionKey = sessionKeyOf(exec)
+    // What this session has already been shown, so a call that two records anchor can go to the
+    // one it has not seen. The counter below (`sent`) is keyed by session and record, so the set
+    // is read straight out of it — measured 2026-10-12: without this, a newly written lesson that
+    // anchored the right call lost every time to an older, higher-scoring record, and was
+    // therefore never shown at the moment it was written for.
+    const deliveredPrefix = `${sessionKey}\u0000`
+    const alreadyDelivered = new Set<string>()
+    for (const key of sent.keys()) {
+      if (key.startsWith(deliveredPrefix)) alreadyDelivered.add(key.slice(deliveredPrefix.length))
+    }
     const recall = recallForCallWithIdentifiers(db, workspace.id, workspace.domain, exec.arguments, now, {
       // The tool name is part of what the call is, and `tool:` anchors are matched against it.
       tool: exec.name ?? exec.tool,
+      alreadyDelivered,
     })
     if (recall === undefined) return
     const record = recall.record
@@ -228,7 +265,6 @@ function attachPrecall(
     // per-turn limit was measured against the real session this feature exists for, and it
     // handed the turn's slot to whatever else matched first, so the lesson about launching
     // the game never went out at all.
-    const sessionKey = sessionKeyOf(exec)
     const cooldownKey = `${sessionKey}\u0000${record.id}`
     const last = sent.get(cooldownKey)
     if (last !== undefined && now - last < config.precallCooldownMinutes * 60_000) return
@@ -363,6 +399,9 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
 
   // ── Resident layer ────────────────────────────────────────────────────────
   // Evaluated per assembly, not cached: the digest must track the live task.
+  // Per session, because "already shown" is a fact about one conversation. Bounded, like the
+  // precall maps, so a long-lived desktop process does not accumulate every session it ever ran.
+  const digestSeen = new Map<string, Set<string>>()
   ctx.systemPrompt.context({
     name: CONTEXT_NAME,
     order: CONTEXT_ORDER,
@@ -372,12 +411,15 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         // hint either. Both halves matter — the hint is what tells a mode that recording
         // exists, and a model-test mode should not be told.
         if (memoryDisabled(context.agent, resolved.disabledPresets)) return ''
+        const sessionKey = sessionKeyOfAgent(context.agent)
         return buildDigest({
           db,
           config: resolved,
           workspace: workspaceOf(context.agent, resolved.defaultDomain),
           query: recentQueryText(context.agent),
           now: Date.now(),
+          exclude: digestSeen.get(sessionKey),
+          collectShown: ids => rememberShown(digestSeen, sessionKey, ids),
         })
       } catch (error) {
         report('resident digest', error)
@@ -693,10 +735,14 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         items: { type: 'string' },
         description: 'The calls this lesson must interrupt, as facts a tool call either has or does not have: '
           + '`path:<file name>` (the call names that file), `tool:<name>` (the call is that tool), '
-          + '`command:<token>` (the command line contains it). A bare file name counts as `path:`. '
+          + '`command:<token>` (the command line or any argument text contains it — a plugin tool has no '
+          + 'command line, so its `action`/parameter tokens are what this matches). A bare file name counts as `path:`. '
           + 'This is what the just-before-acting hint fires on — **without it the lesson is never shown at '
           + 'the moment of action**, only in the every-turn digest and when something searches for it. '
-          + 'Give one or two, and prefer the exact file or command the mistake happened in.',
+          + 'Give one or two, and prefer the exact file or command the mistake happened in. '
+          + 'Add `priority:critical` as well when this is a **hard constraint that must be seen first** '
+          + '(it then outranks every other record competing for the same call). Use it sparingly: it is a '
+          + 'claim about the lesson, not a score, and if everything is critical then nothing is.',
       },
       standing: {
         type: 'boolean',
@@ -823,7 +869,13 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       // (`docs/DELIVERY-GAPS.md` §25): `path:node_modules` matched 702 of 15,896 calls and
       // `tool:pwsh` matched 5,936, and the latter record owned 94.8% of every hint delivered. The
       // record is still written — it reaches the digest and `memory_recall` — only the anchor goes.
-      const guard = guardAnchors(args.recall_for ?? [], {
+      const requested = args.recall_for ?? []
+      // `priority:critical` is a priority declaration, not an anchor, so it is lifted out before the
+      // guard — which would otherwise refuse it as unparseable and drop it silently — and handed to
+      // `remember` alongside the anchors that survived. It is what lets a hard constraint outrank
+      // every other record competing for the same call (see `CRITICAL_MARKER`).
+      const priority = requested.filter(piece => String(piece).trim().toLowerCase() === CRITICAL_MARKER)
+      const guard = guardAnchors(requested.filter(piece => !priority.includes(piece)), {
         enabled: resolved.anchorCostTable,
         maxHits: resolved.anchorCostMaxHits,
       })
@@ -839,7 +891,7 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         lesson: args.lesson,
         sourceRef: args.source_ref,
         quote: args.quote,
-        recallFor: guard.kept,
+        recallFor: [...guard.kept, ...priority],
         // Passed through as `undefined` when the caller said nothing — **not** collapsed to `false`.
         // `remember` reads `input.standing ?? existing.standing`, so collapsing would demote a
         // standing rule every time anybody re-reported it, silently: every other field of the record

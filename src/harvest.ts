@@ -28,6 +28,7 @@
  * type and appears zero times in the 11,735 events of the busiest session in this
  * workspace. A detector built on a type that never fires is a silent no-op.
  */
+import { resultFailed, resultText } from './toolresult.ts'
 import type { SessionEventLike } from './types.ts'
 
 /** One line of raw material the harvester decided was worth keeping. */
@@ -205,16 +206,9 @@ export function lastTurn(events: readonly SessionEventLike[]): readonly SessionE
   return events
 }
 
-/** The readable text of the first block of a tool result. */
-function firstErrorText(blocks: readonly unknown[]): string {
-  for (const block of blocks) {
-    if (typeof block !== 'object' || block === null) continue
-    const inner = (block as { content?: unknown }).content
-    const text = textOf(inner).trim()
-    if (text !== '') return text.slice(0, 200)
-  }
-  return ''
-}
+// Reading a result's text moved to `toolresult.ts`: the harness moved `isError` and the text
+// itself, and this hand-written walk kept answering the shape that no longer occurs.
+
 
 /**
  * One tool that failed and then worked, within the same turn.
@@ -244,12 +238,10 @@ function failureRecovered(turn: readonly SessionEventLike[]): string | undefined
     // A failure of the agent's own tooling is a rule about the tool, not knowledge about
     // the project, and the replay showed it crowding out everything else.
     if (AGENT_TOOLING.has(name)) continue
-    const blocks = event.data?.message?.content ?? event.data?.content
-    if (!Array.isArray(blocks)) continue
-    const failed = blocks.some(block =>
-      typeof block === 'object' && block !== null && (block as { isError?: unknown }).isError === true)
-    if (failed) {
-      if (!brokeAt.has(name)) brokeAt.set(name, { reason: firstErrorText(blocks), index })
+    if (resultFailed(event.data)) {
+      if (!brokeAt.has(name)) {
+        brokeAt.set(name, { reason: resultText(event.data).trim().slice(0, 200), index })
+      }
       continue
     }
     const broke = brokeAt.get(name)

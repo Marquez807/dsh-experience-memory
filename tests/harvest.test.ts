@@ -49,6 +49,19 @@ const toolResult = (callId: string, text: string, isError: boolean): SessionEven
   },
 })
 
+/** The same result as the current harness writes it: `isError` on the message, text at `block.text`. */
+const toolResultV4 = (callId: string, text: string, isError: boolean): SessionEventLike => ({
+  type: 'tool/result',
+  data: {
+    message: {
+      role: 'tool',
+      source: { kind: 'tool', callId },
+      content: [{ type: 'text', text }],
+      isError,
+    },
+  },
+})
+
 /** Most cases below cover the two opt-in detectors, so broad defaults to on here. The
  * suite separately pins that the plugin's own default is off. */
 const signalOf = (events: SessionEventLike[], broad = true): HarvestSignal | undefined =>
@@ -90,6 +103,20 @@ export function run(): void {
     toolCall('c2', 'read'),
     toolResult('c2', 'ok', false),
   ]), undefined, 'a different tool succeeding does not repair the one that failed')
+
+  // The recovered-failure detector on the shape live sessions write: it reads the same two
+  // questions (did it fail, what did it say) and had the same stale walk, so it stopped firing
+  // on the same day the counter did — which is why no record in the store carries this signal.
+  eq(signalOf([
+    toolCall('c1', 'pwsh'),
+    toolResultV4('c1', 'Error: present accepts 1 to 8 files', true),
+    toolCall('c2', 'pwsh'),
+    toolResultV4('c2', 'ok', false),
+  ]), 'failure-recovered', 'a repaired failure is recognised in the current log shape too')
+  eq(signalOf([
+    toolCall('c1', 'pwsh'),
+    toolResultV4('c1', 'Error: boom', true),
+  ]), undefined, 'and a failure with no recovery is still not a lesson')
 
   // ── User correction ───────────────────────────────────────────────────────
   eq(signalOf([assistant('部署写到 C 盘'), user('不对，部署一律写到 F 盘')]),

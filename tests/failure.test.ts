@@ -18,7 +18,40 @@ import { LESSON_IGNORED_MIN, failureShape, failuresIn, gapCandidateText, gapCand
 import { assert, eq } from './assert.ts'
 import type { SessionEventLike } from '../src/types.ts'
 
-/** A `tool/result` exactly as a real session logs one: `isError` on the result block. */
+/**
+ * A `tool/result` as sessions logged one **before** the harness moved the flag: `isError` on
+ * the result block. Kept deliberately — the store still holds two weeks of logs written this
+ * way, and the reader has to serve both.
+ */
+/**
+ * A `tool/result` as the harness logs one **now** (v4 session logs).
+ *
+ * Copied from a real log line (2026-10-10) rather than written from the field names: the flag
+ * moved up to `message.isError` and the text up to `block.text`. Every fixture in this file was
+ * hand-built to the older nesting, so this walk answered "no failures" for two weeks while the
+ * suite stayed green — the same mistake `session.ts` records for a property that did not exist.
+ */
+function failedCallV4(callId: string, name: string, text: string): SessionEventLike[] {
+  return [
+    { type: 'tool/call', data: { name, callId, arguments: '{}' } },
+    {
+      type: 'tool/result',
+      data: {
+        turn: 1,
+        step: 1,
+        message: {
+          role: 'tool',
+          source: { kind: 'tool', callId },
+          toolCallId: callId,
+          content: [{ type: 'text', text }],
+          isError: true,
+        },
+        error: { name: 'FsError', code: 'FS_NOT_FOUND' },
+      },
+    },
+  ]
+}
+
 function failedCall(callId: string, name: string, text: string): SessionEventLike[] {
   return [
     { type: 'tool/call', data: { name, callId, arguments: '{}' } },
@@ -98,6 +131,23 @@ export async function run(): Promise<void> {
   eq(observed[0]?.shape, observed[1]?.shape, 'the two edit failures are the same shape')
   assert((observed[0]?.sample ?? '').startsWith('Error: cannot modify'),
     `the sample keeps the real first line: ${observed[0]?.sample}`)
+
+  // ── The shape the harness writes now ──────────────────────────────────────
+  // The flag and the text both moved up one level. A reader that only knows the older nesting
+  // reports "no failures", which looks exactly like a healthy workspace — and did, for two
+  // weeks, because every fixture here encoded the assumption instead of the contract.
+  const turnV4: SessionEventLike[] = [
+    { type: 'turn/start', data: { turn: 1 } },
+    ...failedCallV4('v1', 'read', 'Error: cannot read "F:\\a\\b.md": not found'),
+    ...failedCallV4('v2', 'read', 'Error: cannot read "F:\\a\\c.md": not found'),
+  ]
+  const observedV4 = failuresIn(turnV4)
+  eq(observedV4.length, 2, 'the current spelling of a failure is seen too')
+  eq(observedV4[0]?.tool, 'read', 'and is attributed to the tool that produced it')
+  assert((observedV4[0]?.sample ?? '').startsWith('Error: cannot read'),
+    `the text is read from where this harness keeps it now: ${observedV4[0]?.sample}`)
+  eq(observedV4[0]?.shape, observedV4[1]?.shape,
+    'two different files collapse to one shape here as well')
 
   // ── The filter that must NOT apply here ───────────────────────────────────
   // `harvest.ts` skips the agent's own tooling, because "the agent used its own editor wrong"
