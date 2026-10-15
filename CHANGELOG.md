@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.10 — 2026-10-16
+
+**One new key, one measured answer.** `thinDigest` (default `false`) renders each always-on digest
+line as a **pointer** — record id and title, no "what to do" — so the reader fetches the full record
+with `record_ids`.
+
+It exists because the L1/L2 design question had evidence on both sides and could not be settled by
+argument: a line truncates at 240 bytes and the half that gets cut is often the actionable one, while
+the measured **9 `memory_recall` calls in 15,896 real calls** said a reader who must fetch often will
+not. The pre-registered comparison (`docs/PREREGISTER-l1-thin-digest.md`) ran **8 real turns per arm**
+with everything but that one key held identical: both arms scored **8/8**, and **the thin arm fetched
+in 8 of 8 cells** — a pointer does get followed.
+
+**The default stays off.** The evidence is one scene (one record, one task, a Chinese record against
+an English prompt), and this key changes what every session sees; that decision needs real traffic,
+not more cells in a harness.
+
+`tools/l1-ab/` holds the harness — `run-l1.mjs` (seed + run + judge), `count.mjs`, `stats.mjs` — and
+`results.jsonl`, the raw rows the conclusion in `docs/CONCLUSIONS.md` points at.
+
 ## 0.5.9 — 2026-10-16
 
 **Five changes about one question: what is worth storing, and how would anyone know whether it is
