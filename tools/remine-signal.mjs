@@ -1,26 +1,34 @@
 #!/usr/bin/env node
 /**
- * Before weighting "the trap that keeps being hit", measure whether the association holds.
+ * What to do about the failures that keep repeating — classified, not assumed.
  *
- * `failure_shape` counts how often each `(tool, error shape)` repeats — that is what `/memory-gaps`
- * reads — but the count never reaches `importance()`. Wiring it in is only worth doing if the
- * records that would receive the weight actually talk about that shape, and the only cheap link
- * available is the anchor a record declared (`tool:<name>`), which is a **name**, not a topic.
+ * `failure_shape` counts how often each `(tool, error shape)` repeats. That count on its own does
+ * not say what to do about it, and the obvious answer ("weight the related records") was measured
+ * and rejected on 2026-10-15: the shapes with the highest counts have no record to weight, and
+ * where a record did attach, the link was by tool *name* and about half wrong.
  *
- * So this answers the question the weighting decision depends on, before anything changes: for each
- * shape that repeated at least `--min-count` times, which records in that workspace declare a
- * `tool:` anchor for the same tool, and how important are they already?
+ * So this tool sorts every repeated shape into the three outcomes that actually have different
+ * fixes, and prints the count of each:
  *
- * Read-only, and its output is meant to be *read*, not trusted. If the hits are mostly records
- * about something else, then the weighting would be measuring "this tool gets used" rather than
- * "this lesson was missed" — and it should not be built.
+ *   - **self-explaining** — the message already says what to do (`file has not been read`). Not a
+ *     knowledge gap; it is workflow friction, and `gapCandidates` no longer files these at all.
+ *   - **covered** — a record exists *and* declares a `tool:` anchor for the same tool, so it can
+ *     actually be shown just before that call. If the shape still repeats, the problem is the
+ *     record's content or its delivery, not its absence.
+ *   - **needs an anchor** — a record comes close but declares no anchor for this tool, so it never
+ *     fires at the moment of the mistake. This is the actionable list: add the anchor.
+ *   - **needs a record** — nothing in the store comes close. `/memory-gaps` and the automatic
+ *     candidate path already handle these.
  *
- *   node tools/remine-signal.mjs [--cwd <root>] [--min-count 3] [--per-shape 3] [--out <md>]
+ * Read-only. Output is meant to be read: it says which bucket each shape is in and why.
+ *
+ *   node tools/remine-signal.mjs [--min-count 3] [--per-shape 3] [--out <md>]
  */
 import { writeFileSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { defaultDbPath } from '../lib/db.js'
 import { recordAnchors } from '../lib/criteria.js'
+import { gapReport, statesItsOwnFix } from '../lib/failure.js'
 import { importance } from '../lib/rank.js'
 
 const args = process.argv.slice(2)
@@ -35,84 +43,109 @@ const outPath = flag('out')
 
 const db = new DatabaseSync(dbPath, { readOnly: true })
 const shapes = db.prepare(
-  `SELECT workspace_id, tool, shape, count, sample, last_seen
-     FROM failure_shape WHERE count >= ?
-    ORDER BY count DESC`,
+  `SELECT workspace_id, tool, shape, count, sample FROM failure_shape WHERE count >= ? ORDER BY count DESC`,
 ).all(minCount)
 const now = Date.now()
 
-const lines = []
-const say = text => lines.push(text === undefined ? '' : text)
-say(`# 重踩信号：反复发生的形态，能不能落到某条记录上`)
-say('')
-say(`- 库：\`${dbPath}\``)
-say(`- 形态门槛：count ≥ ${minCount}（共 ${shapes.length} 个）`)
-say('')
-
-let withHits = 0
-let totalHits = 0
-const rows = []
-for (const shape of shapes) {
-  const records = db.prepare(
+/** Records of this workspace that declare `tool:<name>`, with their current standing. */
+const anchoredRecords = (workspaceId, tool) => {
+  const rows = db.prepare(
     `SELECT id, title, evidence, trigger, source_ref, success_count, reuse_count, fail_streak,
             distinct_workspaces, retrieve_count, last_retrieved_at, created_at, last_used_at, review_after
        FROM record
       WHERE workspace_id = ? AND status = 'confirmed' AND superseded_by IS NULL`,
-  ).all(shape.workspace_id)
-
-  const hits = records.filter(record => {
-    const { anchors } = recordAnchors({
-      trigger: String(record.trigger ?? ''),
-      sourceRef: String(record.source_ref ?? ''),
-    })
-    return anchors.some(anchor => anchor.kind === 'tool' && anchor.token === shape.tool)
-  }).map(record => ({
-    id: String(record.id),
-    title: String(record.title ?? ''),
-    importance: importance({
-      evidence: record.evidence,
-      successCount: record.success_count,
-      reuseCount: record.reuse_count,
-      failStreak: record.fail_streak,
-      distinctWorkspaces: record.distinct_workspaces,
-      retrieveCount: record.retrieve_count,
-      lastRetrievedAt: record.last_retrieved_at,
-      createdAt: record.created_at,
-      lastUsedAt: record.last_used_at,
-      reviewAfter: record.review_after,
-      now,
-    }),
-  }))
-
-  if (hits.length > 0) withHits += 1
-  totalHits += hits.length
-  rows.push({ shape, hits })
+  ).all(workspaceId)
+  return rows.filter(row => recordAnchors({
+    trigger: String(row.trigger ?? ''),
+    sourceRef: String(row.source_ref ?? ''),
+  }).anchors.some(anchor => anchor.kind === 'tool' && anchor.token === tool))
+    .map(row => ({
+      id: String(row.id),
+      title: String(row.title ?? ''),
+      importance: importance({
+        evidence: row.evidence,
+        successCount: row.success_count,
+        reuseCount: row.reuse_count,
+        failStreak: row.fail_streak,
+        distinctWorkspaces: row.distinct_workspaces,
+        retrieveCount: row.retrieve_count,
+        lastRetrievedAt: row.last_retrieved_at,
+        createdAt: row.created_at,
+        lastUsedAt: row.last_used_at,
+        reviewAfter: row.review_after,
+        now,
+      }),
+    }))
 }
 
-say(`- **有记录能对上的形态：${withHits} / ${shapes.length}**，合计命中 ${totalHits} 条`)
-say('')
-say('读数提醒：命中是**靠 tool 名**对上的，不是靠主题。`tool:pwsh` 这种宽锚点会把"凡是 pwsh 上的坑"')
-say('全都算进来——一个工具下有几十种形态，所以命中条数多不等于关联准确。人读这份输出，判断的正是这一点。')
-say('')
-
-for (const { shape, hits } of rows) {
-  const sample = String(shape.sample ?? '').replace(/\s+/g, ' ').trim().slice(0, 70)
-  say(`## ${shape.tool} · 计数 ${shape.count}`)
-  say('')
-  say(`形态样例：\`${sample}\``)
-  if (hits.length === 0) {
-    say('')
-    say('**没有任何记录声明了 \`tool:' + shape.tool + '\` 锚点** —— 这一类重踩目前落不到任何记录上。')
-    say('')
+const buckets = { selfExplaining: [], covered: [], needsAnchor: [], needsRecord: [] }
+for (const shape of shapes) {
+  if (statesItsOwnFix(String(shape.sample ?? ''))) {
+    buckets.selfExplaining.push(shape)
     continue
   }
-  say('')
-  for (const hit of hits.slice(0, perShape)) {
-    say(`- \`${hit.id}\` 重要性 ${hit.importance.toFixed(1)} — ${hit.title.slice(0, 60)}`)
+  const anchored = anchoredRecords(shape.workspace_id, shape.tool)
+  if (anchored.length > 0) {
+    buckets.covered.push({ shape, anchored })
+    continue
   }
-  if (hits.length > perShape) say(`- …另有 ${hits.length - perShape} 条`)
+  // Nothing declares an anchor for this tool — so: is there a record that comes close at all?
+  const report = gapReport(db, {
+    workspaceId: shape.workspace_id, domain: '', now, limit: 200, minCount,
+  })
+  const row = report.find(candidate => candidate.shape.tool === shape.tool
+    && candidate.shape.shape === shape.shape)
+  if (row?.closest !== undefined) {
+    buckets.needsAnchor.push({
+      shape, closest: row.closest, score: row.bestScore, keywords: row.keywords.length,
+    })
+  } else buckets.needsRecord.push(shape)
+}
+
+const lines = []
+const say = text => lines.push(text === undefined ? '' : text)
+const total = shapes.length
+
+say('# 重踩的失败：该怎么处理（分类，不猜）')
+say('')
+say(`- 库：\`${dbPath}\``)
+say(`- 形态门槛：count ≥ ${minCount}（共 **${total}** 个）`)
+say('')
+say('| 类别 | 个数 | 该怎么办 |')
+say('|---|---|---|')
+say(`| **报错自带做法** | ${buckets.selfExplaining.length} | 不记、不加权——它是流程摩擦，不是知识缺口（\`gapCandidates\` 已不再为它们产候选） |`)
+say(`| **已覆盖（挂了对应锚点）** | ${buckets.covered.length} | 记录存在且能在动作前弹出；若仍重踩，问题在内容或投递，不在"没有记录" |`)
+say(`| **该补锚点（但要先人读）** | ${buckets.needsAnchor.length} | "有记录"是**词面重叠**判出来的，而它很松：重叠一个词就算有关。下面的得分一栏就是让你判这一点的 |`)
+say(`| **该记一条** | ${buckets.needsRecord.length} | 库里没有任何词面重叠的记录；自动候选通道已在处理 |`)
+say('')
+say('读法：这张表替代了"重踩就加权"的想法（2026-10-15 实测否掉：计数最高的几类没有任何记录可加权，')
+say('而能对上的靠工具名关联、约一半是错的）。四个类别各有各的修法，第一类通常占大头，而它**不需要**记忆插件做任何事。')
+say('')
+say('**已知局限（别读过头）**：`gapReport` 的"有没有相关记录"是**关键词重叠**判的，阈值极低——')
+say('重叠一个词就落到"有关"那一侧。所以"该补锚点"里混着词面巧合（实测多为 1–2 分），')
+say('而"该记一条"那一侧则可能漏掉真正需要记录的形状。看得分再下判断，别照单执行。')
+say('')
+
+const show = (title, items, render) => {
+  if (items.length === 0) return
+  say(`## ${title}`)
+  say('')
+  for (const item of items.slice(0, 12)) say(render(item))
+  if (items.length > 12) say(`- …另有 ${items.length - 12} 个`)
   say('')
 }
+
+show('报错自带做法（列前几条，说明为什么不算缺口）', buckets.selfExplaining, shape =>
+  `- \`${shape.tool}\` 计数 ${shape.count} — \`${String(shape.sample ?? '').replace(/\s+/g, ' ').trim().slice(0, 68)}\``)
+
+show('关联很弱（词面重叠，可能是巧合——低分多半不是同一件事）', buckets.needsAnchor, item =>
+  `- \`${item.shape.tool}\` 计数 ${item.shape.count} → 最近记录 \`${item.closest.id}\` ${String(item.closest.title ?? '').slice(0, 40)}　**得分 ${item.score}/${item.keywords}**`)
+
+show('该记一条（库里没有接近的记录）', buckets.needsRecord, shape =>
+  `- \`${shape.tool}\` 计数 ${shape.count} — \`${String(shape.sample ?? '').replace(/\s+/g, ' ').trim().slice(0, 68)}\``)
+
+show('已覆盖（挂了对的锚点）', buckets.covered, item =>
+  `- \`${item.shape.tool}\` 计数 ${item.shape.count} → ${item.anchored.slice(0, perShape).map(hit => `\`${hit.id}\`（重要性 ${hit.importance.toFixed(1)}）`).join('、')}`)
 
 const text = lines.join('\n')
 console.log(text)
