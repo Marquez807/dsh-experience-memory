@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.5.8 — 2026-10-15
+
+**Three changes about the same thing: the plugin could not answer questions about itself.**
+
+A digest line names its record as `[id] title — …`, and there was no way to act on that id —
+`memory_recall` took only a query, so the pointer it printed led nowhere. Two tools each carried
+their own answer to "which root does this record resolve against", and the audit used one root for
+the whole store, reporting 138 files missing when 63 really were. And the project's own settled
+conclusions lived only in long documents nobody re-reads: a session proposed merging duplicate
+lessons while `CLAIMS.json` already recorded that merging had been measured and rejected.
+
+- `memory_recall` accepts `record_ids` and fetches those records in full, through the same four
+  gates a query goes through — learning an id is not a reason to read another workspace's record.
+  A refusal is named (`unknown` / `scope` / `status` / `superseded` / `expired`): "no such record"
+  and "that one belongs elsewhere" are different facts, and a caller that cannot tell them apart
+  concludes its own memory has lost things it never had. A by-id fetch counts as having reached for
+  the record, exactly as a text search does. Checked in the failing direction. This is the half of
+  the L1/L2 split that was missing (`repos/codex-memory-design/memory/drafts/hermes-l1-l2.md`,
+  2026-08-26): locate through the summary, then read the record.
+- `tools/lib/workspace-roots.mjs` + `tools/lib/provenance.mjs`: one implementation of root
+  resolution, shared by `provenance-audit.mjs` and `repair-provenance.mjs`. A record whose root the
+  walk cannot find is `orphan`, never `missing`. `tests/provenance.test.ts` pins it on **two**
+  workspaces — a single-workspace fixture cannot catch this, because there "our root" and "the
+  record's root" are the same string, which is how the defect survived. On the live store the
+  audit's count moved **138 → 63**, and that is a **change of 口径, not an improvement in the
+  store**: the same records, resolved against the roots they actually live under.
+- `docs/CONCLUSIONS.md`: the directions already settled, each with a receipt that
+  `tests/docs.test.ts` verifies still exists — the cheapest way to retire a conclusion quietly is
+  to delete the file it cites. Four are `作废`: merging duplicates, auto-cleaning duplicates, the
+  ≥15% failure-coverage bar, and porting the `codex-memory-design` M1 paperwork. Registered in the
+  store (`recall_for` on `src/lifecycle.ts` / `src/rank.ts`) so a future session is interrupted
+  before re-proposing one.
+
 ## 0.5.7 — 2026-10-15
 
 **The provenance check judged every workspace's records against the calling session's cwd, so it
