@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.5.9 — 2026-10-16
+
+**Five changes about one question: what is worth storing, and how would anyone know whether it is
+working.** Every one came out of measuring something that had been assumed, and the most useful
+result is a negative one.
+
+- **"A trap that keeps being hit should raise the weight of the lesson about it" does not survive
+  contact with the store.** Measured on 28 shapes at count ≥ 3: the three highest counts (215 + 68 +
+  61 `edit` failures, **344 in total**) have **no record at all** to weight, so the weighting would
+  miss exactly the part that repeats most; where a record did attach, the link is by tool *name* and
+  roughly half wrong ("现金流三条线裁决" counts as a `bigfat_research` trap). And those `edit`
+  failures are the self-explaining kind `DELIVERY-GAPS` §15 measured at 83% of all failures —
+  process friction, not a knowledge gap, and correctly absent from the store. Recorded as settled in
+  `docs/CONCLUSIONS.md` with the measuring tool as its receipt.
+- `gapCandidates` no longer proposes shapes whose own message states the fix (`file has not been
+  read`, `old_string was not found`). The test is narrow on purpose — a DNS or 404 error is still
+  proposed, because that is the outside world failing and exactly what is worth writing down. The
+  pool it filled had produced **zero** confirmed records.
+- `memory_remember` says when a record carries no `lesson`: **200 of 649 confirmed records (31%)**
+  are in that state, and the just-before-acting hint renders the lesson, falling back to a truncated
+  body when there is none — so those records reach a reader only through the digest and an explicit
+  recall. A note, not a refusal: the record is stored exactly as written.
+- `tools/remine-signal.mjs` sorts every repeated failure into the four buckets that have different
+  fixes (self-explaining / covered by a record that declares the right anchor / weakly related /
+  nothing close). It prints the overlap score and says plainly that a low score is probably a
+  coincidence — including that the same loose test can hide a shape which really does need a record.
+- `src/health.ts`: a snapshot of the store at the end of each maintenance pass — the shares of
+  confirmed records ever reused, never reached for, carrying no lesson, declaring no anchor — kept
+  as a bounded series so "is it getting better" is a reading rather than a guess. `memory_stats`
+  computes the current reading, compares it with the last stored one, and says in words which
+  direction is the bad one; the shares are over confirmed records only, because counting retired
+  rows would make a store look healthier the more it threw away.
+- Retrieval refusals are accumulated by reason (`scope` / `status` / `superseded` / `expired` /
+  `grade` / `relevance` / `limit`), including the by-id path's own refusals, so "why is this record
+  not showing up" no longer means reading the source and reproducing the call.
+
 ## 0.5.8 — 2026-10-15
 
 **Three changes about the same thing: the plugin could not answer questions about itself.**
