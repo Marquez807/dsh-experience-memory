@@ -37,6 +37,11 @@ record's workspace-relative path").
 - **Not yet in effect in the running process**: plugin code is not hot-reloaded (see README,
   "构建"), so until DSH restarts the old check is still writing notes. Until then the re-flagged
   set is expected to grow back, and the cleanup is what stops it from mattering.
+- `tools/provenance-audit.mjs` carried the same defect in its own right: it resolved every
+  record against the single `--cwd` it was handed, so it reported **138** files missing where the
+  true count is **63**. It now resolves each record against its own root — enumerated the same
+  way, by recomputing ids — and counts a record whose root it cannot find separately instead of
+  calling it missing. Its report also states how many records belong to the calling workspace.
 
 ## 0.5.6 — 2026-10-12
 
