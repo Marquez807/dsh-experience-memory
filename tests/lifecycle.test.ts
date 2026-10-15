@@ -7,7 +7,7 @@
  * what creates a candidate, what promotes one, what demotes it, and what only a
  * distinct second workspace may share.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert, eq } from './assert.ts'
@@ -20,6 +20,7 @@ import {
 } from '../src/lifecycle.ts'
 import { retrieve } from '../src/retrieve.ts'
 import { renderRecall } from '../src/inject.ts'
+import { workspaceId } from '../src/domain.ts'
 import type { MemoryRecord } from '../src/types.ts'
 
 const NOW = 1_800_000_000_000
@@ -498,9 +499,13 @@ export function run(): void {
     // depend on where that lifecycle happened to end.
     const provDb = openDb(join(provRoot, 'prov.db'))
     try {
+      // The real id, not a literal. `checkProvenance` judges only records whose `workspace_id`
+      // is this root's, so a made-up id would skip every record here and the suite would pass
+      // without testing the rule at all.
+      const provWs = workspaceId(provRoot)
       const make = (over: Partial<MemoryRecord>): MemoryRecord => ({
         id: 'r1',
-        workspaceId: 'wsA',
+        workspaceId: provWs,
         domain: DOMAIN,
         scope: 'workspace',
         kind: 'fact',
@@ -568,6 +573,29 @@ export function run(): void {
       // A wrong root must not silently mass-flag: nothing is checked without one.
       eq(checkProvenance(provDb, all, ''), 0,
         'without a workspace root nothing is checked, rather than everything being flagged')
+
+      // Another workspace's record must not be judged against this root. Its `source_ref` is
+      // relative to *its* root, which this call was not given — so resolving it here flags a
+      // file that is present exactly where the record lives. Measured on the live store,
+      // 2026-10-15: 88 of 140 notes were this, and the wrongness ran both ways — records of
+      // *this* workspace were flagged by sessions whose cwd was somewhere else, which is how
+      // the notes came to be wrong more often than right.
+      const otherRoot = join(provRoot, 'other-ws')
+      mkdirSync(join(otherRoot, 'docs'), { recursive: true })
+      writeFileSync(join(otherRoot, 'docs', 'OTHER.md'), '约定。\n', 'utf8')
+      const foreign = make({
+        id: 'p-foreign',
+        contentFingerprint: 'fp-foreign',
+        workspaceId: workspaceId(otherRoot),
+        sourceRef: 'docs/OTHER.md:1',
+      })
+      upsert(provDb, foreign)
+      assert(!existsSync(join(provRoot, 'docs', 'OTHER.md')),
+        'the cited file is absent under this root — which is what made the flag look right')
+      eq(checkProvenance(provDb, [getRecord(provDb, 'p-foreign')!], provRoot), 0,
+        "another workspace's record is not judged against this root")
+      eq(getRecord(provDb, 'p-foreign')?.needsReview ?? null, null,
+        'and no note is written on it')
 
       // And it is wired into the maintenance pass, not just a function that exists.
       rmSync(join(provRoot, 'docs', 'DEPLOY.md'), { force: true })

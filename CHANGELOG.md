@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.5.7 — 2026-10-15
+
+**The provenance check judged every workspace's records against the calling session's cwd, so it
+flagged files that were present — and it wrote that note into the store, where it costs the
+record.**
+
+`checkProvenance` resolves a record's `source_ref` against `workspaceRoot`, which is the *calling
+session's* cwd. The batch it scans, `confirmedAfter`, is the whole store. A record belonging to
+another workspace therefore had its relative path joined to a root it does not live under, and a
+file that was there all along was reported gone. `docs/DELIVERY-GAPS.md` §17 measured what that
+note costs: a model reading the record back asks where the cited file is, cannot find it, and
+throws the record away rather than trust a citation it cannot follow.
+
+Measured on the live store, 2026-10-15: of the **161** records carrying the note, **109** cited
+files that are present under their own workspace root. The wrongness ran both ways — records of
+the root that *was* passed got flagged by sessions running elsewhere, including one citing
+`dsh-experience-memory/src/db.ts` in this very repository. The batch is not per-workspace and
+never was; the check assumed it was, and the comment above it said the opposite ("resolve the
+record's workspace-relative path").
+
+- `checkProvenance` now skips any record whose `workspace_id` is not the caller's. A workspace's
+  records are judged by that workspace's own sessions, which is the only place its root is known.
+- Checked in the failing direction: restoring the unconditional loop turns `lifecycle` red on
+  `another workspace's record is not judged against this root`. The fixture had to change too —
+  it wrote `workspaceId: 'wsA'`, a literal matching no root, so the suite could not have caught
+  this even in principle. It is the same "the fixture encodes the assumption" failure `session.ts`
+  already records once.
+- `tools/repair-provenance.mjs` clears the notes already in the store. It is read-only unless
+  `--apply`; it enumerates workspace roots by recomputing ids (`workspace_id` is a one-way hash,
+  so they cannot be looked up); it clears a note only when the cited file is found under the
+  record's own root; and it reports — never guesses at — a record whose root it cannot find.
+  Applied to the live store: **104 notes cleared, 51 kept** (those cite files that really are
+  gone), 1 undecidable. The count moves between runs because the same check clears a note when a
+  file comes back, so the flagged set churns while the old code is still in the running process.
+- **Not yet in effect in the running process**: plugin code is not hot-reloaded (see README,
+  "构建"), so until DSH restarts the old check is still writing notes. Until then the re-flagged
+  set is expected to grow back, and the cleanup is what stops it from mattering.
+
 ## 0.5.6 — 2026-10-12
 
 **A record can declare itself a hard constraint and outrank everything else competing for the
