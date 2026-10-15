@@ -374,7 +374,7 @@ export async function run(): Promise<void> {
     // own idea of it. The candidate was upgraded in place, so there is one record.
     const stats = await call<{
       records: number; confirmed: number; candidates: number; retired: number
-      resident_eligible: number; usage_total: number; corrections: number; text: string
+      resident_eligible: number; usage_total: number; corrections: number; text: string; health: string
     }>('memory_stats', {}, agentFor([]))
     eq(stats.records, 1, 'stats counts the records that exist')
     eq(stats.confirmed, 1, 'and separates confirmed from candidates')
@@ -383,6 +383,10 @@ export async function run(): Promise<void> {
     eq(stats.resident_eligible, 1, 'and reports how many would be injected right now')
     eq(stats.usage_total, 0, 'a census records no usage of its own, because it is read-only')
     assert(stats.text.includes('记录 1 条'), 'the readable rendering agrees with the structured counts')
+    // Totals say what the store holds; the health reading says whether that is improving. It is
+    // taken now and compared with what the last maintenance pass wrote, so this stays a read.
+    assert(stats.health.includes('健康快照'), `a census carries the health reading: ${stats.health.slice(0, 40)}`)
+    assert(stats.text.includes('健康快照'), 'and renders it alongside the counts, not only in the struct')
     // The build id leads, and it is the only answer a model-side caller can get:
     // the version never changes, and a plugin's own logger output does not reach
     // `harness.log`. Pinned here so the line cannot quietly lose its head.

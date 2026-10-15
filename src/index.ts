@@ -48,6 +48,7 @@ import { census, renderCensus } from './census.ts'
 import { forget, maintain, recordUsage, remember, harvest } from './lifecycle.ts'
 import { renderRecall } from './inject.ts'
 import { retrieve, retrieveByIds } from './retrieve.ts'
+import { formatHealth, healthSeries, healthSnapshot } from './health.ts'
 import type { Kind, Scope } from './types.ts'
 
 export const name = 'experience-memory'
@@ -708,6 +709,13 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
           resident_eligible: { type: 'integer', required: true },
           usage_total: { type: 'integer', required: true },
           corrections: { type: 'integer', required: true },
+          health: {
+            type: 'string',
+            required: true,
+            description: "Current reading of the store's own health, with the change since the previous "
+              + 'maintenance pass: the shares of confirmed records ever reused, never reached for, '
+              + 'carrying no lesson, and declaring no anchor.',
+          },
           text: { type: 'string', required: true },
         },
       },
@@ -720,6 +728,12 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
     execute: (_args: Record<string, never>, exec: ToolExec) => {
       refuseWhenDisabled(exec)
       const result = census(db, { now: Date.now() })
+      // "Is this store getting better or worse" is a question totals cannot answer, so the reading
+      // is taken now and compared against the one the last maintenance pass wrote. Computing it
+      // here rather than replaying the stored snapshot means the numbers describe this moment; the
+      // stored series is only the baseline. Nothing is written — this tool stays read-only.
+      const series = healthSeries(db)
+      const health = formatHealth(healthSnapshot(db, Date.now()), series[series.length - 1])
       return {
         records: result.records,
         confirmed: result.byStatus['confirmed'] ?? 0,
@@ -734,8 +748,10 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
         // stdout/stderr only, which was verified after claiming otherwise. The operator
         // half of this line is `/memory-status`; this is the half a model-side caller
         // can actually read, in whatever session it happens to be running.
+        health,
         text: `插件构建 ${build.id}（${build.modules} 个模块）\n`
           + renderCensus(result, { dbPath: resolved.dbPath })
+          + `\n${health}\n`
           + callIdLine(exec),
       }
     },

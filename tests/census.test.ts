@@ -13,6 +13,7 @@ import { assert, eq } from './assert.ts'
 import { noteCorrection, noteUsage, openDb, upsert } from '../src/db.ts'
 import type { DatabaseSync } from 'node:sqlite'
 import { census, renderCensus } from '../src/census.ts'
+import { HEALTH_SERIES_MAX, formatHealth, healthSeries, healthSnapshot, recordHealth } from '../src/health.ts'
 import type { MemoryRecord } from '../src/types.ts'
 
 const NOW = 1_800_000_000_000
@@ -144,6 +145,60 @@ export function run(): void {
       assert(renderCensus(empty).includes('记录 0 条'), 'and renders without special-casing')
     } finally {
       emptyDb.close()
+    }
+
+    // ── Health: so "is this store getting better" has an answer ───────────
+    // Totals cannot answer it — a store can retire and add in the same week and look unchanged —
+    // so the shares are taken over confirmed records only. Counting retired rows would make a store
+    // look healthier the more it threw away.
+    const healthDb: DatabaseSync = openDb(join(dir, 'health.db'))
+    try {
+      upsert(healthDb, make({
+        id: 'h1', contentFingerprint: 'fp-h1', title: '改文件前先读',
+        lesson: '编辑前先 read 一次', trigger: 'tool:edit', reuseCount: 3, retrieveCount: 2,
+      }))
+      upsert(healthDb, make({ id: 'h2', contentFingerprint: 'fp-h2', title: '标题', retrieveCount: 0 }))
+      upsert(healthDb, make({ id: 'h3', contentFingerprint: 'fp-h3', title: '标题', retrieveCount: 0 }))
+      upsert(healthDb, make({
+        id: 'h4', contentFingerprint: 'fp-h4', status: 'candidate',
+        lesson: 'x', trigger: 'tool:x', retrieveCount: 0,
+      }))
+
+      const snap = healthSnapshot(healthDb, NOW)
+      eq(snap.confirmed, 3, 'a candidate is not part of the quality of the store')
+      eq(snap.candidate, 1, 'and is reported on its own')
+      eq(snap.reusedPct, 33.3, 'the reused share is taken over confirmed records')
+      eq(snap.neverRetrievedPct, 66.7, 'and so is the never-reached-for share')
+      eq(snap.noLessonPct, 66.7, 'and the share carrying no lesson')
+      eq(snap.noAnchorPct, 66.7, 'and the share declaring no anchor')
+      eq(snap.dupGroups, 1, 'two records whose titles share their first twelve characters are one group')
+
+      recordHealth(healthDb, snap)
+      eq(healthSeries(healthDb).length, 1, 'a recorded snapshot reads back')
+      for (let i = 0; i < HEALTH_SERIES_MAX + 5; i += 1) {
+        recordHealth(healthDb, { ...snap, at: NOW + i })
+      }
+      eq(healthSeries(healthDb).length, HEALTH_SERIES_MAX,
+        'the series is bounded, so the meta table cannot grow without limit')
+
+      // A bare `+5` does not say which way is good. The rendering says it in words, because the
+      // whole point of taking the reading is that a person can act on it.
+      assert(formatHealth({ ...snap, noLessonPct: snap.noLessonPct + 5 }, snap).includes('变差'),
+        'more records without a lesson is stated as getting worse')
+      assert(formatHealth({ ...snap, reusedPct: snap.reusedPct + 5 }, snap).includes('变好'),
+        'more records being reused is stated as getting better')
+      assert(formatHealth(snap).includes('健康快照'), 'and a first reading still renders, with no baseline')
+
+      // A series that cannot be parsed is no series — the next pass writes a fresh one.
+      const brokenDb: DatabaseSync = openDb(join(dir, 'broken-health.db'))
+      try {
+        brokenDb.prepare("INSERT OR REPLACE INTO meta VALUES ('health.series', 'not json')").run()
+        eq(healthSeries(brokenDb).length, 0, 'an unreadable series reports nothing rather than throwing')
+      } finally {
+        brokenDb.close()
+      }
+    } finally {
+      healthDb.close()
     }
   } finally {
     db.close()
