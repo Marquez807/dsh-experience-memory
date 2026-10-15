@@ -93,6 +93,51 @@ export function recordHealth(db: DatabaseSync, snapshot: HealthSnapshot): void {
 }
 
 /**
+ * Cumulative counts of why a retrieval dropped a record.
+ *
+ * "Why is this not showing up" was answerable only by reading the source and reproducing the call:
+ * `retrieve` computes its drops by reason on every call, and the count died with the call. Adding
+ * it up turns that investigation into a reading. It is a running total rather than a per-window
+ * figure, because the question it answers ("which gate is doing the work here") is about shape,
+ * not about this second.
+ */
+export function readRefusals(db: DatabaseSync): Record<string, number> {
+  const raw = readMeta(db, 'retrieval.refusals')
+  if (raw === '') return {}
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const out: Record<string, number> = {}
+    for (const [reason, count] of Object.entries(parsed as Record<string, unknown>)) {
+      const n = Number(count)
+      if (Number.isFinite(n) && n > 0) out[reason] = n
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+export function noteRefusals(db: DatabaseSync, reasons: Readonly<Record<string, number>>): void {
+  const current = readRefusals(db)
+  let changed = false
+  for (const [reason, count] of Object.entries(reasons)) {
+    if (Number.isFinite(count) && count > 0) {
+      current[reason] = (current[reason] ?? 0) + count
+      changed = true
+    }
+  }
+  if (changed) writeMeta(db, 'retrieval.refusals', JSON.stringify(current))
+}
+
+/** The gates, most active first, for a reader. */
+export function formatRefusals(refusals: Readonly<Record<string, number>>): string {
+  const top = Object.entries(refusals).sort((a, b) => b[1] - a[1]).slice(0, 6)
+  if (top.length === 0) return '检索拒绝码（累计）：还没有数据'
+  return `检索拒绝码（累计）：${top.map(([reason, n]) => `${reason} ${n}`).join(' · ')}`
+}
+
+/**
  * Render a snapshot for a reader, with the change since the previous one where there is one.
  *
  * The direction is stated in words for the two measures where "up" is bad — a rising share of

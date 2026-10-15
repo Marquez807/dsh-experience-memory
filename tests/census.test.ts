@@ -13,7 +13,7 @@ import { assert, eq } from './assert.ts'
 import { noteCorrection, noteUsage, openDb, upsert } from '../src/db.ts'
 import type { DatabaseSync } from 'node:sqlite'
 import { census, renderCensus } from '../src/census.ts'
-import { HEALTH_SERIES_MAX, formatHealth, healthSeries, healthSnapshot, recordHealth } from '../src/health.ts'
+import { HEALTH_SERIES_MAX, formatHealth, formatRefusals, healthSeries, healthSnapshot, noteRefusals, readRefusals, recordHealth } from '../src/health.ts'
 import type { MemoryRecord } from '../src/types.ts'
 
 const NOW = 1_800_000_000_000
@@ -197,6 +197,23 @@ export function run(): void {
       } finally {
         brokenDb.close()
       }
+
+      // ── Refusal codes: "why is this not showing up" as a reading ──────────
+      // `retrieve` computes its drops by reason on every call and the count used to die with the
+      // call, so answering that question meant reading the source and reproducing it by hand.
+      assert(formatRefusals(readRefusals(healthDb)).includes('还没有数据'),
+        'a store that has never refused anything says so, rather than rendering an empty row')
+      noteRefusals(healthDb, { limit: 3, scope: 1 })
+      noteRefusals(healthDb, { limit: 2, status: 4 })
+      eq(readRefusals(healthDb)['limit'], 5, 'counts accumulate across calls')
+      eq(readRefusals(healthDb)['status'], 4, 'each gate is counted on its own')
+      assert(formatRefusals(readRefusals(healthDb)).includes('limit 5'),
+        'and the busiest gate is rendered first, because that is the one worth looking at')
+
+      // Stored values are not trusted: a shape that is not a reason map reads as no data.
+      healthDb.prepare("INSERT OR REPLACE INTO meta VALUES ('retrieval.refusals', '[]')").run()
+      eq(Object.keys(readRefusals(healthDb)).length, 0,
+        'an array under that key is not a reason map, and reports nothing rather than throwing')
     } finally {
       healthDb.close()
     }
