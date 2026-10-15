@@ -340,6 +340,7 @@ Why auditing and importing are not given to the model: they scan arbitrary direc
 | `dbPath` | `$DSH_HOME/experience-memory/memory.db` | store location |
 | `residentMaxRecords` | `5` | per-section record ceiling |
 | `residentMaxBytes` | `1536` | hard byte ceiling for the whole digest (all sections together) |
+| `thinDigest` | `false` | render the digest as **pointers** (record id + title) with **no** "what to do" — a reader must call `memory_recall` with `record_ids` for the rest. Off by default. On, a truncated line stops looking like a complete instruction, at the price of requiring the reader to actually fetch: measured, it did so 9 times in 15,896 calls. Criteria and comparison in `docs/PREREGISTER-l1-thin-digest.md` |
 | `coreMaxRecords` | `2` | core-layer record ceiling; `0` turns the core layer off |
 | `standingMaxRecords` | `3` | standing-rule ceiling; `0` turns the standing layer off |
 | `standingMaxBytes` | `768` | byte ceiling for the standing section alone (the whole digest still respects `residentMaxBytes`); measured, that holds about three short rules or two long ones (lines cap at 240 bytes, the label costs 49) |

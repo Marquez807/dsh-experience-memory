@@ -383,6 +383,7 @@ agent 直接启动，那一轮白跑。
 | `dbPath` | `$DSH_HOME/experience-memory/memory.db` | 数据库位置 |
 | `residentMaxRecords` | `5` | 每段条数上限 |
 | `residentMaxBytes` | `1536` | 整个摘要（所有段合计）的字节硬上限 |
+| `thinDigest` | `false` | 每轮摘要只给**指针**（记录 id + 标题），**不含**"该怎么做"——要看详情得用 `memory_recall` 带 `record_ids` 取全文。默认关。开着的意义在于：摘要里那句被截断的话不再像是完整指示，代价是**读者必须真的去取**——而实测 15,896 次调用里它只主动取过 9 次。判据与对照见 `docs/PREREGISTER-l1-thin-digest.md` |
 | `coreMaxRecords` | `2` | 核心层条数上限；`0` 关闭核心层 |
 | `standingMaxRecords` | `3` | 常驻规矩条数上限；`0` 关闭常驻层 |
 | `standingMaxBytes` | `768` | 常驻规矩那一段自己的字节上限（整份摘要仍受 `residentMaxBytes` 约束）。按实测每行最多 240 字节、标签 49 字节，这一段装得下约 3 条短规矩或 2 条长规矩 |

@@ -18,6 +18,11 @@
         # Resident layer: the always-on experience digest injected every turn.
         residentMaxRecords: 5
         residentMaxBytes: 1536
+        # Digest lines as pointers instead of answers: id + title, no "what to do", so a reader has
+        # to fetch the record with `record_ids`. Off, because the fetch is the half that has never
+        # been measured to happen (9 `memory_recall` calls in 15,896), and the comparison that would
+        # settle it is `docs/PREREGISTER-l1-thin-digest.md`.
+        thinDigest: false
         # Core layer: cross-project lessons, injected whether or not the turn
         # mentions them. 0 disables it. They share residentMaxBytes with the
         # resident layer above, so guaranteeing them cannot grow the prompt.

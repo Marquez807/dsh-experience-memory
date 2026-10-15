@@ -313,6 +313,17 @@ export function run(): void {
     eq(renderDigest([{ label: '核心：', ranked: [] }], { maxRecords: 5, maxBytes: 1536 }), '',
       'an empty section contributes nothing')
 
+    // ── Thin digest: the line is a pointer, not an answer ───────────────────
+    // The switch exists so the L1/L2 question can be *measured* rather than argued
+    // (`docs/PREREGISTER-l1-thin-digest.md`): a line truncates at 240 bytes and the half that gets
+    // cut is often the actionable one, while `record_ids` now puts the full record one call away.
+    // Whether a reader makes that call is the thing the comparison measures — this only pins that
+    // the mode really does withhold the answer.
+    const thin = renderDigest([{ label: '核心：', ranked: core }], { maxRecords: 5, maxBytes: 1536, thin: true })
+    assert(thin.includes('[core1]'), 'a thin line still names the record, so it can be fetched by id')
+    assert(thin.includes('record_ids'), 'and says how to fetch it — the fetch is the point of the mode')
+    assert(!thin.includes(' — '), 'and carries no lesson, so the line withholds the answer')
+
     // ── On-demand layer truncates and reports instead of refusing ───────────
     const pack = renderRecall(manyRanked, 400)
     assert(pack.truncated, 'a tight budget truncates the recall')

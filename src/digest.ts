@@ -245,7 +245,7 @@ export interface DigestInput {
  */
 export function buildDigest(input: DigestInput): string {
   const { db, config, workspace, query, now } = input
-  const budget = { maxRecords: config.residentMaxRecords, maxBytes: config.residentMaxBytes }
+  const budget = { maxRecords: config.residentMaxRecords, maxBytes: config.residentMaxBytes, thin: config.thinDigest }
 
   // The standing layer: rules the writer marked as always-on. Read without a query term, because
   // the whole point of the flag is that a rule like "always answer in Chinese" has no term to

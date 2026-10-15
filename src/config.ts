@@ -21,6 +21,16 @@ export interface Config {
   residentMaxRecords?: number
   /** Always-on layer: hard UTF-8 byte ceiling for the whole digest. */
   residentMaxBytes?: number
+  /**
+   * Render the always-on digest as pointers instead of answers.
+   *
+   * Off by default. On, each line carries the record's id and title but **not** its lesson, so a
+   * reader has to call `memory_recall` with `record_ids` to learn what to do. The question this
+   * switch exists to answer is whether that ever happens: measured on real traffic, `memory_recall`
+   * was called **9 times in 15,896 tool calls**, and a digest that is only ever read is a memory
+   * that has gone silent. Criteria and the comparison live in `docs/PREREGISTER-l1-thin-digest.md`.
+   */
+  thinDigest?: boolean
   /** Core layer: how many corroborated domain-level records appear every turn. 0 disables it. */
   coreMaxRecords?: number
   /** On-demand layer: hard ceiling for one `memory_recall` answer. */
@@ -143,6 +153,7 @@ export const Config: z<Config> = z.object({
   dbPath: z.string(),
   residentMaxRecords: z.number(),
   residentMaxBytes: z.number(),
+  thinDigest: z.boolean(),
   coreMaxRecords: z.number(),
   standingMaxRecords: z.number(),
   standingMaxBytes: z.number(),
@@ -227,6 +238,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     dbPath: config.dbPath === '' ? undefined : config.dbPath,
     residentMaxRecords: positive(config.residentMaxRecords, 5, 'residentMaxRecords'),
     residentMaxBytes: positive(config.residentMaxBytes, 1536, 'residentMaxBytes'),
+    thinDigest: config.thinDigest ?? false,
     // 0 is meaningful here — it turns the core layer off — so this one is allowed
     // to be zero where every other limit must be at least one.
     coreMaxRecords: integer(config.coreMaxRecords, 2, 'coreMaxRecords', 0),

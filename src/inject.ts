@@ -43,6 +43,8 @@ export function truncateToBytes(text: string, maxBytes: number): string {
 const RESIDENT_LINE_BYTES = 240
 
 export interface ResidentOptions {
+  /** Render each line as a pointer rather than an answer — see `thinDigest` in `src/config.ts`. */
+  thin?: boolean
   maxRecords: number
   maxBytes: number
 }
@@ -105,7 +107,13 @@ export function renderDigest(sections: readonly DigestSection[], options: Reside
     for (const entry of section.ranked.slice(0, options.maxRecords)) {
       const { record } = entry
       const detail = record.lesson !== '' ? record.lesson : record.body
-      const line = truncateToBytes(`- [${record.id}] ${record.title} — ${detail}`, RESIDENT_LINE_BYTES)
+      // Thin mode: the line is a pointer, not an answer. The reason the switch exists is that a
+      // line is truncated at 240 bytes and the half that gets cut is often the actionable one,
+      // while `record_ids` now makes the full record exactly one call away. Whether a reader
+      // actually makes that call is the question `docs/PREREGISTER-l1-thin-digest.md` measures.
+      const line = options.thin === true
+        ? truncateToBytes(`- [${record.id}] ${record.title}（详情：memory_recall 带 record_ids）`, RESIDENT_LINE_BYTES)
+        : truncateToBytes(`- [${record.id}] ${record.title} — ${detail}`, RESIDENT_LINE_BYTES)
       const cost = byteLength(line) + 1
       if (used + sectionUsed + cost > ceiling) break
       lines.push(line)
