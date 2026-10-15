@@ -404,6 +404,34 @@ export interface GapCandidate {
 }
 
 /**
+ * Tool failures whose message already states the fix.
+ *
+ * `docs/DELIVERY-GAPS.md` §15 measured this class at **83% of all failures**: the tool refuses and
+ * the same message says what to do next. Filing one as a candidate asks the model to remember
+ * something it was told a second earlier, which is how the pool filled up — measured 2026-10-15:
+ * 73 candidates, **0 ever confirmed**.
+ *
+ * The test is deliberately narrow: a pattern has to state a *remedy* or name a *legal value*, not
+ * merely report a failure. `not found` does not qualify on its own — a 404 from the network is the
+ * outside world, and that is exactly the kind of thing worth remembering.
+ */
+const SELF_EXPLAINING: readonly RegExp[] = [
+  /has not been read/i,
+  /read the file, then retry/i,
+  /old_string/i,
+  /changed since it was read/i,
+  /must be one of/i,
+  /must be an object/i,
+  /is required/i,
+  /out of range/i,
+]
+
+/** Whether a failure message carries its own fix. Exported so the boundary can be tested. */
+export function statesItsOwnFix(sample: string): boolean {
+  return SELF_EXPLAINING.some(pattern => pattern.test(sample))
+}
+
+/**
  * The recurring failures worth turning into raw material — the missing link.
  *
  * Why this exists (measured 2026-09-25, `tools/prevention-ledger.mjs` on the live store): of
@@ -424,6 +452,12 @@ export interface GapCandidate {
  * shared keyword) are proposed. A shape that already has a near record is a different
  * problem with a different fix — revise that record — and a second ungraded row beside it
  * would only add noise to the pool the model is asked to judge.
+ *
+ * And **not shapes that state their own fix** ({@link statesItsOwnFix}): asking a reader to
+ * confirm "read the file, then retry" as a lesson is asking it to file what it was just told.
+ * Measured on the live store 2026-10-15, the three shapes with the highest counts — all `edit`
+ * failures, 215 + 68 + 61 occurrences — are exactly this class, and were the bulk of a pool
+ * that had never produced a single confirmed record.
  */
 export function gapCandidates(
   rows: readonly GapRow[],
@@ -432,7 +466,8 @@ export function gapCandidates(
   return rows
     .filter(row => row.closest === undefined
       && row.shape.count >= options.minCount
-      && row.shape.sample.trim() !== '')
+      && row.shape.sample.trim() !== ''
+      && !statesItsOwnFix(row.shape.sample))
     .slice(0, options.max)
     .map(row => ({
       tool: row.shape.tool,

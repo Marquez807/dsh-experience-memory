@@ -981,6 +981,16 @@ export function apply(ctx: Context, config: ExperienceConfig): void {
       const notes = [
         ...refused,
         ...(dangerExamples.length === 0 ? [] : ['this record describes a destructive action — see danger_examples']),
+        // A record without a lesson is not useless, but it is delivered worse than it looks: the hint
+        // that fires just before a call renders the lesson, and falls back to the head of the body —
+        // truncated — when there is none. Measured on the live store 2026-10-15: 200 of 649 confirmed
+        // records (31%) carry no lesson. Write time is the only moment the author can still fix it
+        // cheaply, and this is a note rather than a refusal: the record is stored exactly as written.
+        ...(args.kind === 'experience' && String(args.lesson ?? '').trim() === ''
+          ? ['no `lesson`: the just-before-acting hint shows the lesson and falls back to the top of the '
+            + 'body (cut at 300 bytes) when it is missing, so this record will reach a reader only through '
+            + 'the digest and `memory_recall`']
+          : []),
       ]
       return {
         outcome: result.outcome,

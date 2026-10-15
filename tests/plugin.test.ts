@@ -183,13 +183,34 @@ export async function run(): Promise<void> {
       'and it names the tool, so it is actionable rather than advice')
 
     // ── An unverifiable claim stays a candidate and is not recalled ────────
-    const weak = await call<{ outcome: string; id: string; status: string; evidence: string }>(
+    const weak = await call<{ outcome: string; id: string; status: string; evidence: string; reason: string }>(
       'memory_remember',
       { kind: 'experience', title: '部署目标盘', body: '部署一律写到 F 盘' },
       agentFor([]),
     )
     eq(weak.evidence, 'inferred', 'a claim with no passage is graded as an inference')
     eq(weak.status, 'candidate', 'and stays a candidate')
+    // Write time is the only cheap moment to notice this. The hint that fires just before a call
+    // renders the lesson and falls back to the head of the body — truncated — when there is none,
+    // so a lesson-less record is reachable only through the digest and an explicit recall.
+    // Measured on the live store 2026-10-15: 200 of 649 confirmed records (31%) carry no lesson.
+    assert(weak.reason.includes('no `lesson`'),
+      `and it says the record carries no lesson, which is what decides how it can be delivered: ${weak.reason}`)
+    const withLesson = await call<{ id: string; reason: string }>(
+      'memory_remember',
+      { kind: 'experience', title: '改文件前先读', body: '编辑工具要求先读过', lesson: '编辑前先 read 一次', trigger: 'edit' },
+      agentFor([]),
+    )
+    assert(!withLesson.reason.includes('no `lesson`'),
+      `a record that carries a lesson is not nagged about it: ${withLesson.reason}`)
+    // Put the store back the way the rest of this suite expects to find it — `memory_stats` counts
+    // the store, not the workspace, so a fixture left behind changes what every count below means.
+    const cleanupLesson = openDb(dbPath)
+    try {
+      deleteRecord(cleanupLesson, withLesson.id)
+    } finally {
+      cleanupLesson.close()
+    }
     const weakRecall = await call<{ returned: number; text: string }>('memory_recall', { query: '部署' }, agentFor([]))
     eq(weakRecall.returned, 0, 'a candidate is not recalled, because only confirmed records are')
     // A candidate is a claim recorded without a verifiable passage. If it could

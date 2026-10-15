@@ -256,22 +256,20 @@ export async function run(): Promise<void> {
     // by design. Nothing turned "we keep doing this" into a row; a person had to run the
     // ledger and then ask for a record. These assertions pin both halves: it proposes the
     // uncovered repeats, and it stays out of the way of a shape that already has a record.
-    const proposed = gapCandidates(quoteOnly, { minCount: 3, max: 2 })
-    eq(proposed.length, 1, 'the repeated uncovered shape becomes material, and only it')
-    eq(proposed[0]?.tool, 'edit', 'with the tool it belongs to')
-    eq(proposed[0]?.count, 4, 'and the count that makes it worth a reader’s attention')
-    assert((proposed[0]?.sample ?? '').includes('cannot modify'),
-      `and the real error line, verbatim: ${proposed[0]?.sample ?? '(none)'}`)
-    eq(gapCandidates(quoteOnly, { minCount: 5, max: 2 }).length, 0,
-      'a shape below the floor is not proposed — the counters only grow, so it can wait')
-    eq(gapCandidates(quoteOnly, { minCount: 3, max: 0 }).length, 0, 'and the per-turn cap is honoured')
+    // …but **not** the shapes that state their own fix. The one here is `file has not been read`:
+    // the tool refused and said what to do in the same sentence, so filing it as material to judge
+    // asks a reader to remember what it was just told. Measured on the live store 2026-10-15: the
+    // three highest-count shapes are all this class (215 + 68 + 61 `edit` failures), and they were
+    // the bulk of a pool that had never produced a single confirmed record.
+    eq(gapCandidates(quoteOnly, { minCount: 3, max: 2 }).length, 0,
+      'a shape whose own message already carries the fix is not proposed as material to judge')
 
     // The negative control the ordering matters for: a shape that already has a near record is
     // a *different* problem (revise that record), so this must propose nothing — otherwise the
     // pool fills with second copies of things the store already says.
     const syntheticRow = (closest: boolean) => ({
-      shape: { workspaceId: 'ws1', tool: 'edit', shape: 'cannot modify', count: 9, firstSeen: 1, lastSeen: 2,
-        sessionIds: ['s1'], sample: 'Error: cannot modify "x": file has not been read', recentAt: [] },
+      shape: { workspaceId: 'ws1', tool: 'web_fetch', shape: 'fetch failed enotfound', count: 9, firstSeen: 1, lastSeen: 2,
+        sessionIds: ['s1'], sample: 'Error: fetch failed: ENOTFOUND api.example.com', recentAt: [] },
       closest: closest ? ({ id: 'r1', title: '改文件前必须先读' } as never) : undefined,
       bestScore: closest ? 3 : 0,
       keywords: ['edit', 'modify', 'retry'],
@@ -286,12 +284,25 @@ export async function run(): Promise<void> {
     eq(gapCandidates([syntheticRow(false)], { minCount: 3, max: 2 }).length, 1,
       'and the same shape is proposed the moment the closest record is not there')
 
+    // The half that has to keep working: a failure from the outside world names no remedy, and
+    // that is precisely the kind worth writing down. The filter is "the message says what to do",
+    // not "this is a tool failure" — a DNS or 404 error tells the reader nothing about the fix.
+    const proposed = gapCandidates([syntheticRow(false)], { minCount: 3, max: 2 })
+    eq(proposed[0]?.tool, 'web_fetch', 'a tool failure its message does not explain is proposed')
+    eq(proposed[0]?.count, 9, 'with the count that makes it worth a reader’s attention')
+    assert((proposed[0]?.sample ?? '').includes('ENOTFOUND'),
+      `and the real error line, verbatim: ${proposed[0]?.sample ?? '(none)'}`)
+    eq(gapCandidates([syntheticRow(false)], { minCount: 10, max: 2 }).length, 0,
+      'a shape below the floor is not proposed — the counters only grow, so it can wait')
+    eq(gapCandidates([syntheticRow(false)], { minCount: 3, max: 0 }).length, 0,
+      'and the per-turn cap is honoured')
+
     // The text says what is known and nothing more: a count and a verbatim error line. It is
     // not a rule, because a rule would be a claim about cause and nothing here knows the cause.
     const text = gapCandidateText(proposed[0]!)
-    assert(text.includes('4') && text.includes('edit'), `the count and the tool are in the body: ${text}`)
+    assert(text.includes('9') && text.includes('web_fetch'), `the count and the tool are in the body: ${text}`)
     assert(text.includes(proposed[0]!.sample.slice(0, 20)), 'and the error line is quoted, not paraphrased')
-    eq(gapCandidateTitle(proposed[0]!).startsWith('edit: '), true, 'the title is mechanical: tool, then shape')
+    eq(gapCandidateTitle(proposed[0]!).startsWith('web_fetch: '), true, 'the title is mechanical: tool, then shape')
     eq(gapCandidateTitle(proposed[0]!) === proposed[0]!.shape || gapCandidateTitle(proposed[0]!).includes(proposed[0]!.shape.slice(0, 10)),
       true, 'and it carries the shape rather than a summary of it')
 
