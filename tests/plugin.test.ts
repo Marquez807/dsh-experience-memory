@@ -19,7 +19,8 @@ import * as experienceMemory from '../src/index.ts'
 import { recentQueryText } from '../src/index.ts'
 import { buildIdentity } from '../src/build-id.ts'
 import { ANCHOR_COST_TABLE } from '../src/anchor-cost-table.ts'
-import { openDb } from '../src/db.ts'
+import { deleteRecord, openDb, upsert } from '../src/db.ts'
+import type { MemoryRecord } from '../src/types.ts'
 import { assert, eq } from './assert.ts'
 import type { DatabaseSync } from 'node:sqlite'
 
@@ -220,6 +221,105 @@ export async function run(): Promise<void> {
     assert(goodRecall.text.includes(verified.id), 'the recall names the record id so it can be acted on')
     eq(goodRecall.truncated, false, 'a small answer is not marked truncated')
 
+    // ── A named id is a way back to the record, and the gates still apply ──
+    // The digest prints every record it carries as `[id] title — …`, so a reader can act on one
+    // it recognises. Until `record_ids` existed there was no way to act on that id: recall took
+    // only a query, so the pointer the digest printed led nowhere, and the only route back to a
+    // record's detail was to guess words that happened to be inside it. That split — locate
+    // through the summary, then read the record — is what the design this plugin descends from
+    // called L1 and L2 (`repos/codex-memory-design/memory/drafts/hermes-l1-l2.md`), and the
+    // second half was the one missing.
+    // Block-scoped on purpose: this is a long suite, and the names below collided twice with
+    // ones already declared further down (`refused`, `side`) — a collision only surfaces as a
+    // SyntaxError when the file loads, so the block is cheaper than tracking every name by eye.
+    {
+    const byId = await call<{ returned: number; text: string }>(
+      'memory_recall', { record_ids: [verified.id] }, agentFor([]),
+    )
+    eq(byId.returned, 1, 'a record the digest named comes back when asked for by its id')
+    assert(byId.text.includes('部署一律写到 F 盘'),
+      'and in full — the detail the digest line only summarised')
+    const bothWays = await call<{ returned: number }>(
+      'memory_recall', { query: '部署', record_ids: [verified.id] }, agentFor([]),
+    )
+    eq(bothWays.returned, 1, 'asking by id and by query at once does not return the record twice')
+
+    const unknownId = await call<{ returned: number; text: string }>(
+      'memory_recall', { record_ids: ['no-such-record'] }, agentFor([]),
+    )
+    eq(unknownId.returned, 0, 'an id that does not exist returns nothing')
+    assert(unknownId.text.includes('没有这条记录'),
+      'and says which kind of nothing it is, rather than looking like an empty store')
+
+    // Learning an id is not a reason to read another workspace's record. The row below belongs
+    // to a different workspace, and the refusal has to name that gate rather than collapse into
+    // "not found": a caller that cannot tell the two apart concludes its own memory has lost
+    // things it never had.
+    const foreign: MemoryRecord = {
+      id: 'foreign-record',
+      workspaceId: 'ffffffffffffffff',
+      domain: '',
+      scope: 'workspace',
+      kind: 'fact',
+      status: 'confirmed',
+      evidence: 'verified-file',
+      title: '别的工作区的记录',
+      body: '这条不该被本工作区取到',
+      trigger: '',
+      failureMode: '',
+      lesson: '',
+      sourceRef: '',
+      reuseCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      failStreak: 0,
+      distinctWorkspaces: 1,
+      createdAt: Date.now(),
+      occurredAt: Date.now(),
+      updatedAt: Date.now(),
+      lastUsedAt: null,
+      reviewAfter: null,
+      expiresAt: null,
+      contentFingerprint: 'fp-foreign-record',
+      supersededBy: null,
+      needsReview: null,
+    }
+    const side = openDb(dbPath)
+    try {
+      upsert(side, foreign)
+    } finally {
+      side.close()
+    }
+    const refusedForeign = await call<{ returned: number; text: string }>(
+      'memory_recall', { record_ids: ['foreign-record'] }, agentFor([]),
+    )
+    eq(refusedForeign.returned, 0, "another workspace's record is not returned, however the id was learned")
+    assert(refusedForeign.text.includes('不属于当前工作区'),
+      `and the refusal names the gate that refused it: ${refusedForeign.text}`)
+    // Put the store back the way the rest of this suite expects to find it. The row was never
+    // this workspace's, but `memory_stats` counts the store rather than the workspace, so
+    // leaving it behind would silently change what every count below means. `deleteRecord`
+    // removes the FTS row with the record; a bare DELETE would leave the index pointing at
+    // text that is no longer there.
+    const cleanup = openDb(dbPath)
+    try {
+      deleteRecord(cleanup, 'foreign-record')
+    } finally {
+      cleanup.close()
+    }
+
+    // Neither a query nor an id is a question. Answering it anyway — with the digest, or with
+    // everything — would make "I asked nothing" and "there is nothing" look the same.
+    let askedNothing = ''
+    try {
+      await call('memory_recall', {}, agentFor([]))
+    } catch (error) {
+      askedNothing = error instanceof Error ? error.message : String(error)
+    }
+    assert(askedNothing.includes('needs a query or record_ids'),
+      `an empty recall is refused rather than guessed at: ${askedNothing}`)
+    }
+
     // ── Searching a record out is recorded ────────────────────────────────
     // It is the only trace that a memory written earlier was ever reached for later. The
     // store could say what was written and nothing about what was read, so "is this pile
@@ -234,14 +334,17 @@ export async function run(): Promise<void> {
         side.close()
       }
     }
-    eq(readCount(), 2,
-      'both recalls above recorded it: the candidate review and this one, onto the same row')
+    // 4, not 2: the two by-id fetches above are counted too. They look up a record the digest
+    // named, which is the same "a later session reached for this" signal the counter exists to
+    // record — leaving them out would quietly redefine it as "searched for by text".
+    eq(readCount(), 4,
+      'every recall above recorded it: the candidate review, the confirmed one, and the two by-id fetches')
     // Automatic injection must not count, or a record once injected would keep itself
     // injected forever and the number would stop meaning "someone looked for this".
     await digestOf([userMessage('部署')])
-    eq(readCount(), 2, 'being injected automatically is not the same as being searched for')
+    eq(readCount(), 4, 'being injected automatically is not the same as being searched for')
     await call('memory_recall', { query: '部署' }, agentFor([]))
-    eq(readCount(), 3, 'and searching again counts again')
+    eq(readCount(), 5, 'and searching again counts again')
     const recalledText = (await call<{ text: string }>('memory_recall', { query: '部署' }, agentFor([]))).text
     assert(recalledText.includes('被查过'), `a recall says whether the record has been reached for before: ${recalledText}`)
 

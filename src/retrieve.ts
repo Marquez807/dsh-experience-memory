@@ -17,7 +17,7 @@
  * ({@link rank.compareRanked}). The second half of that sentence was wrong until 2026-10-11 —
  * every pass sorted by standing first, which made relevance a tie-break that never fired.
  */
-import { domainCoreRecords, searchRecords, standingRecords } from './db.ts'
+import { domainCoreRecords, getRecord, searchRecords, standingRecords } from './db.ts'
 import type { DatabaseSync } from 'node:sqlite'
 import { compareRanked, compareRankedByRelevance, eligibleForResident, explain, importance } from './rank.ts'
 import { identifierKey, identifiers, lexicalQueryTerms, matchExpression, tokenize } from './tokenize.ts'
@@ -132,11 +132,11 @@ export function visible(record: MemoryRecord, workspaceId: string, domain: strin
 }
 
 /** Statuses a tier admits before per-record eligibility is applied. */
-function statuteStatuses(input: RetrieveInput): Status[] {
-  if (input.tier === 'resident') return ['confirmed']
+function statuteStatuses(tier: Tier, includeCandidates: boolean, includeRetired: boolean): Status[] {
+  if (tier === 'resident') return ['confirmed']
   const statuses: Status[] = ['confirmed']
-  if (input.includeCandidates === true) statuses.push('candidate')
-  if (input.includeRetired === true) statuses.push('retired')
+  if (includeCandidates) statuses.push('candidate')
+  if (includeRetired) statuses.push('retired')
   return statuses
 }
 
@@ -196,7 +196,7 @@ export function retrieve(db: DatabaseSync, input: RetrieveInput): RetrieveResult
   const match = matchExpression(input.query)
   if (match === '') return { ranked: [], excluded }
 
-  const statuses = new Set(statuteStatuses(input))
+  const statuses = new Set(statuteStatuses(input.tier, input.includeCandidates === true, input.includeRetired === true))
   const queryIdentifiers = (input.identifiers ?? identifiers(input.query)).map(identifierKey)
   // Only needed for the always-on layer, whose bar is relevance as well as grade.
   const lexicalTerms = input.tier === 'resident' ? lexicalQueryTerms(input.query) : []
@@ -234,6 +234,60 @@ export function retrieve(db: DatabaseSync, input: RetrieveInput): RetrieveResult
     ranked.length = input.limit
   }
   return { ranked, excluded }
+}
+
+export interface RetrieveByIdsInput {
+  workspaceId: string
+  domain: string
+  ids: readonly string[]
+  includeCandidates: boolean
+  includeRetired: boolean
+  now: number
+}
+
+export interface RetrieveByIdsResult {
+  ranked: RankedRecord[]
+  /** Id -> the gate that refused it. */
+  refused: Record<string, string>
+}
+
+/**
+ * The other half of the resident layer's contract: a record the digest listed by id, in full.
+ *
+ * The digest names every record it carries as `[id] title — …`, so a reader can act on one it
+ * recognises. Until this existed there was no way to act on that id: `memory_recall` took only a
+ * query, so the pointer it printed led nowhere, and the only route back to a record's detail was
+ * to guess words that happened to be inside it. The design this plugin descends from called the
+ * two halves L1 and L2 and made "locate through L1, then read L2" the whole point of the split
+ * (`repos/codex-memory-design/memory/drafts/hermes-l1-l2.md`).
+ *
+ * The gates are `retrieve`'s four, in `retrieve`'s order, for `retrieve`'s reason — learning an
+ * id is not a reason to read another workspace's record. Refusals are named instead of collapsing
+ * into "not found": `unknown` is no such id, `scope` is one that belongs elsewhere, and the rest
+ * are the statute gates. Cheap to say here precisely because the lookup is by key.
+ */
+export function retrieveByIds(db: DatabaseSync, input: RetrieveByIdsInput): RetrieveByIdsResult {
+  const ranked: RankedRecord[] = []
+  const refused: Record<string, string> = {}
+  // Fail closed, exactly as `retrieve` does: an unidentified workspace has no memory.
+  if (input.workspaceId === '' && input.domain === '') {
+    for (const id of input.ids) refused[id] = 'scope'
+    return { ranked, refused }
+  }
+  const statuses = new Set(statuteStatuses('recall', input.includeCandidates, input.includeRetired))
+  for (const id of input.ids) {
+    const record = getRecord(db, id)
+    if (record === undefined) { refused[id] = 'unknown'; continue }
+    if (!visible(record, input.workspaceId, input.domain)) { refused[id] = 'scope'; continue }
+    if (!statuses.has(record.status)) { refused[id] = 'status'; continue }
+    if (record.supersededBy !== null) { refused[id] = 'superseded'; continue }
+    if (record.expiresAt !== null && record.expiresAt <= input.now) { refused[id] = 'expired'; continue }
+    // No query, so no relevance signal and no identifier hits to count. This pass is "give me
+    // exactly these", and ranking one against another would invent a comparison nobody asked for:
+    // the order returned is the order asked for.
+    ranked.push(rankOne(record, [], input.now))
+  }
+  return { ranked, refused }
 }
 
 export interface StandingInput {
