@@ -2,34 +2,33 @@
 /**
  * Clear the `出处文件已不存在` notes that were written against the wrong workspace root.
  *
- * `checkProvenance` resolves a record's `source_ref` against the **calling session's** cwd,
- * while the maintenance batch it runs over is the whole store — every workspace's records. A
- * record belonging to another workspace therefore had its relative path joined to a root it
- * does not live under, and was flagged as gone when the file was there all along. Measured on
- * the live store, 2026-10-15: of 140 notes, **88 were this** — and the wrongness ran both
- * ways, since records of the root that *was* passed got flagged by sessions running elsewhere.
+ * `checkProvenance` resolved a record's `source_ref` against the **calling session's** cwd, while
+ * the maintenance batch it runs over is the whole store — every workspace's records. A record
+ * belonging to another workspace therefore had its relative path joined to a root it does not
+ * live under, and was flagged as gone when the file was there all along. Measured on the live
+ * store, 2026-10-15: of 161 notes, **109 were this** — and the wrongness ran both ways, since
+ * records of the root that *was* passed got flagged by sessions running elsewhere.
  *
- * `src/lifecycle.ts` now skips records whose `workspace_id` is not the caller's, so no new
- * note can be written this way. This tool cleans up the ones already in the store, and it is
+ * `src/lifecycle.ts` now skips records whose `workspace_id` is not the caller's, so no new note
+ * can be written this way. This tool cleans up the ones already in the store, and it is
  * deliberately conservative:
  *
  *   - only a note that *is* this marker is touched; a note a human wrote is left alone;
  *   - a record is cleared only when its cited file is found **under its own root**;
  *   - a record whose root cannot be enumerated is reported, never guessed at.
  *
- * Roots can only be enumerated, not looked up: `workspace_id` is a one-way hash, so the tool
- * walks the tree, recomputes the id of each directory and matches. A workspace rooted outside
- * that tree will not be found — which is the reason an unmatched record is reported rather
- * than resolved.
+ * Root enumeration lives in `./lib/workspace-roots.mjs`, shared with `provenance-audit.mjs` — two
+ * copies of "which root does this record resolve against" is exactly how the two tools drifted
+ * apart in the first place.
  *
  *   node tools/repair-provenance.mjs --cwd <workspace root> [--depth 2] [--apply] [--out <md>]
  */
-import { existsSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { defaultDbPath } from '../lib/db.js'
-import { workspaceId } from '../lib/domain.js'
 import { SOURCE_GONE } from '../lib/lifecycle.js'
+import { rootFor, rootsById, stripRefLines } from './lib/workspace-roots.mjs'
 
 const args = process.argv.slice(2)
 const flag = name => {
@@ -44,42 +43,6 @@ const depth = Number(flag('depth') ?? 2)
 const apply = has('apply')
 const outPath = flag('out')
 
-// Directories that cannot hold a workspace root and are expensive to walk.
-const SKIP = new Set([
-  'node_modules', '.git', '.venv', 'venv', '__pycache__', 'dist', 'build',
-  '.quant', '.bigfat', '_frozen', '.build-check', '.pnpm',
-])
-const SKIP_PREFIX = ['_升级前备份', 'data']
-
-function candidateRoots(base, maxDepth) {
-  const out = []
-  const walk = (dir, level) => {
-    if (level > maxDepth) return
-    let entries
-    try {
-      entries = readdirSync(dir, { withFileTypes: true })
-    } catch {
-      return
-    }
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue
-      if (SKIP.has(entry.name) || SKIP_PREFIX.some(p => entry.name.startsWith(p))) continue
-      const child = join(dir, entry.name)
-      out.push(child)
-      walk(child, level + 1)
-    }
-  }
-  walk(base, 1)
-  return out
-}
-
-/** `path:12` / `path:12:34` -> `path`, keeping a Windows drive colon out of the way. */
-const stripRef = ref => {
-  const parts = String(ref).trim().replace(/\\/g, '/').split(':')
-  while (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) parts.pop()
-  return parts.join(':')
-}
-
 // Read-only unless `--apply`: a dry run must not be able to write even by accident.
 const db = new DatabaseSync(dbPath, { readOnly: !apply })
 const flagged = db.prepare(
@@ -88,17 +51,16 @@ const flagged = db.prepare(
     WHERE needs_review LIKE ?`,
 ).all(`${SOURCE_GONE}%`)
 
-const roots = new Map([[workspaceId(cwd), cwd]])
-for (const dir of candidateRoots(cwd, depth)) roots.set(workspaceId(dir), dir)
+const roots = rootsById(cwd, depth)
 
 const clearable = []
 const kept = []
 const unknown = []
 for (const row of flagged) {
   const ref = String(row.source_ref ?? '').trim()
-  const path = isAbsolute(ref) ? '' : stripRef(ref)
-  const root = roots.get(String(row.workspace_id))
-  if (root === undefined || path === '') {
+  const path = isAbsolute(ref) ? '' : stripRefLines(ref)
+  const { root, known } = rootFor(row, roots)
+  if (!known || path === '') {
     unknown.push({ ...row, path })
     continue
   }
