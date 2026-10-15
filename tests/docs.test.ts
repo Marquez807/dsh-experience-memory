@@ -340,6 +340,27 @@ export async function run(): Promise<void> {
     eq(en![1], current, 'README.en.md\'s current version is package.json\'s version')
     eq(en![2], currentDate, 'README.en.md\'s version date is the changelog\'s newest date')
 
+    // ── The conclusion index: a settled direction must name a receipt that is still there ──
+    // `docs/CONCLUSIONS.md` exists because this project did not remember its own answers — on
+    // 2026-10-15 a session proposed merging duplicate lessons while `CLAIMS.json` already recorded
+    // that merging had been measured and rejected. A conclusion with no reachable receipt is a
+    // rumour, and the cheapest way to retire one quietly is to delete the file it cites.
+    // Receipts outside this repository (`repos/...`) are accepted but not checked: this suite
+    // cannot see that tree, and pretending to check it would be worse than saying so.
+    const conclusions = readFileSync(join(ROOT, 'docs', 'CONCLUSIONS.md'), 'utf8')
+    const settled = conclusions.split('\n').filter(line => line.startsWith('|') && line.includes('作废'))
+    assert(settled.length >= 4,
+      `the index still lists every direction already settled (found ${settled.length})`)
+    for (const row of settled) {
+      const cited = [...row.matchAll(/`([^`]+)`/g)].map(match => match[1])
+      const here = cited.filter(path => /^(docs|src|tests|tools|lib)\//.test(path))
+      assert(here.length > 0,
+        `a settled direction cites a receipt inside this repository: ${row.slice(0, 70)}`)
+      for (const path of here) {
+        assert(existsSync(join(ROOT, path)), `the cited receipt is still there: ${path}`)
+      }
+    }
+
     // `recall_for` is the one parameter whose absence changes observable behaviour: an
     // undeclared record is not delivered just before a tool call. Both READMEs have to say
     // so, because a reader who never fills it in gets no delivery and would not know why.
