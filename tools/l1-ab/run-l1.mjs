@@ -23,6 +23,11 @@ import { DatabaseSync } from 'node:sqlite'
 import { openDb, upsert } from '../../lib/db.js'
 import { resolveWorkspace } from '../../lib/domain.js'
 
+// 官方版（DeepSeek Harness）的 headless 入口在 `app.asar` **里面**，不能直接用 node 跑：asar 是归档，
+// 要用 Electron 自己的 node 模式——设 `ELECTRON_RUN_AS_NODE=1`，把 exe 当解释器、把 asar 内的
+// `dsh/lib/bin.js` 当脚本。同一条 exe + bin.js 配上 `--profile <名字> --dump-config` 就能**零副作用**
+// 地验证配置合成（隔离实验里确认"那一臂的开关真的生效了"用的就是它）。
+// 老壳（第三方 DSH Desktop）的程序目录已不存在，所以 `tools/standing-ab/` 那套脚本今天跑不起来。
 const exe = 'F:\\DeepSeek Harness\\DeepSeek Harness.exe'
 const asar = 'F:\\DeepSeek Harness\\resources\\app.asar\\dsh\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js'
 const repo = 'F:\\dsh主工作区\\dsh-experience-memory'
