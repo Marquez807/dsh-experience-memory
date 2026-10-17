@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import Commands from '@deepseek-ai/dsh-commands'
 import { agentEvents } from '@deepseek-ai/dsh-agent'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
+import SystemPrompt, { renderContextSnapshot } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as experienceMemory from '../src/index.ts'
 import { recentQueryText } from '../src/index.ts'
@@ -406,6 +406,59 @@ export async function run(): Promise<void> {
     assert(firstDigest.includes('部署目标盘'), 'and the record title')
     eq(await digestOf([userMessage('今天天气不错')]), '',
       'the resident layer is query-gated: an unrelated turn does not carry the record')
+
+    // ── A stored record that quotes `{{…}}` must not break the prompt ─────
+    // The resident context splices stored text (titles, lessons, bodies), and DSH interpolates
+    // every `{{name}}` in a context unless the contribution sets `interpolate: false`. An
+    // unregistered name throws before the model request, so a single record quoting `{{cwd}}`
+    // took the whole session down on every assembly — not one turn, every turn. Memory is data:
+    // the plugin opts out, and braces in stored text stay literal.
+    {
+      // 1) The registration-level contract: both contributions opt out.
+      const registered = await ctx.systemPrompt.assemble({ agent: agentFor([]) })
+      const resident = registered.contexts.find(c => c.name === 'experience-memory:resident')
+      assert(resident !== undefined, 'the resident context is registered')
+      eq((resident as { interpolate?: boolean }).interpolate, false,
+        'the resident context opts out of prompt interpolation')
+      const hint = registered.contexts.find(c => c.name === 'experience-memory:record-hint')
+      eq((hint as { interpolate?: boolean } | undefined)?.interpolate, false,
+        'and so does the standing record hint')
+
+      // 2) DSH honours the opt-out: braces in stored text render literally instead of throwing.
+      const rendered = renderContextSnapshot({
+        sections: [],
+        contexts: [{ name: 'experience-memory:resident', interpolate: false, text: '- [x] 模板别写 {{cwd}}' }],
+        tools: [],
+        variables: { provider: 'p', model: 'm' },
+      } as never)
+      assert(rendered.includes('{{cwd}}'),
+        'a `{{cwd}}` in memory text stays literal rather than raising unknown prompt variable')
+
+      // 3) End to end with a real record: writing ASCII braces and assembling must not throw.
+      const braced = await call<{ id: string }>(
+        'memory_remember',
+        {
+          kind: 'experience',
+          title: 'persona 模板别写 {{cwd}}',
+          body: 'DSH 的 persona 模板不接受 {{cwd}}，会报 unknown prompt variable。',
+          lesson: 'persona 只用 provider/model 两个变量',
+          trigger: '模板变量',
+          quote: 'persona 模板不接受 {{cwd}}',
+        },
+        agentFor([userMessage('persona 模板不接受 {{cwd}}')]),
+      )
+      try {
+        const bracedAssembly = await ctx.systemPrompt.assemble({ agent: agentFor([userMessage('模板变量')]) })
+        renderContextSnapshot(bracedAssembly)
+      } finally {
+        const cleanupBraced = openDb(dbPath)
+        try {
+          deleteRecord(cleanupBraced, braced.id)
+        } finally {
+          cleanupBraced.close()
+        }
+      }
+    }
 
     // ── Two consecutive failures retire it, and it stops being recalled ────
     const first = await call<{ outcome: string; fail_streak: number }>(

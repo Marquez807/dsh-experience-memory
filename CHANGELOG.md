@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.11 — 2026-10-18
+
+**A stored record that quotes a double-brace placeholder could take the whole session down on
+every turn.** DSH's `dsh-system-prompt` interpolates every `{{name}}` group in a context and
+throws on an unregistered name before the model request. The resident digest splices record
+titles, lessons and bodies — text written by users and models — so one record quoting a `cwd`
+placeholder made every assembly fail with `unknown prompt variable` and the session could not
+start a single turn.
+
+Both contributions (the resident digest and the standing record hint) now register with
+`interpolate: false`: memory is data, not a template. Pinned by regression tests at three
+levels — the registration contract (`interpolate === false`), DSH's rendering honouring the
+opt-out, and end to end with a real record written with ASCII braces.
+
+The trigger was a DSH upgrade: 0.2.1-rc.2's agent loop stopped registering `cwd` (0.11.1 still
+had it), so a stored placeholder that used to be substituted with the working directory
+silently became a hard failure. Any plugin that splices stored text into a prompt context
+needs the same opt-out.
+
 ## 0.5.10 — 2026-10-16
 
 **One new key, one measured answer.** `thinDigest` (default `false`) renders each always-on digest
